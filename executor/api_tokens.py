@@ -3,8 +3,13 @@ import os
 import time
 import secrets
 import hashlib
+import threading
 
 FILE = "data/api_tokens.json"
+_LOCK = threading.Lock()
+# Γράφουμε το last_used το πολύ μία φορά ανά token / 60s (λιγότερο disk I/O
+# και λιγότερα races όταν έρχονται πολλά requests μαζί).
+_LAST_USED_THROTTLE = 60.0
 
 
 def _load():
@@ -18,7 +23,10 @@ def _load():
 
 def _save(tokens):
     os.makedirs("data", exist_ok=True)
-    json.dump(tokens, open(FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    tmp = FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(tokens, fh, ensure_ascii=False, indent=2)
+    os.replace(tmp, FILE)  # atomic write: δεν χάνονται tokens σε crash
 
 
 def _hash(token):
@@ -96,15 +104,21 @@ def token_allowed(token):
         return False
 
     h = _hash(str(token))
-    tokens = _load()
+    now = time.time()
 
-    for item in tokens:
-        if item.get("revoked"):
-            continue
+    with _LOCK:
+        tokens = _load()
 
-        if item.get("token_hash") == h:
-            item["last_used"] = time.time()
-            _save(tokens)
-            return True
+        for item in tokens:
+            if item.get("revoked"):
+                continue
+
+            stored = str(item.get("token_hash") or "")
+            if len(stored) == len(h) and secrets.compare_digest(stored, h):
+                last = item.get("last_used") or 0
+                if now - float(last) > _LAST_USED_THROTTLE:
+                    item["last_used"] = now
+                    _save(tokens)
+                return True
 
     return False

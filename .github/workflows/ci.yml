@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - "android_companion/**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff
+
+      - name: Syntax check (όλα τα modules)
+        run: python -m compileall -q executor apps *.py
+
+      - name: Lint (ruff, μόνο σοβαρά σφάλματα)
+        run: ruff check .
+
+      - name: Tests
+        run: pytest -q
+
+      - name: Secret scan (κλειδιά μέσα στον κώδικα)
+        run: |
+          if grep -rInE "sk-or-v1-[A-Za-z0-9]{20,}" --exclude-dir=.git .; then
+            echo "::error::Βρέθηκε API key μέσα στο repo"
+            exit 1
+          fi

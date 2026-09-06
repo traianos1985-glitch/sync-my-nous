@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   nous:
     build: .
@@ -12,6 +10,8 @@ services:
       - ./apps:/app/apps
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - NOUS_TOKEN=${NOUS_TOKEN}
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s

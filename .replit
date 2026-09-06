@@ -42,5 +42,5 @@ run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "executor.router:app"]
 [userenv]
 
 [userenv.shared]
-OPENROUTER_API_KEY = "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"
-NGROK_AUTHTOKEN = "3Fcmi9pInIqW9gDZYRz7pGobp8i_21VXNrm9RjqT1qnUA4vP"
+# OPENROUTER_API_KEY -> ορίζεται ως Secret (Tools > Secrets) ή σε .env
+# NGROK_AUTHTOKEN -> ορίζεται ως Secret (Tools > Secrets) ή σε .env

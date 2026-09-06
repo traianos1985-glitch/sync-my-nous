@@ -1,9 +1,21 @@
 __pycache__/
 *.pyc
 *.log
+*.bak
 backups/
 snapshots/
 .env
 *.key
 *.pem
-data/runtime_metrics.json
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime state — δεν πρέπει να μπαίνει στο repo
+data/
+generated_apps/
+forge/
+executor/plugins/*.py
+!executor/plugins/hello_plugin.py
+attached_assets/

@@ -1,0 +1,20 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = [
+  "data",
+  "generated_apps",
+  "forge",
+  "executor/plugins",
+  "attached_assets",
+  "vercel_test_app",
+]
+
+[tool.ruff.lint]
+# Μόνο σοβαρά προβλήματα ώστε το CI να είναι χρήσιμο και όχι θορυβώδες:
+# E9 = syntax errors, F63/F7/F82 = πραγματικά bugs (undefined names κ.λπ.)
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

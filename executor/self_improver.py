@@ -1,3 +1,5 @@
+import os
+
 from executor.snapshots import create_snapshot, rollback
 from executor.plugin_loader import load_plugins
 

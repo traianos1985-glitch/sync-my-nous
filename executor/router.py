@@ -19,6 +19,7 @@ from executor.nous_ui import nous_dashboard_html
 from executor.kernel import handle
 from executor.control_center import CONTROL_CENTER_HTML
 from executor.security import check_token, check_admin_token
+from executor.auth_guard import install_auth_guard
 from executor.api_tokens import create_token, list_tokens, revoke_token, token_stats
 from executor import autonomy as autonomy_state
 from executor.autonomy_service import enable as service_enable, disable as service_disable, status as service_status, run_cycle as service_run_cycle, watchdog_check
@@ -116,7 +117,18 @@ from executor.code_assistant import code_health, code_advice
 from executor.research_browser_agent import research_query, read_url
 from executor.knowledge_research import research_next_topic, learning_cycle
 
+# Φόρτωση .env (κλειδιά εκτός κώδικα) — προαιρετικό dependency
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
 app = Flask(__name__)
+
+# Fail-closed auth για ΟΛΑ τα endpoints (δες executor/auth_guard.py)
+install_auth_guard(app)
 
 try:
     reconcile_scheduler_loop_state()
