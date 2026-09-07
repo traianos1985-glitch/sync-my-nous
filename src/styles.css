@@ -180,3 +180,15 @@
   --alert: oklch(0.82 0.15 78);
   --grid: oklch(1 0 0 / 6%);
 }
+
+/* NOUS dashboard accent (matches το υπάρχον UI: violet + cyan) */
+@theme inline {
+  --color-violet: var(--violet);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+}
+:root {
+  --violet: oklch(0.62 0.22 292);
+  --ok: oklch(0.72 0.18 150);
+  --warn: oklch(0.79 0.16 75);
+}
