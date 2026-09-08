@@ -1,6 +1,22 @@
 # Sync My Nous
 
-Έχω συνδέσει το git hub ,μου. Βρες το project nous ai και συγχρόνησε του
+Το project περιλαμβάνει το αρχικό Sync My Nous frontend και το Nous AI OS backend.
+Το frontend διατηρεί όλα τα υπάρχοντα routes και UI χαρακτηριστικά, ενώ το backend
+έχει ενσωματωθεί στο `nous-ai-os/` ως ανεξάρτητο Python/Flask workspace.
+
+## Nous AI OS backend
+
+```sh
+cd nous-ai-os
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python -m executor.router
+```
+
+Τα runtime δεδομένα (`nous-ai-os/data/`) και τα secrets παραμένουν εκτός Git.
+Για τις οδηγίες API, ασφάλειας και deployment δες το [`nous-ai-os/README.md`](nous-ai-os/README.md).
+
 
 This project was built with [Lovable](https://lovable.dev).
 

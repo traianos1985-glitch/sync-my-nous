@@ -1,0 +1,3 @@
+- [ask_with_turns return type](ask_with_turns.md) — returns dict {success, model, response}, not a string — always extract .get("response")
+- [SF Caching Techniques injection](sf-caching-knowledge.md) — 15 chunks SF ST 31-205 εισήχθησαν στον NOUS brain μέσω /larmor/inject-cache-knowledge
+- [NOUS Knowledge Injection Pattern](knowledge-injection-pattern.md) — πώς προστίθεται νέα γνώση στον εγκέφαλο (αρχείο, route, UI button)

@@ -1,0 +1,35 @@
+name: Build NOUS Android Companion
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "android_companion/**"
+      - ".github/workflows/android-companion-build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        working-directory: android_companion
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nous-companion-debug-apk
+          path: android_companion/app/build/outputs/apk/debug/*.apk

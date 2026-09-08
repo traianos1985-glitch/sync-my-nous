@@ -166,8 +166,7 @@ function Index() {
             backgroundImage:
               "linear-gradient(var(--color-grid) 1px, transparent 1px), linear-gradient(90deg, var(--color-grid) 1px, transparent 1px)",
             backgroundSize: "56px 56px",
-            maskImage:
-              "radial-gradient(circle at 30% 0%, black, transparent 70%)",
+            maskImage: "radial-gradient(circle at 30% 0%, black, transparent 70%)",
           }}
         />
         <div className="relative mx-auto max-w-6xl px-6 py-24 md:py-32">
@@ -181,9 +180,9 @@ function Index() {
           </h1>
 
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-            Αυτόνομος AI agent σε Python και Flask που λειτουργεί σαν λειτουργικό
-            σύστημα: σκέφτεται, θυμάται, φτιάχνει εφαρμογές, επισκευάζει τον
-            εαυτό του και χειρίζεται browser και κινητό — όλα από ένα service.
+            Αυτόνομος AI agent σε Python και Flask που λειτουργεί σαν λειτουργικό σύστημα:
+            σκέφτεται, θυμάται, φτιάχνει εφαρμογές, επισκευάζει τον εαυτό του και χειρίζεται browser
+            και κινητό — όλα από ένα service.
           </p>
 
           <div className="mt-10 flex flex-wrap gap-3">
@@ -218,9 +217,7 @@ function Index() {
                 <dt className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                   {s.label}
                 </dt>
-                <dd className="mt-2 font-display text-2xl font-bold text-primary">
-                  {s.value}
-                </dd>
+                <dd className="mt-2 font-display text-2xl font-bold text-primary">{s.value}</dd>
               </div>
             ))}
           </dl>
@@ -230,27 +227,16 @@ function Index() {
       {/* Capabilities */}
       <section className="mx-auto max-w-6xl px-6 py-24">
         <div className="flex items-end justify-between gap-6">
-          <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-            Τι κάνει
-          </h2>
-          <span className="font-mono text-xs text-muted-foreground">
-            /capabilities
-          </span>
+          <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Τι κάνει</h2>
+          <span className="font-mono text-xs text-muted-foreground">/capabilities</span>
         </div>
 
         <div className="mt-12 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           {capabilities.map(({ icon: Icon, title, text }) => (
-            <article
-              key={title}
-              className="group bg-card p-6 transition-colors hover:bg-accent"
-            >
+            <article key={title} className="group bg-card p-6 transition-colors hover:bg-accent">
               <Icon className="size-6 text-primary" />
-              <h3 className="mt-4 font-display text-lg font-semibold">
-                {title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {text}
-              </p>
+              <h3 className="mt-4 font-display text-lg font-semibold">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
             </article>
           ))}
         </div>
@@ -265,10 +251,11 @@ function Index() {
                 Αρχιτεκτονική
               </h2>
               <p className="mt-4 max-w-md leading-relaxed text-muted-foreground">
-                Ένα Flask service (<code className="font-mono text-primary">executor.router:app</code>)
-                σηκώνει API, dashboard και όλους τους agents. Ο φάκελος{" "}
-                <code className="font-mono text-primary">data/</code> κρατά την
-                κατάσταση και μένει εκτός Git.
+                Ένα Flask service (
+                <code className="font-mono text-primary">executor.router:app</code>) σηκώνει API,
+                dashboard και όλους τους agents. Ο φάκελος{" "}
+                <code className="font-mono text-primary">data/</code> κρατά την κατάσταση και μένει
+                εκτός Git.
               </p>
               <div className="mt-8 flex items-center gap-2 font-mono text-xs text-muted-foreground">
                 <Layers className="size-4 text-primary" />
@@ -279,9 +266,7 @@ function Index() {
             <ol className="grid gap-px overflow-hidden rounded-lg border border-border bg-border">
               {layers.map(({ icon: Icon, name, text }, i) => (
                 <li key={name} className="flex gap-4 bg-card p-6">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    0{i + 1}
-                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">0{i + 1}</span>
                   <Icon className="size-5 shrink-0 text-primary" />
                   <div>
                     <p className="font-mono text-sm text-foreground">{name}</p>
@@ -302,13 +287,11 @@ function Index() {
               Προτάσεις αναβάθμισης
             </h2>
             <p className="mt-3 max-w-xl text-muted-foreground">
-              Έξι βελτιώσεις με σειρά προτεραιότητας, από τον έλεγχο του κώδικα
-              και της δομής του project.
+              Έξι βελτιώσεις με σειρά προτεραιότητας, από τον έλεγχο του κώδικα και της δομής του
+              project.
             </p>
           </div>
-          <span className="hidden font-mono text-xs text-muted-foreground md:block">
-            /roadmap
-          </span>
+          <span className="hidden font-mono text-xs text-muted-foreground md:block">/roadmap</span>
         </div>
 
         <div className="mt-12 grid gap-4 md:grid-cols-2">
@@ -329,22 +312,15 @@ function Index() {
               >
                 {u.tag}
               </span>
-              <h3 className="mt-3 font-display text-xl font-semibold">
-                {u.title}
-              </h3>
-              <p className="mt-2 leading-relaxed text-muted-foreground">
-                {u.text}
-              </p>
+              <h3 className="mt-3 font-display text-xl font-semibold">{u.title}</h3>
+              <p className="mt-2 leading-relaxed text-muted-foreground">{u.text}</p>
             </article>
           ))}
         </div>
       </section>
 
       {/* Quickstart */}
-      <section
-        id="quickstart"
-        className="border-t border-border bg-card/40"
-      >
+      <section id="quickstart" className="border-t border-border bg-card/40">
         <div className="mx-auto max-w-6xl px-6 py-24">
           <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
             Γρήγορη εκκίνηση
@@ -359,9 +335,7 @@ cp .env.example .env      # βάλε OPENROUTER_API_KEY
 python -m executor.router # http://localhost:5000`}</code>
             </pre>
             <div className="rounded-lg border border-border bg-background p-6">
-              <h3 className="font-display text-lg font-semibold">
-                Production
-              </h3>
+              <h3 className="font-display text-lg font-semibold">Production</h3>
               <pre className="mt-3 overflow-x-auto font-mono text-sm text-muted-foreground">
                 <code>{`gunicorn --bind 0.0.0.0:5000 \\
   --workers 2 --timeout 120 \\
@@ -372,8 +346,7 @@ docker compose up -d`}</code>
               </pre>
               <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
                 Για πρόσβαση από κινητό ή έξω από το δίκτυο, φτιάξε token με{" "}
-                <code className="font-mono text-primary">POST /token/create</code>{" "}
-                και στείλ' το ως{" "}
+                <code className="font-mono text-primary">POST /token/create</code> και στείλ' το ως{" "}
                 <code className="font-mono text-primary">X-NOUS-TOKEN</code>.
               </p>
             </div>
