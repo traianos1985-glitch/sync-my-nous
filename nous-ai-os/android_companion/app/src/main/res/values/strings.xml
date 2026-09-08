@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">NOUS Companion</string>
+    <string name="accessibility_service_label">NOUS Companion Accessibility</string>
+    <string name="accessibility_service_summary">Allows NOUS to read screen structure and perform approved actions.</string>
+</resources>

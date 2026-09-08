@@ -1,0 +1,235 @@
+{
+  "created_at": 1780054166.374078,
+  "last_boot": 1780054166.3740788,
+  "events": [
+    {
+      "time": 1780054166.3745224,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780054260.985087,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780058338.9555075,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780058464.5733652,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780058582.022112,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780058597.9821942,
+      "event": "Evolution cycle executed"
+    },
+    {
+      "time": 1780058746.044482,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780058887.7827249,
+      "event": "Autonomous upgrade: executor/plugin_loader.py"
+    },
+    {
+      "time": 1780058891.7672505,
+      "event": "Autonomous upgrade: executor/self_healing.py"
+    },
+    {
+      "time": 1780058894.9130852,
+      "event": "Autonomous upgrade: executor/local_llm.py"
+    },
+    {
+      "time": 1780058896.2931983,
+      "event": "Autonomous upgrade: executor/command_parser.py"
+    },
+    {
+      "time": 1780060764.4595213,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061016.9686904,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061162.0690863,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061281.2337582,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061380.308146,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061549.1803737,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061567.3158727,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061648.3265595,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061761.223198,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780061944.010441,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780062083.2699125,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780078077.7391038,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780082349.5658011,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780082386.4470484,
+      "event": "Evolution cycle executed"
+    },
+    {
+      "time": 1780082397.0278687,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780082511.1873164,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780082902.9345553,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780082930.4369097,
+      "event": "Evolution cycle executed"
+    },
+    {
+      "time": 1780083068.1497197,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780083665.1253765,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780083833.608759,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780084335.4163308,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780084520.9300869,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780084564.586115,
+      "event": "Evolution cycle executed"
+    },
+    {
+      "time": 1780084590.2473357,
+      "event": "Evolution cycle executed"
+    },
+    {
+      "time": 1780084751.445186,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780084855.8018858,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780085057.876817,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780089215.2027886,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780089395.0779748,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780089425.768121,
+      "event": "Evolution cycle executed"
+    },
+    {
+      "time": 1780089426.8111696,
+      "event": "Evolution cycle executed"
+    },
+    {
+      "time": 1780089545.301228,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780089627.4929435,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780089732.7138934,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780090469.094221,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780090738.9009264,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780091192.4197052,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780091192.4285805,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780091192.4328177,
+      "event": "Orchestrator initialized"
+    },
+    {
+      "time": 1780091251.1054478,
+      "event": "Orchestrator initialized"
+    }
+  ],
+  "goals": [
+    {
+      "time": 1780054190.4466314,
+      "goal": "Build autonomous evolution"
+    },
+    {
+      "time": 1780054275.8565717,
+      "goal": "Build autonomous evolution"
+    },
+    {
+      "time": 1780058354.2556262,
+      "goal": "Build autonomous evolution"
+    },
+    {
+      "time": 1780058498.389388,
+      "goal": "Build autonomous evolution"
+    }
+  ],
+  "system_state": {
+    "mode": "aggressive"
+  }
+}

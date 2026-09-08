@@ -30,3 +30,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Nous AI OS runtime data and local secrets
+nous-ai-os/data/
+nous-ai-os/generated_apps/
+nous-ai-os/forge/
+nous-ai-os/attached_assets/
+nous-ai-os/.env
+nous-ai-os/.venv/
+nous-ai-os/venv/

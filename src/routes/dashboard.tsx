@@ -15,8 +15,7 @@ export const Route = createFileRoute("/dashboard")({
       { property: "og:title", content: "NOUS AI OS — Dashboard" },
       {
         property: "og:description",
-        content:
-          "Chat, missions, μνήμη, app builder και έλεγχος συστήματος σε ένα workspace.",
+        content: "Chat, missions, μνήμη, app builder και έλεγχος συστήματος σε ένα workspace.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -117,12 +116,8 @@ function Dashboard() {
       >
         <div className="flex items-start justify-between px-4 pb-3 pt-4">
           <div>
-            <p className="font-display text-base font-bold tracking-tight">
-              🧠 NOUS AI OS
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Personal agent workspace
-            </p>
+            <p className="font-display text-base font-bold tracking-tight">🧠 NOUS AI OS</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Personal agent workspace</p>
           </div>
           <button
             onClick={() => setMenuOpen(false)}
@@ -161,9 +156,7 @@ function Dashboard() {
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             ⋯ Προχωρημένα
-            <span className="ml-auto text-[10px]">
-              {advancedOpen ? "▾" : "▸"}
-            </span>
+            <span className="ml-auto text-[10px]">{advancedOpen ? "▾" : "▸"}</span>
           </button>
           {advancedOpen &&
             navGroups
@@ -202,9 +195,7 @@ function Dashboard() {
             >
               <Menu className="size-4" />
             </button>
-            <strong className="font-display text-sm">
-              {navLabel(section)}
-            </strong>
+            <strong className="font-display text-sm">{navLabel(section)}</strong>
             <span className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-ok">
               health: ok
             </span>
@@ -230,9 +221,7 @@ function Dashboard() {
                   <div
                     key={i}
                     className={`whitespace-pre-wrap rounded-2xl border border-border p-4 text-sm leading-relaxed ${
-                      m.role === "user"
-                        ? "self-end bg-violet/15"
-                        : "bg-card/80"
+                      m.role === "user" ? "self-end bg-violet/15" : "bg-card/80"
                     }`}
                   >
                     {m.text}
@@ -268,12 +257,9 @@ function Dashboard() {
         ) : section === "home" ? (
           <div className="flex-1 overflow-y-auto p-4 md:p-6">
             <div className="rounded-2xl border border-border bg-gradient-to-br from-violet/20 to-primary/10 p-5">
-              <h1 className="font-display text-2xl font-bold">
-                Καλώς ήρθες στον ΝΟΥΣ
-              </h1>
+              <h1 className="font-display text-2xl font-bold">Καλώς ήρθες στον ΝΟΥΣ</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Agent chat + workspace + Android companion + deploy, σε μία
-                οθόνη.
+                Agent chat + workspace + Android companion + deploy, σε μία οθόνη.
               </p>
             </div>
 
@@ -285,9 +271,7 @@ function Dashboard() {
                     className="flex justify-between border-b border-border/60 py-1.5 text-sm last:border-0"
                   >
                     <span className="text-muted-foreground">{r.k}</span>
-                    <span className={r.tone === "ok" ? "text-ok" : ""}>
-                      {r.v}
-                    </span>
+                    <span className={r.tone === "ok" ? "text-ok" : ""}>{r.v}</span>
                   </div>
                 ))}
               </Card>
@@ -329,16 +313,14 @@ function Dashboard() {
 
               <Card title="Companion">
                 <p className="text-sm text-muted-foreground">
-                  Android companion: συνδεδεμένο · accessibility service ενεργό ·
-                  4 ασφαλείς εντολές διαθέσιμες.
+                  Android companion: συνδεδεμένο · accessibility service ενεργό · 4 ασφαλείς εντολές
+                  διαθέσιμες.
                 </p>
               </Card>
             </div>
 
             <div className="mt-4 rounded-2xl border border-violet/40 bg-violet/5 p-5">
-              <h3 className="font-display text-base font-semibold">
-                🤖 Τι θέλει να κάνει ο ΝΟΥΣ
-              </h3>
+              <h3 className="font-display text-base font-semibold">🤖 Τι θέλει να κάνει ο ΝΟΥΣ</h3>
               <p className="text-xs text-muted-foreground">
                 Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
               </p>
@@ -350,9 +332,7 @@ function Dashboard() {
                   >
                     <div>
                       <p className="text-sm font-medium">{i.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {i.why}
-                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">{i.why}</p>
                     </div>
                     <div className="flex gap-2">
                       <button className="rounded-md bg-ok/20 px-3 py-1.5 text-xs font-semibold text-ok">
@@ -371,9 +351,8 @@ function Dashboard() {
           <div className="flex-1 overflow-y-auto p-4 md:p-6">
             <Card title={navLabel(section)}>
               <p className="text-sm text-muted-foreground">
-                Αυτή η ενότητα είναι έτοιμη για περιεχόμενο. Πες μου τι θέλεις να
-                δείχνει το «{navLabel(section)}» και το φτιάχνω με τα δεδομένα
-                του NOUS API.
+                Αυτή η ενότητα είναι έτοιμη για περιεχόμενο. Πες μου τι θέλεις να δείχνει το «
+                {navLabel(section)}» και το φτιάχνω με τα δεδομένα του NOUS API.
               </p>
               <pre className="mt-4 overflow-x-auto rounded-lg border border-border bg-background p-4 font-mono text-xs text-muted-foreground">
                 <code>{`GET /remote/${section}/status
@@ -411,13 +390,7 @@ function NavButton({
   );
 }
 
-function Card({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-5">
       <h3 className="mb-3 font-display text-base font-semibold">{title}</h3>
@@ -426,15 +399,7 @@ function Card({
   );
 }
 
-function StatBar({
-  label,
-  pct,
-  color,
-}: {
-  label: string;
-  pct: number;
-  color: string;
-}) {
+function StatBar({ label, pct, color }: { label: string; pct: number; color: string }) {
   return (
     <div className="flex items-center gap-2 py-1 font-mono text-[11px] text-muted-foreground">
       <span className="w-8">{label}</span>
