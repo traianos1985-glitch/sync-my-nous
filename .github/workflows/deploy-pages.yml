@@ -36,17 +36,29 @@ jobs:
 
       - name: Generate static entrypoint
         run: |
-          PORT=4173 node .output/server/index.mjs > /tmp/nous-pages-server.log 2>&1 &
-          server_pid=$!
-          trap 'kill $server_pid' EXIT
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:4173/ > .output/public/index.html; then
-              break
-            fi
-            sleep 1
-          done
-          test -s .output/public/index.html
+          css_asset=$(find .output/public/assets -maxdepth 1 -name 'styles-*.css' -print -quit)
+          js_asset=$(find .output/public/assets -maxdepth 1 -name 'index-*.js' -print -quit)
+          test -n "$css_asset"
+          test -n "$js_asset"
+          css_path="/sync-my-nous/assets/$(basename "$css_asset")"
+          js_path="/sync-my-nous/assets/$(basename "$js_asset")"
+          cat > .output/public/index.html <<EOF
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>Sync My Nous</title>
+              <link rel="stylesheet" href="$css_path" />
+            </head>
+            <body>
+              <div id="root"></div>
+              <script type="module" src="$js_path"></script>
+            </body>
+          </html>
+          EOF
           cp .output/public/index.html .output/public/404.html
+          test -s .output/public/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
