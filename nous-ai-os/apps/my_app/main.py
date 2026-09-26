@@ -105,7 +105,9 @@ def health():
 
 @app.get('/ready')
 def ready():
-    return jsonify({'status': 'ready', 'service': 'nous'}), 200
+    data_dir = os.path.join(os.path.dirname(BASE_DIR), '..', 'data')
+    writable = os.path.isdir(data_dir) and os.access(data_dir, os.W_OK)
+    return jsonify({'status': 'ready' if writable else 'degraded', 'service': 'nous', 'storage': 'writable' if writable else 'unavailable'}), 200 if writable else 503
 
 
 @app.route('/')

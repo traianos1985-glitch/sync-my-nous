@@ -138,6 +138,7 @@ cp .env.example .env
 sudo docker compose up -d --build
 sudo docker compose ps
 curl http://127.0.0.1:5000/health
+curl http://127.0.0.1:5000/ready
 ```
 
 Χρησιμοποίησε reverse proxy με HTTPS, firewall που επιτρέπει μόνο 80/443 και καθημερινό backup του `data/`. Μην εκθέτεις απευθείας τα management endpoints στο Internet.
@@ -156,6 +157,9 @@ OPENROUTER_API_KEY=sk-or-v1-PUT_YOUR_KEY_HERE
 ```bash
 # Backup μνήμης/goals/συνομιλιών (από VPS):
 bash deploy/backup_data.sh root@YOUR_VPS_IP
+
+# Restore με safety snapshot του υπάρχοντος data/:
+NOUS_DIR=/opt/nous bash deploy/restore_data.sh ./nous_backup_YYYYMMDD_HHMMSS.tar.gz
 
 # Ενημέρωση κώδικα (σε VPS):
 bash deploy/update.sh
