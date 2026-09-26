@@ -23,8 +23,12 @@ export const Route = createFileRoute("/api/health")({
               checks,
               latencyMs: Math.round(performance.now() - startedAt),
               timestamp: new Date().toISOString(),
+              uptimeSeconds: Math.round(process.uptime()),
             },
-            { status: healthy ? 200 : 503 },
+            {
+              status: healthy ? 200 : 503,
+              headers: { "Cache-Control": "no-store" },
+            },
           );
         } catch {
           return Response.json(

@@ -16,7 +16,10 @@ export const Route = createFileRoute("/api/observability")({
           .where(eq(nousObservabilityEvents.userId, userId))
           .orderBy(desc(nousObservabilityEvents.createdAt))
           .limit(100);
-        return Response.json({ ok: true, model: getModelCallMetrics(), events });
+        return Response.json(
+          { ok: true, model: getModelCallMetrics(), events },
+          { headers: { "Cache-Control": "private, no-store" } },
+        );
       },
     },
   },
