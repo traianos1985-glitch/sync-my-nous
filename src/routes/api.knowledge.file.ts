@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/knowledge/file")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const userId = requireAuthenticatedUserId(request);
+        const userId = await requireAuthenticatedUserId(request);
         const pathname = new URL(request.url).searchParams.get("pathname");
         if (!pathname) return Response.json({ error: "pathname is required" }, { status: 400 });
         const [document] = await db

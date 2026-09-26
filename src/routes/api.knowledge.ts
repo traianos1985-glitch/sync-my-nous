@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/knowledge")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const userId = requireAuthenticatedUserId(request);
+        const userId = await requireAuthenticatedUserId(request);
         const documents = await db
           .select()
           .from(nousKnowledgeDocuments)
@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/knowledge")({
         return Response.json({ ok: true, documents });
       },
       POST: async ({ request }) => {
-        const userId = requireAuthenticatedUserId(request);
+        const userId = await requireAuthenticatedUserId(request);
         const form = await request.formData();
         const file = form.get("file");
         if (!(file instanceof File))

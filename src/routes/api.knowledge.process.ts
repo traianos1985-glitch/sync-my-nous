@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/knowledge/process")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const userId = requireAuthenticatedUserId(request);
+        const userId = await requireAuthenticatedUserId(request);
         const body = (await request.json().catch(() => ({}))) as { documentId?: string };
         if (!body.documentId)
           return Response.json({ error: "documentId is required" }, { status: 400 });
