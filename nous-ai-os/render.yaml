@@ -10,6 +10,8 @@ services:
         sync: false
       - key: NOUS_ALLOW_REMOTE_UPGRADE
         value: "0"
+      - key: NOUS_ALLOW_ANONYMOUS
+        value: "0"
     disk:
       name: nous-data
       mountPath: /app/data
