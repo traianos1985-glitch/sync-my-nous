@@ -258,6 +258,18 @@ function Dashboard() {
     Array<{ id: string; title: string; status: string }>
   >([]);
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "connected">("idle");
+  const [jobHistory, setJobHistory] = useState<
+    Array<{
+      id: string;
+      kind: string;
+      status: string;
+      retryCount: number;
+      lastError?: string | null;
+      createdAt: string;
+      completedAt?: string | null;
+    }>
+  >([]);
+  const [jobHistoryStatus, setJobHistoryStatus] = useState<"idle" | "loading" | "error">("idle");
   const [providerAction, setProviderAction] = useState<string | null>(null);
   const [knowledgeDocuments, setKnowledgeDocuments] = useState<
     Array<{
@@ -363,6 +375,22 @@ function Dashboard() {
     } catch {
       setLiveStatus("idle");
     }
+  };
+
+  const loadJobHistory = async () => {
+    setJobHistoryStatus("loading");
+    try {
+      const data = await nousFetch<{ jobs: typeof jobHistory }>("/api/jobs?limit=20");
+      setJobHistory(data.jobs);
+      setJobHistoryStatus("idle");
+    } catch {
+      setJobHistoryStatus("error");
+    }
+  };
+
+  const updateJob = async (id: string, action: "cancel" | "retry") => {
+    await nousFetch("/api/jobs", { method: "PATCH", body: JSON.stringify({ id, action }) });
+    await loadJobHistory();
   };
 
   const loadSystemStatus = async () => {
@@ -636,6 +664,7 @@ function Dashboard() {
                         if (focus === "guard") void loadApprovals();
                         if (focus === "system") void loadSystemStatus();
                         if (focus === "missions") void connectMissionStream();
+                        if (focus === "jobs") void loadJobHistory();
                         if (focus === "evaluation") void loadEvaluationMetrics();
                       }}
                       className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
@@ -739,6 +768,71 @@ function Dashboard() {
                       <p className="mt-4 text-xs text-muted-foreground">
                         Πάτησε «Ανανέωση» για να φορτώσεις τα metrics.
                       </p>
+                    )}
+                  </div>
+                )}
+                {activeFocus === "jobs" && (
+                  <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">Job control center</p>
+                        <p className="text-xs text-muted-foreground">
+                          Ιστορικό, retries και ασφαλές cancellation.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadJobHistory()}
+                        className="rounded-lg border border-primary/30 px-3 py-1.5 text-xs text-primary"
+                      >
+                        {jobHistoryStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
+                      </button>
+                    </div>
+                    {jobHistoryStatus === "error" ? (
+                      <p className="mt-4 text-xs text-rose-300">
+                        Δεν ήταν δυνατή η φόρτωση του job history.
+                      </p>
+                    ) : jobHistory.length === 0 ? (
+                      <p className="mt-4 text-xs text-muted-foreground">Δεν υπάρχουν jobs ακόμη.</p>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {jobHistory.map((job) => (
+                          <div key={job.id} className="rounded-lg bg-card/70 p-3">
+                            <div className="flex items-center justify-between gap-3 text-xs">
+                              <span className="font-medium">{job.kind}</span>
+                              <span className="font-mono text-muted-foreground">{job.status}</span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
+                              <span>retries: {job.retryCount}</span>
+                              <div className="flex gap-2">
+                                {["queued", "running"].includes(job.status) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void updateJob(job.id, "cancel")}
+                                    className="text-rose-300 hover:underline"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                                {job.status === "failed" && job.retryCount < 3 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void updateJob(job.id, "retry")}
+                                    className="text-primary hover:underline"
+                                  >
+                                    Retry
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            {job.lastError && (
+                              <p className="mt-2 truncate text-[10px] text-rose-300">
+                                {job.lastError}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
