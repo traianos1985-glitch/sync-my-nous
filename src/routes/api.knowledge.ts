@@ -1,11 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { put } from "@vercel/blob";
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../lib/db";
-import { nousKnowledgeChunks, nousKnowledgeDocuments } from "../lib/db/schema";
+import {
+  nousKnowledgeChunks,
+  nousKnowledgeDocuments,
+  nousObservabilityEvents,
+} from "../lib/db/schema";
 import { validateUploadMetadata } from "../lib/content-security";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
+import { scanUpload, shouldReleaseFromQuarantine } from "../lib/quarantine-scanner";
+import { createJob } from "../lib/db/jobs";
+import { isDatabaseRateLimited } from "../lib/security";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const allowedTypes = new Set([
@@ -68,6 +75,11 @@ export const Route = createFileRoute("/api/knowledge")({
       },
       POST: async ({ request }) => {
         const userId = await requireAuthenticatedUserId(request);
+        if (await isDatabaseRateLimited(request, db, sql, "knowledge-upload"))
+          return Response.json(
+            { error: "Upload rate limit exceeded" },
+            { status: 429, headers: { "Retry-After": "60" } },
+          );
         const form = await request.formData();
         const file = form.get("file");
         if (!(file instanceof File))
@@ -82,8 +94,9 @@ export const Route = createFileRoute("/api/knowledge")({
             { error: "File signature does not match declared type" },
             { status: 415 },
           );
-        const sha256 = createHash("sha256").update(bytes).digest("hex");
+        const scan = scanUpload(bytes, file.type);
         const id = randomUUID();
+        const sha256 = createHash("sha256").update(bytes).digest("hex");
         const originalName = file.name.trim().slice(0, 180);
         const blob = await put(
           `knowledge/${userId}/${id}-${originalName}`,
@@ -99,7 +112,8 @@ export const Route = createFileRoute("/api/knowledge")({
           contentType: file.type,
           sizeBytes: file.size,
           sha256,
-          status: file.type.startsWith("image/") ? "quarantined" : "extraction_review",
+          status:
+            !scan.clean || file.type.startsWith("image/") ? "quarantined" : "extraction_review",
           extractedText,
         });
         const rows = chunks(extractedText).map((content, chunkIndex) => ({
@@ -111,6 +125,22 @@ export const Route = createFileRoute("/api/knowledge")({
           embeddingStatus: "pending",
         }));
         if (rows.length) await db.insert(nousKnowledgeChunks).values(rows);
+        const job = await createJob(userId, "knowledge.ingest", {
+          documentId: id,
+          scan,
+          releaseEligible: shouldReleaseFromQuarantine(file.type, scan),
+        });
+        await db.insert(nousObservabilityEvents).values({
+          id: randomUUID(),
+          userId,
+          event: "knowledge.upload.quarantine_scan",
+          metadata: {
+            documentId: id,
+            jobId: job.id,
+            clean: scan.clean,
+            signatures: scan.signatures,
+          },
+        });
         return Response.json(
           {
             ok: true,
@@ -118,8 +148,11 @@ export const Route = createFileRoute("/api/knowledge")({
               id,
               name: safe.filename,
               contentType: file.type,
-              status: file.type.startsWith("image/") ? "quarantined" : "extraction_review",
+              status:
+                !scan.clean || file.type.startsWith("image/") ? "quarantined" : "extraction_review",
               chunks: rows.length,
+              jobId: job.id,
+              scan: { clean: scan.clean, reason: scan.reason },
             },
           },
           { status: 201 },
