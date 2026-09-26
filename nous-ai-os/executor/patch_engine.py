@@ -1,7 +1,6 @@
 from executor.file_ops import backup_file
 from executor.validator import validate_python
 from executor.rollback import rollback
-import os
 
 def patch_file(path, new_content):
     print("[PATCH] Starting...")

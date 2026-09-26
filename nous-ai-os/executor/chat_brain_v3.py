@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from executor.natural_chat_orchestrator import natural_chat_answer, is_natural_chat
+from executor.natural_chat_orchestrator import natural_chat_answer
 
 from executor.document_chat_bridge import document_chat_answer, format_document_answer
 from executor.internet_search_engine import answer_from_web
@@ -16,7 +16,7 @@ from executor.deep_research_engine import deep_research
 from executor.url_reader_engine import summarize_url
 from executor.chat_capabilities import capability_text
 from executor.conversation_manager import append_turn, conversation_context
-from executor.conversation_summary_engine import update_conversation_summary, summary_context
+from executor.conversation_summary_engine import update_conversation_summary
 from executor.conversation_search_engine import answer_from_conversations, cross_conversation_context
 from executor.conversation_title_engine import generate_conversation_title
 from executor.knowledge_memory_engine import answer_from_knowledge_memory, learn_from_chat_result, coding_context

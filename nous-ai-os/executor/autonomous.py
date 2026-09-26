@@ -1,5 +1,4 @@
 import difflib
-import time
 from executor.core import safe_execute_patch, MEMORY, ask_approval
 
 

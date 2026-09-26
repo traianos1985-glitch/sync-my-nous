@@ -1,8 +1,6 @@
 import time
 import threading
-import traceback
 import os
-import copy
 
 from executor.local_llm import ask_llm
 from executor.secure_patch import secure_patch

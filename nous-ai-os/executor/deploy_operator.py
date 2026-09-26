@@ -1,4 +1,4 @@
-import os, time
+import time
 from executor.code_assistant import run_cmd
 from executor.agent_journal import write_journal
 from executor.operator_approval import request_approval, is_approved

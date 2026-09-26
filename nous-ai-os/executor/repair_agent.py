@@ -1,4 +1,3 @@
-import os
 import py_compile
 from executor.git_agent import git_status
 from executor.memory import save

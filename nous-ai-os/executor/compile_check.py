@@ -1,5 +1,4 @@
 import py_compile
-import os
 
 FILES = [
     "executor/router.py",

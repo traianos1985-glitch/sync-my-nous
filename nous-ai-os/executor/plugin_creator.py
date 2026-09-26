@@ -1,4 +1,3 @@
-import os
 
 def create_plugin(name, code):
     path = f"executor/plugins/{name}.py"

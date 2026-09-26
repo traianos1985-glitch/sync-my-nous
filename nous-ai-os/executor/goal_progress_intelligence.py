@@ -64,7 +64,7 @@ def _score_for_category(category, missions, lessons, decisions):
             score += 5
             evidence.append({"type": "decision", "id": d.get("id"), "title": d.get("title")})
 
-    
+
     category_caps = {
         "cloud": 70,
         "ui": 70,

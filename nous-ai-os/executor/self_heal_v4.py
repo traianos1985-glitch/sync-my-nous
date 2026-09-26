@@ -1,6 +1,4 @@
 import os
-import time
-import traceback
 
 from executor.local_llm import ask_llm
 from executor.secure_patch import secure_patch

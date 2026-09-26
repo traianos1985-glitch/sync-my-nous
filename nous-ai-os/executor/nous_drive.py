@@ -10,13 +10,11 @@ nous_drive.py — NOUS Proactive Drive Engine
 
 import json
 import time
-import uuid
 import os
 import shutil
 import threading
 import subprocess
 from pathlib import Path
-from typing import Any
 
 _state_lock = threading.Lock()
 
@@ -578,7 +576,7 @@ def _check_curiosity() -> dict:
                         title="Πρόταση νέας εξόδου στο πεδίο",
                         description=f"Η τελευταία καταχώρηση πεδίου ήταν πριν {age_days:.0f} ημέρες. Με βάση τα υπάρχοντα σημεία, θα πρότεινα νέα έρευνα στην περιοχή.",
                         action="suggest_field_expedition",
-                        fingerprint=f"curiosity_field_inactive",
+                        fingerprint="curiosity_field_inactive",
                     ))
                     log.append(f"[curiosity] field inactive: {age_days:.0f}d")
     except Exception:
@@ -797,7 +795,7 @@ def _execute_proposal_tracked(proposal: dict):
                 from executor.knowledge_memory_engine import remember_knowledge
                 remember_knowledge(kb_text, tags=["messenia", "gold_hunting", "auto_learn"])
                 _append(f"✅ Νέα γνώση αποθηκεύτηκε:\n{kb_text[:400]}")
-            except Exception as e:
+            except Exception:
                 Path("data/kb_expansion.txt").write_text(kb_text, encoding="utf-8")
                 _append(f"✅ Αποθηκεύτηκε στο data/kb_expansion.txt:\n{kb_text[:300]}")
             _update_proposal(pid, {"status": "done",

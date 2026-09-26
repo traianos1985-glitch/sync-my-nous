@@ -114,7 +114,7 @@ def _execute_job(job: dict):
             if p.get("action") == job["action"] and p.get("status") == "pending":
                 approve_proposal(str(p["id"]))
                 break
-    except Exception as e:
+    except Exception:
         pass  # log silently
 
 

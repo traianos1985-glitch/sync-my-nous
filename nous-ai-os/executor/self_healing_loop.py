@@ -1,7 +1,7 @@
 import time
 
 from executor.deep_code_analyst import analyze_failure, analyze_latest_diagnosis_deep
-from executor.patch_generator import generate_patch_from_analysis, patch_generator_status, list_patch_proposals, approve_patch_proposal, reject_patch_proposal
+from executor.patch_generator import generate_patch_from_analysis, patch_generator_status, list_patch_proposals
 
 
 def run_self_healing_analysis(problem=None):

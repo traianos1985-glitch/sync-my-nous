@@ -1,7 +1,6 @@
 import json
 import os
 import time
-from pathlib import Path
 
 from executor.autonomous_loop import run_once
 from executor.battery_guard import battery_guard

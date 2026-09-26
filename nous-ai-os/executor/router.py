@@ -17,7 +17,6 @@ from executor.field_engine import add_entry, list_entries, delete_entry, get_map
 from executor.remote_llm import ask_with_image
 from executor.nous_ui import nous_dashboard_html
 from executor.kernel import handle
-from executor.control_center import CONTROL_CENTER_HTML
 from executor.security import check_token, check_admin_token
 from executor.auth_guard import install_auth_guard
 from executor.api_tokens import create_token, list_tokens, revoke_token, token_stats
@@ -54,7 +53,7 @@ from executor.ops_console import ops_status, run_ops_action
 from executor.mission_system import mission_status, list_missions, create_mission, create_standard_mission, run_next_mission_task, run_mission_cycle, approve_task, pending_approvals
 from executor.autonomous_workspace import workspace_status, plan_from_prompt, create_workspace_mission, run_workspace_mission
 from executor.executive_layer import executive_status, executive_plan, executive_run
-from executor.goal_system import goal_status, list_goals, create_goal, seed_core_goals, add_goal_note, link_mission_to_goal, refresh_goal_progress, create_goal_mission
+from executor.goal_system import goal_status, list_goals, create_goal, seed_core_goals, add_goal_note, link_mission_to_goal, refresh_goal_progress as refresh_goal_progress_by_id, create_goal_mission
 from executor.brain_state import brain_status, build_brain_state, save_brain_state, load_brain_state
 from executor.cloud_brain_backup import brain_backup_status, create_brain_backup, list_brain_backups
 from executor.brain_restore import restore_status, inspect_brain_backup, restore_brain_backup
@@ -100,12 +99,12 @@ from executor.knowledge_graph import knowledge_graph_status, build_knowledge_gra
 from executor.executive_loop_v3 import executive_loop_v3_status, run_executive_loop_v3
 from executor.browser_driver_operator import browser_driver_status, run_browser_actions
 from executor.operator_capability_manager import operator_capabilities as operator_capability_status, reality_flags
-from executor.real_action_gate import real_actions_status, run_real_action, available_real_actions
+from executor.real_action_gate import real_actions_status, run_real_action
 from executor.android_operator import android_operator_status, tap as android_tap, swipe as android_swipe, keyevent as android_keyevent
 from executor.browser_operator import browser_operator_status, open_url as operator_open_url, prepare_click, prepare_fill_form, prepare_login
 from executor.operator_approval import list_approvals, approve, reject
 from executor.git_workflow import git_workflow_status, git_safe_checkpoint
-from executor.web_deploy_manager import deploy_status, register_local_deploy, deploy_git_status
+from executor.web_deploy_manager import deploy_status, register_local_deploy
 from executor.android_actions_v2 import android_actions_status, run_android_action
 from executor.browser_automation import browser_status, browser_search, browser_read
 from executor.multi_agent_team import team_status, team_cycle
@@ -379,7 +378,7 @@ def chat():
                 "response": doc_answer,
                 "text": doc_answer
             })
-    except Exception as e:
+    except Exception:
         pass
 
     if not check_token(request):
@@ -740,7 +739,7 @@ def sense_route():
     return jsonify(android_sense())
 
 
-from executor.app_builder import list_apps, plan_app, approve_and_write, reject_plan, list_builds, get_build, status as app_builder_status
+from executor.app_builder import list_apps, plan_app, approve_and_write, reject_plan, list_builds, get_build
 
 
 
@@ -1028,7 +1027,6 @@ def remote_upgrade_planner_get_plan(plan_id):
 @app.route("/remote/nous-initiatives")
 def remote_nous_initiatives():
     """Unified: all pending proposals NOUS wants executed, ordered by priority."""
-    import time as _time
     items = []
 
     # ── NOUS Drive proposals (self-generated, survival, improvement, curiosity) ─
@@ -1240,7 +1238,6 @@ def nous_cron_toggle():
 @app.route("/remote/nous-initiatives/act", methods=["POST"])
 def remote_nous_initiatives_act():
     """Unified approve/reject for any initiative type."""
-    import requests as _req
     data = request.get_json(silent=True) or {}
     action  = data.get("action")   # "approve" | "reject"
     route   = data.get("route")
@@ -1839,12 +1836,7 @@ def remote_goals_v2_refresh_route():
     data = request.get_json(silent=True) or {}
     goal_id = data.get("id")
     try:
-        result = refresh_goal_progress(goal_id) if goal_id else refresh_goal_progress()
-    except TypeError:
-        try:
-            result = refresh_goal_progress()
-        except Exception as e:
-            result = {"ok": False, "error": str(e)}
+        result = refresh_goal_progress_by_id(goal_id) if goal_id else refresh_goal_progress()
     except Exception as e:
         result = {"ok": False, "error": str(e)}
     return jsonify(result)

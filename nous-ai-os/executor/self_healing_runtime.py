@@ -1,6 +1,5 @@
 import time
 
-from executor.compile_check import check as compile_check
 from executor.repair_agent import repair_check
 from executor.memory import save
 

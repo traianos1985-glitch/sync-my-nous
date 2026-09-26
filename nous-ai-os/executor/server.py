@@ -40,7 +40,7 @@ def chat():
                 "response": doc_answer,
                 "text": doc_answer
             })
-    except Exception as e:
+    except Exception:
         pass
 
     data = request.json

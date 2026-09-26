@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from executor.conversation_manager import CONV_DIR, INDEX, get_conversation, load_json, save_json
+from executor.conversation_manager import INDEX, get_conversation, load_json, save_json
 
 REPORTS = Path("data/reports")
 

@@ -1,6 +1,5 @@
 import os
 import threading
-import time
 
 _tunnel = None
 _tunnel_url = None

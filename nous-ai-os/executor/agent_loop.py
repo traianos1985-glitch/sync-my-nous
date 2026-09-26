@@ -121,7 +121,7 @@ def run_agent(message: str, conversation_id: str | None = None, extra_context: s
     try:
         r1 = ask_with_turns(turns, system=system)
         response1 = (r1.get("response", "") if isinstance(r1, dict) else "").strip()
-    except Exception as e:
+    except Exception:
         return {"ok": False, "answer": "Σφάλμα επικοινωνίας με το LLM.", "mode": "agent_error"}
 
     if not response1:

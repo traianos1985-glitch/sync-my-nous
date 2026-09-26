@@ -1,4 +1,3 @@
-import os
 from executor.patch_engine import patch_file
 
 def propose_change(path, transformer_func):

@@ -1,7 +1,6 @@
 import os
 import time
 import ast
-import traceback
 
 from executor.local_llm import ask_llm
 from executor.plugin_loader import load_plugins

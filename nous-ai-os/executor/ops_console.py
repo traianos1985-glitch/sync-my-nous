@@ -1,5 +1,5 @@
 import time
-from executor.code_assistant import run_cmd, code_health
+from executor.code_assistant import code_health
 from executor.reality_gate import reality_status
 from executor.git_workflow import git_workflow_status, git_safe_checkpoint
 from executor.vercel_deploy_integration import vercel_status, vercel_deploy

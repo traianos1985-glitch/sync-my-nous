@@ -1,6 +1,5 @@
 
 import subprocess
-import time
 
 def restart_server():
 

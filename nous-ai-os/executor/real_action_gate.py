@@ -5,7 +5,7 @@ from executor.research_browser_agent import research_query, read_url
 from executor.android_control import android_open_url, android_notify
 from executor.code_assistant import code_health
 from executor.git_workflow import git_workflow_status
-from executor.app_factory_v2 import create_app_from_idea, app_factory_status
+from executor.app_factory_v2 import create_app_from_idea
 from executor.agent_journal import write_journal
 
 

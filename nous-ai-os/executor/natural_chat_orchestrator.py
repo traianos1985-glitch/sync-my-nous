@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import json
-import time
 from pathlib import Path
 from typing import Any
 
@@ -61,7 +60,7 @@ def _system_status_answer() -> str:
     brain_level = brain_data.get("level", "—") if isinstance(brain_data, dict) else "—"
 
     lines = ["**Κατάσταση NOUS AI OS** ✅", ""]
-    lines.append(f"• Σύστημα: **online**")
+    lines.append("• Σύστημα: **online**")
     lines.append(f"• Επίπεδο εγκεφάλου: **{brain_level}**")
     lines.append(f"• Αποστολές: **{total_missions}** συνολικά — {active} ενεργές, {done} ολοκληρωμένες, {blocked} blocked")
     lines.append(f"• Στόχοι: **{total_goals}** καταγεγραμμένοι")

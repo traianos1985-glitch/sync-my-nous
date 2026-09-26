@@ -1,4 +1,4 @@
-import subprocess, time
+import subprocess
 
 def run(cmd):
     try:

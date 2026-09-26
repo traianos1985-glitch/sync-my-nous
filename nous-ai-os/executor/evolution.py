@@ -1,6 +1,5 @@
 import time
-import os
-from executor.core import safe_execute_patch, MEMORY
+from executor.core import MEMORY
 
 WATCH_FILES = [
     "demo.py",

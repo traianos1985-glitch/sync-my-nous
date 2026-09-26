@@ -1,5 +1,3 @@
-import os
-import time
 import traceback
 
 from executor.local_llm import ask_llm
@@ -20,11 +18,10 @@ class SelfHealV2:
 
         try:
 
-            import executor.router
 
             checks.append(("router_import", True))
 
-        except Exception as e:
+        except Exception:
 
             checks.append(("router_import", False))
             self.last_error = traceback.format_exc()

@@ -3,9 +3,7 @@ Field Diary Engine — καταχωρήσεις πεδίου χρυσοθηρί�
 Αποθηκεύει ευρήματα, GPS, φωτογραφίες και AI αναλύσεις.
 """
 import json
-import os
 import uuid
-import base64
 from datetime import datetime, timezone
 from pathlib import Path
 

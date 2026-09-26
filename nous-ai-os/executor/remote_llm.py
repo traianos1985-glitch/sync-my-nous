@@ -1,6 +1,5 @@
 import requests
 import os
-import base64
 
 from executor.local_llm_adapter import ask_ollama
 
