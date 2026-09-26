@@ -49,13 +49,13 @@ export const Route = createFileRoute("/api/tools/execute")({
         try {
           let output: unknown;
           if (approval.tool === "research") {
-            output = await research(parsed.data.query, "deep");
+            output = await research((parsed.data as { query: string }).query, "deep");
           } else if (approval.tool === "createMission") {
             const mission = {
               id: randomUUID(),
               userId,
-              title: parsed.data.title,
-              objective: parsed.data.objective,
+              title: (parsed.data as { title: string }).title,
+              objective: (parsed.data as { objective: string }).objective,
               status: "queued",
             };
             await db.insert(nousMissions).values(mission);
