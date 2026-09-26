@@ -28,7 +28,10 @@ export async function updateJob(id: string, userId: string, status: string, outp
       output: output ?? {},
       startedAt: status === "running" ? now : undefined,
       completedAt: ["completed", "failed", "cancelled"].includes(status) ? now : undefined,
-      lastError: status === "failed" ? String((output as { error?: unknown } | undefined)?.error ?? "Job failed").slice(0, 500) : undefined,
+      lastError:
+        status === "failed"
+          ? String((output as { error?: unknown } | undefined)?.error ?? "Job failed").slice(0, 500)
+          : undefined,
       updatedAt: now,
     })
     .where(and(eq(nousJobs.id, id), eq(nousJobs.userId, userId)))
@@ -48,7 +51,13 @@ export async function listJobs(userId: string, limit = 25) {
 export async function retryJob(id: string, userId: string) {
   const [job] = await db
     .update(nousJobs)
-    .set({ status: "queued", retryCount: sql`${nousJobs.retryCount} + 1`, lastError: null, completedAt: null, updatedAt: new Date() })
+    .set({
+      status: "queued",
+      retryCount: sql`${nousJobs.retryCount} + 1`,
+      lastError: null,
+      completedAt: null,
+      updatedAt: new Date(),
+    })
     .where(and(eq(nousJobs.id, id), eq(nousJobs.userId, userId), eq(nousJobs.status, "failed")))
     .returning();
   return job;

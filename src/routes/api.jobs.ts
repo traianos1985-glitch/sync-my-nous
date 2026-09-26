@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createJob, getJob, listJobs, retryJob, updateJob } from "../lib/db/jobs";
-import { NOUS_LIMITS } from "../lib/platform-policy";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { isAllowedJobKind, NOUS_LIMITS, serializedBytes } from "../lib/platform-policy";
 
@@ -57,7 +56,10 @@ export const Route = createFileRoute("/api/jobs")({
         const searchParams = new URL(request.url).searchParams;
         const id = searchParams.get("id");
         if (!id) {
-          const jobs = await listJobs(await userId(request), Number(searchParams.get("limit") ?? 25));
+          const jobs = await listJobs(
+            await userId(request),
+            Number(searchParams.get("limit") ?? 25),
+          );
           return Response.json({ jobs }, { headers: { "Cache-Control": "private, no-store" } });
         }
         const job = await getJob(id, await userId(request));
