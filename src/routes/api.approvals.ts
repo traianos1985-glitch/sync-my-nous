@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/approvals")({
           input?: unknown;
           missionId?: string;
         };
-        const tool = body.tool?.trim() ?? "";
+        const tool = body.tool?.trim().slice(0, 128) ?? "";
         const definition = getToolDefinition(tool);
         if (!definition) return Response.json({ error: "Unknown tool" }, { status: 400 });
         const parsed = definition.input.safeParse(body.input ?? {});
@@ -50,7 +50,10 @@ export const Route = createFileRoute("/api/approvals")({
           status: "pending",
         };
         await db.insert(nousApprovals).values(approval);
-        return Response.json({ ok: true, approval }, { status: 201 });
+        return Response.json(
+          { ok: true, approval },
+          { status: 201, headers: { "Cache-Control": "private, no-store" } },
+        );
       },
       PATCH: async ({ request }) => {
         const body = (await request.json()) as { id?: string; status?: string };
@@ -76,9 +79,16 @@ export const Route = createFileRoute("/api/approvals")({
           id: randomUUID(),
           userId: await userId(request),
           event: `approval.${body.status}`,
-          metadata: { approvalId: approval.id, tool: approval.tool },
+          metadata: {
+            approvalId: approval.id,
+            tool: approval.tool,
+            missionId: approval.missionId,
+          },
         });
-        return Response.json({ ok: true, approval });
+        return Response.json(
+          { ok: true, approval },
+          { headers: { "Cache-Control": "private, no-store" } },
+        );
       },
     },
   },

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ApiApprovalsRouteImport } from './routes/api.approvals'
+import { Route as ApiAuditRouteImport } from './routes/api.audit'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
 import { Route as ApiEvaluationRouteImport } from './routes/api.evaluation'
 import { Route as ApiFeedbackRouteImport } from './routes/api.feedback'
@@ -43,6 +44,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const ApiApprovalsRoute = ApiApprovalsRouteImport.update({
   id: '/api/approvals',
   path: '/api/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuditRoute = ApiAuditRouteImport.update({
+  id: '/api/audit',
+  path: '/api/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
+  '/api/audit': typeof ApiAuditRoute
   '/api/chat': typeof ApiChatRoute
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
+  '/api/audit': typeof ApiAuditRoute
   '/api/chat': typeof ApiChatRoute
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
+  '/api/audit': typeof ApiAuditRoute
   '/api/chat': typeof ApiChatRoute
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/api/approvals'
+    | '/api/audit'
     | '/api/chat'
     | '/api/evaluation'
     | '/api/feedback'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/api/approvals'
+    | '/api/audit'
     | '/api/chat'
     | '/api/evaluation'
     | '/api/feedback'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/api/approvals'
+    | '/api/audit'
     | '/api/chat'
     | '/api/evaluation'
     | '/api/feedback'
@@ -271,6 +283,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   ApiApprovalsRoute: typeof ApiApprovalsRoute
+  ApiAuditRoute: typeof ApiAuditRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiEvaluationRoute: typeof ApiEvaluationRoute
   ApiFeedbackRoute: typeof ApiFeedbackRoute
@@ -307,6 +320,13 @@ declare module '@tanstack/react-router' {
       path: '/api/approvals'
       fullPath: '/api/approvals'
       preLoaderRoute: typeof ApiApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/audit': {
+      id: '/api/audit'
+      path: '/api/audit'
+      fullPath: '/api/audit'
+      preLoaderRoute: typeof ApiAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -463,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   ApiApprovalsRoute: ApiApprovalsRoute,
+  ApiAuditRoute: ApiAuditRoute,
   ApiChatRoute: ApiChatRoute,
   ApiEvaluationRoute: ApiEvaluationRoute,
   ApiFeedbackRoute: ApiFeedbackRoute,
