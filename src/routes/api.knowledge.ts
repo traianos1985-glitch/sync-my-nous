@@ -99,7 +99,7 @@ export const Route = createFileRoute("/api/knowledge")({
           contentType: file.type,
           sizeBytes: file.size,
           sha256,
-          status: file.type.startsWith("image/") ? "vision_queued" : "indexed",
+          status: file.type.startsWith("image/") ? "quarantined" : "extraction_review",
           extractedText,
         });
         const rows = chunks(extractedText).map((content, chunkIndex) => ({
@@ -118,7 +118,7 @@ export const Route = createFileRoute("/api/knowledge")({
               id,
               name: safe.filename,
               contentType: file.type,
-              status: file.type.startsWith("image/") ? "vision_queued" : "extraction_review",
+              status: file.type.startsWith("image/") ? "quarantined" : "extraction_review",
               chunks: rows.length,
             },
           },

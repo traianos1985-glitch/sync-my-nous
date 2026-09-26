@@ -1,4 +1,13 @@
-import { boolean, jsonb, pgTable, text, timestamp, integer, unique } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  customType,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  integer,
+  unique,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -124,6 +133,10 @@ export const nousKnowledgeChunks = pgTable("nous_knowledge_chunks", {
   content: text("content").notNull(),
   embeddingStatus: text("embedding_status").notNull().default("pending"),
   embedding: jsonb("embedding"),
+  embeddingVector: customType<{ data: number[]; driverData: string }>({
+    dataType: () => "vector(3072)",
+    toDriver: (value) => `[${value.join(",")}]`,
+  })("embedding_vector"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
