@@ -1,6 +1,18 @@
 import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
+import {
+  isRateLimited,
+  rejectOversizedBody,
+  securityRejection,
+  withSecurityHeaders,
+} from "./lib/security";
+
+const securityMiddleware = createMiddleware().server(async ({ request, next }) => {
+  if (rejectOversizedBody(request)) return securityRejection(413, "Request body too large");
+  if (isRateLimited(request)) return securityRejection(429, "Too many requests");
+  return withSecurityHeaders(await next());
+});
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -25,5 +37,5 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [errorMiddleware, csrfMiddleware],
+  requestMiddleware: [securityMiddleware, errorMiddleware, csrfMiddleware],
 }));
