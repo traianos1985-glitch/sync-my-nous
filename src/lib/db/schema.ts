@@ -123,6 +123,7 @@ export const nousKnowledgeChunks = pgTable("nous_knowledge_chunks", {
   chunkIndex: integer("chunk_index").notNull(),
   content: text("content").notNull(),
   embeddingStatus: text("embedding_status").notNull().default("pending"),
+  embedding: jsonb("embedding"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

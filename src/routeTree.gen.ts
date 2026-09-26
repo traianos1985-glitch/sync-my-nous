@@ -22,6 +22,8 @@ import { Route as ApiSecurityLessonsRouteImport } from './routes/api.security-le
 import { Route as ApiStatusRouteImport } from './routes/api.status'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiKnowledgeFileRouteImport } from './routes/api.knowledge.file'
+import { Route as ApiKnowledgeProcessRouteImport } from './routes/api.knowledge.process'
+import { Route as ApiKnowledgeSearchRouteImport } from './routes/api.knowledge.search'
 import { Route as ApiMissionsStreamRouteImport } from './routes/api.missions.stream'
 import { Route as ApiToolsExecuteRouteImport } from './routes/api.tools.execute'
 
@@ -90,6 +92,16 @@ const ApiKnowledgeFileRoute = ApiKnowledgeFileRouteImport.update({
   path: '/file',
   getParentRoute: () => ApiKnowledgeRoute,
 } as any)
+const ApiKnowledgeProcessRoute = ApiKnowledgeProcessRouteImport.update({
+  id: '/process',
+  path: '/process',
+  getParentRoute: () => ApiKnowledgeRoute,
+} as any)
+const ApiKnowledgeSearchRoute = ApiKnowledgeSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => ApiKnowledgeRoute,
+} as any)
 const ApiMissionsStreamRoute = ApiMissionsStreamRouteImport.update({
   id: '/stream',
   path: '/stream',
@@ -115,6 +127,8 @@ export interface FileRoutesByFullPath {
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
+  '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
+  '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
@@ -132,6 +146,8 @@ export interface FileRoutesByTo {
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
+  '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
+  '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
@@ -150,6 +166,8 @@ export interface FileRoutesById {
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
+  '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
+  '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
@@ -169,6 +187,8 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/auth/$'
     | '/api/knowledge/file'
+    | '/api/knowledge/process'
+    | '/api/knowledge/search'
     | '/api/missions/stream'
     | '/api/tools/execute'
   fileRoutesByTo: FileRoutesByTo
@@ -186,6 +206,8 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/auth/$'
     | '/api/knowledge/file'
+    | '/api/knowledge/process'
+    | '/api/knowledge/search'
     | '/api/missions/stream'
     | '/api/tools/execute'
   id:
@@ -203,6 +225,8 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/auth/$'
     | '/api/knowledge/file'
+    | '/api/knowledge/process'
+    | '/api/knowledge/search'
     | '/api/missions/stream'
     | '/api/tools/execute'
   fileRoutesById: FileRoutesById
@@ -316,6 +340,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiKnowledgeFileRouteImport
       parentRoute: typeof ApiKnowledgeRoute
     }
+    '/api/knowledge/process': {
+      id: '/api/knowledge/process'
+      path: '/process'
+      fullPath: '/api/knowledge/process'
+      preLoaderRoute: typeof ApiKnowledgeProcessRouteImport
+      parentRoute: typeof ApiKnowledgeRoute
+    }
+    '/api/knowledge/search': {
+      id: '/api/knowledge/search'
+      path: '/search'
+      fullPath: '/api/knowledge/search'
+      preLoaderRoute: typeof ApiKnowledgeSearchRouteImport
+      parentRoute: typeof ApiKnowledgeRoute
+    }
     '/api/missions/stream': {
       id: '/api/missions/stream'
       path: '/stream'
@@ -335,10 +373,14 @@ declare module '@tanstack/react-router' {
 
 interface ApiKnowledgeRouteChildren {
   ApiKnowledgeFileRoute: typeof ApiKnowledgeFileRoute
+  ApiKnowledgeProcessRoute: typeof ApiKnowledgeProcessRoute
+  ApiKnowledgeSearchRoute: typeof ApiKnowledgeSearchRoute
 }
 
 const ApiKnowledgeRouteChildren: ApiKnowledgeRouteChildren = {
   ApiKnowledgeFileRoute: ApiKnowledgeFileRoute,
+  ApiKnowledgeProcessRoute: ApiKnowledgeProcessRoute,
+  ApiKnowledgeSearchRoute: ApiKnowledgeSearchRoute,
 }
 
 const ApiKnowledgeRouteWithChildren = ApiKnowledgeRoute._addFileChildren(
