@@ -36,4 +36,9 @@ def load_legacy(name: str) -> Any:
     return import_module(f"{__package__}.{spec.module}")
 
 
-__all__ = ["AgentPluginSpec", "LEGACY_MODULES", "get_core", "load_legacy"]
+def canonical_surface() -> dict[str, object]:
+    """Expose the migration boundary; legacy modules are adapters, not entrypoints."""
+    return {"core": get_core(), "legacy_adapters": [spec.name for spec in LEGACY_MODULES], "legacy_entrypoints_enabled": False}
+
+
+__all__ = ["AgentPluginSpec", "LEGACY_MODULES", "canonical_surface", "get_core", "load_legacy"]

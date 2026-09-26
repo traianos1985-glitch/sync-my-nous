@@ -17,7 +17,7 @@ import {
   Zap,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
-import { nousFetch } from "@/lib/nous-api";
+import { nousFetch, nousStream } from "@/lib/nous-api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -157,6 +157,38 @@ function Dashboard() {
     counts?: { missions: number; toolRuns: number };
     storage?: string;
   } | null>(null);
+  const [liveMissions, setLiveMissions] = useState<
+    Array<{ id: string; title: string; status: string }>
+  >([]);
+  const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "connected">("idle");
+
+  const connectMissionStream = async () => {
+    if (liveStatus === "connecting" || liveStatus === "connected") return;
+    setLiveStatus("connecting");
+    try {
+      const response = await nousStream("/api/missions/stream");
+      if (!response.body) throw new Error("stream unavailable");
+      setLiveStatus("connected");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+        for (const event of events) {
+          const line = event.split("\n").find((item) => item.startsWith("data: "));
+          if (!line) continue;
+          const data = JSON.parse(line.slice(6)) as { missions?: typeof liveMissions };
+          setLiveMissions(data.missions ?? []);
+        }
+      }
+    } catch {
+      setLiveStatus("idle");
+    }
+  };
 
   const loadSystemStatus = async () => {
     try {
@@ -409,6 +441,7 @@ function Dashboard() {
                         setActiveFocus(focus);
                         if (focus === "guard") void loadApprovals();
                         if (focus === "system") void loadSystemStatus();
+                        if (focus === "missions") void connectMissionStream();
                       }}
                       className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
                     >
@@ -423,6 +456,36 @@ function Dashboard() {
                     </button>
                   ))}
                 </div>
+                {activeFocus === "missions" && (
+                  <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">Live mission progress</p>
+                        <p className="text-xs text-muted-foreground">
+                          Server-sent updates κάθε 3 δευτερόλεπτα.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void connectMissionStream()}
+                        className="rounded-lg border border-primary/30 px-3 py-1.5 text-xs text-primary"
+                      >
+                        {liveStatus === "connected" ? "Live" : "Σύνδεση"}
+                      </button>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {liveMissions.map((mission) => (
+                        <div
+                          key={mission.id}
+                          className="flex items-center justify-between rounded-lg bg-card/70 px-3 py-2 text-xs"
+                        >
+                          <span>{mission.title}</span>
+                          <span className="font-mono text-muted-foreground">{mission.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {activeFocus === "system" && (
                   <div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4">
                     <div className="flex items-center justify-between gap-3">

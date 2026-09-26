@@ -130,6 +130,13 @@ bash deploy/local_mac_linux/install_autostart_linux.sh
 Το `monitor_health.sh` μπορεί να εκτελείται από cron/systemd timer και να συνδεθεί με alerting service. Τα jobs και τα rate-limit counters αποθηκεύονται στο Neon, ώστε restart ή αλλαγή instance να μη χάνει το lifecycle state.
 
 ```bash
+chmod +x deploy/monitor_health.sh deploy/alert_health.sh
+export NOUS_ALERT_WEBHOOK_URL=https://hooks.example.invalid/nous
+
+`NOUS_ALERT_WEBHOOK_URL` είναι προαιρετικό webhook συμβατό με payload `{ "text": "..." }`. Αν δεν οριστεί, το monitor γράφει το σφάλμα στο stderr και συνεχίζει με exit code 1 για cron/systemd.
+
+Το dashboard χρησιμοποιεί `/api/missions/stream` με authenticated SSE για live mission progress.
+
 chmod +x deploy/monitor_health.sh
 */5 * * * * cd /opt/nous && deploy/monitor_health.sh || logger -t nous-health "NOUS health check failed"
 ```
