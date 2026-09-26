@@ -181,14 +181,32 @@
   --grid: oklch(1 0 0 / 6%);
 }
 
-/* NOUS dashboard accent (matches το υπάρχον UI: violet + cyan) */
+/* NOUS AI OS: quiet command center with violet intelligence and cyan signal */
 @theme inline {
   --color-violet: var(--violet);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
 }
 :root {
-  --violet: oklch(0.62 0.22 292);
-  --ok: oklch(0.72 0.18 150);
-  --warn: oklch(0.79 0.16 75);
+  --violet: oklch(0.68 0.19 292);
+  --ok: oklch(0.77 0.16 160);
+  --warn: oklch(0.82 0.15 82);
+  --background: oklch(0.12 0.018 258);
+  --foreground: oklch(0.96 0.012 250);
+  --card: oklch(0.16 0.022 258);
+  --card-foreground: oklch(0.96 0.012 250);
+  --popover: oklch(0.17 0.025 258);
+  --popover-foreground: oklch(0.96 0.012 250);
+  --muted-foreground: oklch(0.68 0.025 250);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 14%);
+  --accent: oklch(0.23 0.045 278);
+  --grid: oklch(1 0 0 / 5%);
 }
+
+body {
+  background-image: radial-gradient(circle at 70% -10%, oklch(0.32 0.11 292 / 18%), transparent 34rem), linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+}
+
+::selection { background: oklch(0.68 0.19 292 / 35%); }
