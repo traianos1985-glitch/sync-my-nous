@@ -100,12 +100,32 @@ function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [messages, setMessages] = useState(initialChat);
   const [draft, setDraft] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
 
-  const send = () => {
+  const send = async () => {
     const text = draft.trim();
-    if (!text) return;
-    setMessages((m) => [...m, { role: "user", text }, { role: "assistant", text: answerLocally(text) }]);
+    if (!text || isThinking) return;
+    const history = messages.slice(-10);
+    setMessages((m) => [...m, { role: "user", text }]);
     setDraft("");
+    setIsThinking(true);
+
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, history }),
+      });
+      const data = (await response.json()) as { answer?: string; human_answer?: string; response?: string; error?: string };
+      const answer = data.human_answer ?? data.answer ?? data.response;
+      if (!response.ok || !answer) throw new Error(data.error ?? "Chat unavailable");
+      setMessages((m) => [...m, { role: "assistant", text: answer }]);
+    } catch (error) {
+      console.error("[v0] Chat request failed", error);
+      setMessages((m) => [...m, { role: "assistant", text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δοκίμασε ξανά σε λίγο." }]);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const go = (id: string) => {
@@ -249,9 +269,9 @@ function Dashboard() {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                       e.preventDefault();
-                      send();
+                      void send();
                     }
                   }}
                   rows={2}
