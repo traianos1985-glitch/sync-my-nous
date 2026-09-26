@@ -42,6 +42,23 @@ export const nousToolRuns = pgTable("nous_tool_runs", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const nousJobs = pgTable("nous_jobs", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  kind: text("kind").notNull(),
+  status: text("status").notNull().default("queued"),
+  payload: jsonb("payload").notNull().default({}),
+  output: jsonb("output").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const nousRateLimits = pgTable("nous_rate_limits", {
+  userId: text("user_id").primaryKey(),
+  windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
+  requestCount: integer("request_count").notNull().default(0),
+});
+
 export const nousObservabilityEvents = pgTable("nous_observability_events", {
   id: text("id").primaryKey(),
   userId: text("user_id"),

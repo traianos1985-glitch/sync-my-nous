@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ApiApprovalsRouteImport } from './routes/api.approvals'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
+import { Route as ApiJobsRouteImport } from './routes/api.jobs'
 import { Route as ApiMissionsRouteImport } from './routes/api.missions'
 import { Route as ApiObservabilityRouteImport } from './routes/api.observability'
 import { Route as ApiStatusRouteImport } from './routes/api.status'
@@ -36,6 +37,11 @@ const ApiApprovalsRoute = ApiApprovalsRouteImport.update({
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiJobsRoute = ApiJobsRouteImport.update({
+  id: '/api/jobs',
+  path: '/api/jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMissionsRoute = ApiMissionsRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/jobs': typeof ApiJobsRoute
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
   '/api/status': typeof ApiStatusRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/jobs': typeof ApiJobsRoute
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
   '/api/status': typeof ApiStatusRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/jobs': typeof ApiJobsRoute
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
   '/api/status': typeof ApiStatusRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/approvals'
     | '/api/chat'
+    | '/api/jobs'
     | '/api/missions'
     | '/api/observability'
     | '/api/status'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/approvals'
     | '/api/chat'
+    | '/api/jobs'
     | '/api/missions'
     | '/api/observability'
     | '/api/status'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/approvals'
     | '/api/chat'
+    | '/api/jobs'
     | '/api/missions'
     | '/api/observability'
     | '/api/status'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ApiApprovalsRoute: typeof ApiApprovalsRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiJobsRoute: typeof ApiJobsRoute
   ApiMissionsRoute: typeof ApiMissionsRoute
   ApiObservabilityRoute: typeof ApiObservabilityRoute
   ApiStatusRoute: typeof ApiStatusRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jobs': {
+      id: '/api/jobs'
+      path: '/api/jobs'
+      fullPath: '/api/jobs'
+      preLoaderRoute: typeof ApiJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/missions': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ApiApprovalsRoute: ApiApprovalsRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiJobsRoute: ApiJobsRoute,
   ApiMissionsRoute: ApiMissionsRoute,
   ApiObservabilityRoute: ApiObservabilityRoute,
   ApiStatusRoute: ApiStatusRoute,

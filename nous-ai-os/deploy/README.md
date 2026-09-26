@@ -125,6 +125,17 @@ bash deploy/local_mac_linux/install_autostart_linux.sh
 
 ---
 
+## Production monitoring και durable recovery
+
+Το `monitor_health.sh` μπορεί να εκτελείται από cron/systemd timer και να συνδεθεί με alerting service. Τα jobs και τα rate-limit counters αποθηκεύονται στο Neon, ώστε restart ή αλλαγή instance να μη χάνει το lifecycle state.
+
+```bash
+chmod +x deploy/monitor_health.sh
+*/5 * * * * cd /opt/nous && deploy/monitor_health.sh || logger -t nous-health "NOUS health check failed"
+```
+
+Για πραγματικό production authentication, αντικατάστησε το προσωρινό `x-nous-user-id` identity με Better Auth session middleware πριν εκθέσεις τα endpoints δημόσια.
+
 ## Ασφαλής συνεχής λειτουργία και ανάκτηση
 
 Ο NOUS μπορεί να τρέχει 24/7 σε VPS ή Docker με `restart: always`, health checks και persistent `data/` volume. Η αυτοβελτίωση είναι σκόπιμα ελεγχόμενη: δεν κατεβάζει και δεν εκτελεί αυθαίρετο remote Python code. Οι ενημερώσεις γίνονται μέσω signed/approved GitHub CI/CD deployment, ώστε να υπάρχει rollback και audit trail.
