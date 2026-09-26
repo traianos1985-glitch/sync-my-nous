@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { db } from "../lib/db";
 import { nousObservabilityEvents } from "../lib/db/schema";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";

@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousApprovals, nousObservabilityEvents } from "../lib/db/schema";
 import { getToolDefinition } from "../lib/tool-registry";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
+import { NOUS_LIMITS } from "../lib/platform-policy";
 
 async function userId(request: Request) {
   return requireAuthenticatedUserId(request);
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/api/approvals")({
             and(
               eq(nousApprovals.userId, await userId(request)),
               eq(nousApprovals.status, "pending"),
+              gt(nousApprovals.expiresAt, new Date()),
             ),
           )
           .orderBy(desc(nousApprovals.createdAt))
@@ -48,6 +50,7 @@ export const Route = createFileRoute("/api/approvals")({
           tool,
           input: parsed.data,
           status: "pending",
+          expiresAt: new Date(Date.now() + NOUS_LIMITS.approvalTtlMinutes * 60_000),
         };
         await db.insert(nousApprovals).values(approval);
         return Response.json(
@@ -67,6 +70,7 @@ export const Route = createFileRoute("/api/approvals")({
               eq(nousApprovals.id, body.id),
               eq(nousApprovals.userId, await userId(request)),
               eq(nousApprovals.status, "pending"),
+              gt(nousApprovals.expiresAt, new Date()),
             ),
           )
           .returning();
