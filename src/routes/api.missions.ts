@@ -20,6 +20,29 @@ export const Route = createFileRoute("/api/missions")({
           .limit(50);
         return Response.json({ ok: true, missions });
       },
+      PATCH: async ({ request }) => {
+        const userId = getUserId(request);
+        const body = (await request.json()) as { id?: string; status?: string };
+        const allowed = [
+          "queued",
+          "planning",
+          "awaiting_approval",
+          "running",
+          "completed",
+          "failed",
+          "cancelled",
+        ];
+        if (!body.id || !body.status || !allowed.includes(body.status))
+          return Response.json({ error: "Invalid mission transition" }, { status: 400 });
+        const [mission] = await db
+          .update(nousMissions)
+          .set({ status: body.status, updatedAt: new Date() })
+          .where(and(eq(nousMissions.id, body.id), eq(nousMissions.userId, userId)))
+          .returning();
+        return mission
+          ? Response.json({ mission })
+          : Response.json({ error: "Mission not found" }, { status: 404 });
+      },
       POST: async ({ request }) => {
         const body = (await request.json()) as { title?: string; objective?: string };
         const title = body.title?.trim().slice(0, 160);
