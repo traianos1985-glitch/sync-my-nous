@@ -274,6 +274,7 @@ function Dashboard() {
     Array<{ id: string; event: string; createdAt: string; tool?: string | null }>
   >([]);
   const [auditStatus, setAuditStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [auditFilter, setAuditFilter] = useState("");
   const [providerAction, setProviderAction] = useState<string | null>(null);
   const [knowledgeDocuments, setKnowledgeDocuments] = useState<
     Array<{
@@ -384,7 +385,11 @@ function Dashboard() {
   const loadAuditEvents = async () => {
     setAuditStatus("loading");
     try {
-      const data = await nousFetch<{ events: typeof auditEvents }>("/api/audit?days=30");
+      const query = new URLSearchParams({ days: "30" });
+      if (auditFilter.trim()) query.set("event", auditFilter.trim());
+      const data = await nousFetch<{ events: typeof auditEvents }>(
+        `/api/audit?${query.toString()}`,
+      );
       setAuditEvents(data.events);
       setAuditStatus("idle");
     } catch {
@@ -393,7 +398,9 @@ function Dashboard() {
   };
 
   const exportAudit = () => {
-    window.open("/api/audit?format=csv&days=30", "_blank", "noopener,noreferrer");
+    const query = new URLSearchParams({ format: "csv", days: "30" });
+    if (auditFilter.trim()) query.set("event", auditFilter.trim());
+    window.open(`/api/audit?${query.toString()}`, "_blank", "noopener,noreferrer");
   };
 
   const loadJobHistory = async () => {
@@ -799,6 +806,16 @@ function Dashboard() {
                         <p className="text-xs text-muted-foreground">
                           Ιστορικό ενεργειών και approvals των τελευταίων 30 ημερών.
                         </p>
+                        <input
+                          value={auditFilter}
+                          onChange={(event) => setAuditFilter(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void loadAuditEvents();
+                          }}
+                          placeholder="Filter event…"
+                          aria-label="Φίλτρο audit event"
+                          className="mt-2 w-full rounded-md border border-border bg-background/60 px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+                        />
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -1409,7 +1426,7 @@ function Dashboard() {
                   {section === "missions"
                     ? "Οι α��οστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
                     : section === "memory"
-                      ? "Η μνήμη του agent κρατά στόχους, αποφάσεις και συμπεράσματα με σαφή προέλευση."
+                      ? "Η μνήμη ��ου agent κρατά στόχους, αποφάσεις και συμπεράσματα με σαφή προέλευση."
                       : section === "system"
                         ? "Ο ΝΟΥΣ λειτουργεί με ασφαλή όρια: δεν ισχυρίζεται ότι έκανε κάτι αν δεν υπάρχει αποτέλεσμα από backend."
                         : `Η ενότητα ${navLabel(section)} είναι έτοιμη για σύνδεση με το NOUS API.`}
