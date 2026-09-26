@@ -15,6 +15,7 @@ import {
   Sparkles,
   X,
   Zap,
+  UploadCloud,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
 import { nousFetch, nousStream } from "@/lib/nous-api";
@@ -162,6 +163,16 @@ function Dashboard() {
   >([]);
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "connected">("idle");
   const [providerAction, setProviderAction] = useState<string | null>(null);
+  const [knowledgeDocuments, setKnowledgeDocuments] = useState<
+    Array<{
+      id: string;
+      originalName: string;
+      contentType: string;
+      status: string;
+      sizeBytes: number;
+    }>
+  >([]);
+  const [knowledgeUpload, setKnowledgeUpload] = useState("idle");
   const [sentinel, setSentinel] = useState<{
     score: number;
     findings: Array<{
@@ -173,6 +184,28 @@ function Dashboard() {
     }>;
     checkedAt: string;
   } | null>(null);
+
+  const loadKnowledgeDocuments = async () => {
+    try {
+      const data = await nousFetch<{ documents: typeof knowledgeDocuments }>("/api/knowledge");
+      setKnowledgeDocuments(data.documents);
+    } catch {
+      setKnowledgeDocuments([]);
+    }
+  };
+
+  const uploadKnowledgeDocument = async (file: File) => {
+    setKnowledgeUpload("uploading");
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      await nousFetch("/api/knowledge", { method: "POST", body });
+      setKnowledgeUpload("indexed");
+      await loadKnowledgeDocuments();
+    } catch {
+      setKnowledgeUpload("failed");
+    }
+  };
 
   const connectMissionStream = async () => {
     if (liveStatus === "connecting" || liveStatus === "connected") return;
@@ -901,6 +934,64 @@ function Dashboard() {
                         ? "Ο ΝΟΥΣ λειτουργεί με ασφαλή όρια: δεν ισχυρίζεται ότι έκανε κάτι αν δεν υπάρχει αποτέλεσμα από backend."
                         : `Η ενότητα ${navLabel(section)} είναι έτοιμη για σύνδεση με το NOUS API.`}
                 </p>
+                {section === "documents" && (
+                  <div className="mt-5 space-y-4">
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-8 text-center transition-colors hover:bg-primary/10">
+                      <UploadCloud className="size-7 text-primary" />
+                      <span className="mt-3 text-sm font-semibold">
+                        Ανέβασε PDF, PNG, JPG, WEBP ή text
+                      </span>
+                      <span className="mt-1 text-xs text-muted-foreground">
+                        Private storage · έως 15 MB · indexing και vision queue
+                      </span>
+                      <input
+                        className="sr-only"
+                        type="file"
+                        accept="application/pdf,image/png,image/jpeg,image/webp,text/plain,text/markdown"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void uploadKnowledgeDocument(file);
+                        }}
+                      />
+                    </label>
+                    {knowledgeUpload !== "idle" && (
+                      <p className="rounded-lg bg-background/70 p-3 text-xs text-muted-foreground">
+                        {knowledgeUpload === "uploading"
+                          ? "Ανεβαίνει και απομονώνεται…"
+                          : knowledgeUpload === "indexed"
+                            ? "Το αρχείο αποθηκεύτηκε και μπήκε στο knowledge index."
+                            : "Το upload απέτυχε. Έλεγξε τύπο και μέγεθος αρχείου."}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void loadKnowledgeDocuments()}
+                      className="rounded-lg border border-border px-3 py-2 text-xs font-semibold"
+                    >
+                      Ανανέωση knowledge vault
+                    </button>
+                    <div className="space-y-2">
+                      {knowledgeDocuments.map((document) => (
+                        <div
+                          key={document.id}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/60 p-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">
+                              {document.originalName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {document.contentType} · {Math.ceil(document.sizeBytes / 1024)} KB
+                            </p>
+                          </div>
+                          <span className="font-mono text-[10px] uppercase text-primary">
+                            {document.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {section === "control" && (
                   <div className="mt-5 space-y-4">
                     <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">

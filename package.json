@@ -49,6 +49,7 @@
     "@tanstack/react-router": "1.170.18",
     "@tanstack/react-start": "1.168.32",
     "@tanstack/router-plugin": "1.168.23",
+    "@vercel/blob": "^2.8.0",
     "ai": "^7.0.116",
     "better-auth": "^1.7.6",
     "class-variance-authority": "^0.7.1",

@@ -14,11 +14,14 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ApiApprovalsRouteImport } from './routes/api.approvals'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
 import { Route as ApiJobsRouteImport } from './routes/api.jobs'
+import { Route as ApiKnowledgeRouteImport } from './routes/api.knowledge'
 import { Route as ApiMissionsRouteImport } from './routes/api.missions'
 import { Route as ApiObservabilityRouteImport } from './routes/api.observability'
 import { Route as ApiSecurityAuditRouteImport } from './routes/api.security-audit'
+import { Route as ApiSecurityLessonsRouteImport } from './routes/api.security-lessons'
 import { Route as ApiStatusRouteImport } from './routes/api.status'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
+import { Route as ApiKnowledgeFileRouteImport } from './routes/api.knowledge.file'
 import { Route as ApiMissionsStreamRouteImport } from './routes/api.missions.stream'
 import { Route as ApiToolsExecuteRouteImport } from './routes/api.tools.execute'
 
@@ -47,6 +50,11 @@ const ApiJobsRoute = ApiJobsRouteImport.update({
   path: '/api/jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiKnowledgeRoute = ApiKnowledgeRouteImport.update({
+  id: '/api/knowledge',
+  path: '/api/knowledge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMissionsRoute = ApiMissionsRouteImport.update({
   id: '/api/missions',
   path: '/api/missions',
@@ -62,6 +70,11 @@ const ApiSecurityAuditRoute = ApiSecurityAuditRouteImport.update({
   path: '/api/security-audit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSecurityLessonsRoute = ApiSecurityLessonsRouteImport.update({
+  id: '/api/security-lessons',
+  path: '/api/security-lessons',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
@@ -71,6 +84,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiKnowledgeFileRoute = ApiKnowledgeFileRouteImport.update({
+  id: '/file',
+  path: '/file',
+  getParentRoute: () => ApiKnowledgeRoute,
 } as any)
 const ApiMissionsStreamRoute = ApiMissionsStreamRouteImport.update({
   id: '/stream',
@@ -89,11 +107,14 @@ export interface FileRoutesByFullPath {
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/jobs': typeof ApiJobsRoute
+  '/api/knowledge': typeof ApiKnowledgeRouteWithChildren
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
+  '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/knowledge/file': typeof ApiKnowledgeFileRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
@@ -103,11 +124,14 @@ export interface FileRoutesByTo {
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/jobs': typeof ApiJobsRoute
+  '/api/knowledge': typeof ApiKnowledgeRouteWithChildren
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
+  '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/knowledge/file': typeof ApiKnowledgeFileRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
@@ -118,11 +142,14 @@ export interface FileRoutesById {
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/jobs': typeof ApiJobsRoute
+  '/api/knowledge': typeof ApiKnowledgeRouteWithChildren
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
+  '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/knowledge/file': typeof ApiKnowledgeFileRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
@@ -134,11 +161,14 @@ export interface FileRouteTypes {
     | '/api/approvals'
     | '/api/chat'
     | '/api/jobs'
+    | '/api/knowledge'
     | '/api/missions'
     | '/api/observability'
     | '/api/security-audit'
+    | '/api/security-lessons'
     | '/api/status'
     | '/api/auth/$'
+    | '/api/knowledge/file'
     | '/api/missions/stream'
     | '/api/tools/execute'
   fileRoutesByTo: FileRoutesByTo
@@ -148,11 +178,14 @@ export interface FileRouteTypes {
     | '/api/approvals'
     | '/api/chat'
     | '/api/jobs'
+    | '/api/knowledge'
     | '/api/missions'
     | '/api/observability'
     | '/api/security-audit'
+    | '/api/security-lessons'
     | '/api/status'
     | '/api/auth/$'
+    | '/api/knowledge/file'
     | '/api/missions/stream'
     | '/api/tools/execute'
   id:
@@ -162,11 +195,14 @@ export interface FileRouteTypes {
     | '/api/approvals'
     | '/api/chat'
     | '/api/jobs'
+    | '/api/knowledge'
     | '/api/missions'
     | '/api/observability'
     | '/api/security-audit'
+    | '/api/security-lessons'
     | '/api/status'
     | '/api/auth/$'
+    | '/api/knowledge/file'
     | '/api/missions/stream'
     | '/api/tools/execute'
   fileRoutesById: FileRoutesById
@@ -177,9 +213,11 @@ export interface RootRouteChildren {
   ApiApprovalsRoute: typeof ApiApprovalsRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiJobsRoute: typeof ApiJobsRoute
+  ApiKnowledgeRoute: typeof ApiKnowledgeRouteWithChildren
   ApiMissionsRoute: typeof ApiMissionsRouteWithChildren
   ApiObservabilityRoute: typeof ApiObservabilityRoute
   ApiSecurityAuditRoute: typeof ApiSecurityAuditRoute
+  ApiSecurityLessonsRoute: typeof ApiSecurityLessonsRoute
   ApiStatusRoute: typeof ApiStatusRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiToolsExecuteRoute: typeof ApiToolsExecuteRoute
@@ -222,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/knowledge': {
+      id: '/api/knowledge'
+      path: '/api/knowledge'
+      fullPath: '/api/knowledge'
+      preLoaderRoute: typeof ApiKnowledgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/missions': {
       id: '/api/missions'
       path: '/api/missions'
@@ -243,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSecurityAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/security-lessons': {
+      id: '/api/security-lessons'
+      path: '/api/security-lessons'
+      fullPath: '/api/security-lessons'
+      preLoaderRoute: typeof ApiSecurityLessonsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/status': {
       id: '/api/status'
       path: '/api/status'
@@ -256,6 +308,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/knowledge/file': {
+      id: '/api/knowledge/file'
+      path: '/file'
+      fullPath: '/api/knowledge/file'
+      preLoaderRoute: typeof ApiKnowledgeFileRouteImport
+      parentRoute: typeof ApiKnowledgeRoute
     }
     '/api/missions/stream': {
       id: '/api/missions/stream'
@@ -273,6 +332,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ApiKnowledgeRouteChildren {
+  ApiKnowledgeFileRoute: typeof ApiKnowledgeFileRoute
+}
+
+const ApiKnowledgeRouteChildren: ApiKnowledgeRouteChildren = {
+  ApiKnowledgeFileRoute: ApiKnowledgeFileRoute,
+}
+
+const ApiKnowledgeRouteWithChildren = ApiKnowledgeRoute._addFileChildren(
+  ApiKnowledgeRouteChildren,
+)
 
 interface ApiMissionsRouteChildren {
   ApiMissionsStreamRoute: typeof ApiMissionsStreamRoute
@@ -292,9 +363,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiApprovalsRoute: ApiApprovalsRoute,
   ApiChatRoute: ApiChatRoute,
   ApiJobsRoute: ApiJobsRoute,
+  ApiKnowledgeRoute: ApiKnowledgeRouteWithChildren,
   ApiMissionsRoute: ApiMissionsRouteWithChildren,
   ApiObservabilityRoute: ApiObservabilityRoute,
   ApiSecurityAuditRoute: ApiSecurityAuditRoute,
+  ApiSecurityLessonsRoute: ApiSecurityLessonsRoute,
   ApiStatusRoute: ApiStatusRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiToolsExecuteRoute: ApiToolsExecuteRoute,
