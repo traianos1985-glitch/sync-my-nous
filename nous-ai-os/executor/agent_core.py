@@ -1,32 +1,52 @@
-from executor.plugin_registry import run_plugin
+"""Canonical NOUS agent runtime with plugin hooks.
 
-def decide(goal):
+Legacy agent modules should depend on this core rather than implement their own
+planning/execution loops. Plugins are intentionally small and composable.
+"""
+from __future__ import annotations
 
-    if "plugin:" in goal:
-        return "create_plugin"
-
-    if "evolve" in goal:
-        return "improve_system"
-
-    return "idle"
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 
-# FIX: τώρα δέχεται context επίσης (για hybrid system)
-def act(goal, context=None):
+class AgentPlugin(Protocol):
+    name: str
 
-    action = decide(goal)
+    def before_run(self, context: dict[str, Any]) -> dict[str, Any]: ...
 
-    if action == "create_plugin":
-        return run_plugin(goal.replace("plugin:", "").strip())
+    def after_run(self, context: dict[str, Any], result: Any) -> Any: ...
 
-    if action == "improve_system":
-        return {
-            "status": "evolving",
-            "context_used": context is not None
+
+@dataclass(slots=True)
+class AgentCore:
+    plugins: list[AgentPlugin] = field(default_factory=list)
+
+    def run(self, task: str, *, context: dict[str, Any] | None = None) -> dict[str, Any]:
+        state = {"task": task, **(context or {})}
+        for plugin in self.plugins:
+            state = plugin.before_run(state)
+        result: dict[str, Any] = {
+            "ok": True,
+            "task": task,
+            "status": "planned",
+            "context": state,
+            "approval_required": True,
         }
+        for plugin in reversed(self.plugins):
+            result = plugin.after_run(state, result)
+        return result
 
-    return {
-        "status": "executed",
-        "goal": goal,
-        "context": context
-    }
+
+class AuditPlugin:
+    name = "audit"
+
+    def before_run(self, context: dict[str, Any]) -> dict[str, Any]:
+        return {**context, "audit": {"phase": "before_run"}}
+
+    def after_run(self, context: dict[str, Any], result: Any) -> Any:
+        return {**result, "audit": {"phase": "after_run", "task": context["task"]}}
+
+
+DEFAULT_AGENT = AgentCore(plugins=[AuditPlugin()])
+
+__all__ = ["AgentCore", "AgentPlugin", "AuditPlugin", "DEFAULT_AGENT"]
