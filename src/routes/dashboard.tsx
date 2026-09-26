@@ -47,7 +47,16 @@ export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
-const snapshotLabels = ["Health", "API connection", "Missions σε εξέλιξη", "Tool runs", "Storage"];
+const snapshotLabels = [
+  "Health",
+  "API connection",
+  "Missions σε εξέλιξη",
+  "Tool runs",
+  "Storage",
+  "CPU",
+  "Memory",
+  "Overview",
+];
 
 const capabilities = [
   "chat brain",
@@ -169,6 +178,14 @@ function answerLocally(input: string) {
   return `Κατάλαβα το αίτημα: «${input.trim()}». Μπορώ να απαντήσω για τοπική κατάσταση, missions, backup και τις ενότητες του workspace. Για ενέργειες στον πραγματικό υπολογιστή χρειάζεται συνδεδεμένος NOUS backend.`;
 }
 
+type SystemStatus = {
+  status: string;
+  counts?: { missions: number; toolRuns: number };
+  storage?: string;
+  metrics?: { cpu_percent?: number; memory_percent?: number; disk_free_mb?: number; uptime_s?: number };
+  overview?: { metrics?: unknown; local_llm?: unknown };
+};
+
 function Dashboard() {
   const [section, setSection] = useState("chat");
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -231,11 +248,7 @@ function Dashboard() {
     Array<{ id: string; tool: string; input: unknown; createdAt: string }>
   >([]);
   const [approvalStatus, setApprovalStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [systemStatus, setSystemStatus] = useState<{
-    status: string;
-    counts?: { missions: number; toolRuns: number };
-    storage?: string;
-  } | null>(null);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [liveMissions, setLiveMissions] = useState<
     Array<{ id: string; title: string; status: string }>
   >([]);
@@ -403,9 +416,19 @@ function Dashboard() {
 
   const loadSystemStatus = async () => {
     try {
-      const data = await nousFetch<typeof systemStatus>("/api/status");
-      setSystemStatus(data);
-      return;
+      const [statusResult, metricsResult, overviewResult] = await Promise.allSettled([
+        nousFetch<SystemStatus>("/api/status"),
+        nousFetch<SystemStatus["metrics"]>("/api/system/metrics"),
+        nousFetch<SystemStatus["overview"]>("/api/system/overview"),
+      ]);
+      const status = statusResult.status === "fulfilled" ? statusResult.value : undefined;
+      const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : undefined;
+      const overview = overviewResult.status === "fulfilled" ? overviewResult.value : undefined;
+      if (status || metrics || overview) {
+        setSystemStatus({ ...(status ?? {}), status: status?.status ?? "online", metrics, overview });
+        return;
+      }
+      throw new Error("NOUS system status unavailable");
     } catch {
       try {
         const health = await nousFetch<{ status: string }>("/api/health");
@@ -1319,7 +1342,13 @@ function Dashboard() {
                           ? String(systemStatus?.counts?.missions ?? "—")
                           : label === "Tool runs"
                             ? String(systemStatus?.counts?.toolRuns ?? "—")
-                            : (systemStatus?.storage ?? "—");
+                            : label === "CPU"
+                              ? `${systemStatus?.metrics?.cpu_percent ?? "—"}%`
+                              : label === "Memory"
+                                ? `${systemStatus?.metrics?.memory_percent ?? "—"}%`
+                                : label === "Overview"
+                                  ? systemStatus?.overview ? "live" : "—"
+                                  : (systemStatus?.storage ?? "—");
                   return (
                     <div
                       key={label}
