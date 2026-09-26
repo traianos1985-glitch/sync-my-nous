@@ -134,6 +134,9 @@ from executor.blueprints.system_bp import system_bp
 app.register_blueprint(events_bp)
 app.register_blueprint(system_bp)
 
+from executor.blueprints.agent_ops_bp import agent_ops_bp
+app.register_blueprint(agent_ops_bp)
+
 
 # Fail-closed auth για ΟΛΑ τα endpoints (δες executor/auth_guard.py)
 install_auth_guard(app)
