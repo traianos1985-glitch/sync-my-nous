@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/knowledge/search")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const userId = requireAuthenticatedUserId(request);
+        const userId = await requireAuthenticatedUserId(request);
         const body = (await request.json().catch(() => ({}))) as { query?: string; limit?: number };
         const query = body.query?.trim().slice(0, 2_000);
         if (!query) return Response.json({ error: "query is required" }, { status: 400 });

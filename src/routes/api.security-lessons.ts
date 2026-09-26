@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/security-lessons")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const userId = requireAuthenticatedUserId(request);
+        const userId = await requireAuthenticatedUserId(request);
         const lessons = await db
           .select()
           .from(nousSecurityLessons)
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/security-lessons")({
         return Response.json({ ok: true, lessons });
       },
       POST: async ({ request }) => {
-        const userId = requireAuthenticatedUserId(request);
+        const userId = await requireAuthenticatedUserId(request);
         const body = (await request.json()) as {
           category?: string;
           severity?: string;
