@@ -21,7 +21,10 @@ export const Route = createFileRoute("/api/jobs")({
         if (serializedBytes(body.payload) > NOUS_LIMITS.maxToolPayloadBytes)
           return Response.json({ error: "Job payload is too large" }, { status: 413 });
         const job = await createJob(await userId(request), body.kind, body.payload ?? {});
-        return Response.json({ job }, { status: 202 });
+        return Response.json(
+          { job },
+          { status: 202, headers: { "Cache-Control": "private, no-store" } },
+        );
       },
       PATCH: async ({ request }) => {
         const body = (await request.json()) as { id?: string; action?: string };
@@ -34,14 +37,17 @@ export const Route = createFileRoute("/api/jobs")({
         const cancelled = await updateJob(body.id, await userId(request), "cancelled", {
           cancelledAt: new Date().toISOString(),
         });
-        return Response.json({ job: cancelled });
+        return Response.json(
+          { job: cancelled },
+          { headers: { "Cache-Control": "private, no-store" } },
+        );
       },
       GET: async ({ request }) => {
         const id = new URL(request.url).searchParams.get("id");
         if (!id) return Response.json({ error: "Missing job id" }, { status: 400 });
         const job = await getJob(id, await userId(request));
         return job
-          ? Response.json({ job })
+          ? Response.json({ job }, { headers: { "Cache-Control": "private, no-store" } })
           : Response.json({ error: "Job not found" }, { status: 404 });
       },
     },

@@ -2,8 +2,13 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "./index";
 import { nousJobs } from "./schema";
+import { isAllowedJobKind, NOUS_LIMITS, serializedBytes } from "../platform-policy";
 
 export async function createJob(userId: string, kind: string, payload: unknown) {
+  if (!isAllowedJobKind(kind) || kind.length > NOUS_LIMITS.maxJobKindLength)
+    throw new Error("Unsupported job kind");
+  if (serializedBytes(payload) > NOUS_LIMITS.maxToolPayloadBytes)
+    throw new Error("Job payload is too large");
   const [job] = await db
     .insert(nousJobs)
     .values({ id: randomUUID(), userId, kind, payload, status: "queued" })
