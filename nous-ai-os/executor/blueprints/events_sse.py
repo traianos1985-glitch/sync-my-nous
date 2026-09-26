@@ -1,7 +1,7 @@
 import json
 import time
 from flask import Blueprint, Response, request
-from executor.agent_journal import list_journal_entries
+from executor.agent_journal import list_journal
 
 events_bp = Blueprint("events_sse", __name__, url_prefix="/api")
 
@@ -11,15 +11,14 @@ def agent_stream():
     def generate():
         last_count = 0
         iterations = 0
-        while iterations < 60:  # stream for 60 iterations or client disconnect
+        while iterations < 60:
             try:
-                entries = list_journal_entries()
+                entries = list_journal()
                 if len(entries) > last_count:
                     new_entries = entries[last_count:]
                     last_count = len(entries)
                     yield f"event: agent_journal\ndata: {json.dumps(new_entries)}\n\n"
                 
-                # heartbeat ping every 3 seconds
                 yield f"event: ping\ndata: {json.dumps({'time': time.time(), 'status': 'alive'})}\n\n"
             except Exception as e:
                 yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
