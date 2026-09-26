@@ -189,6 +189,7 @@ function Dashboard() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
+    void loadSystemStatus();
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     setVoiceSupported(Boolean(Recognition && "speechSynthesis" in window));
     return () => {
@@ -411,8 +412,14 @@ function Dashboard() {
     try {
       const data = await nousFetch<typeof systemStatus>("/api/status");
       setSystemStatus(data);
+      return;
     } catch {
-      setSystemStatus({ status: "unavailable" });
+      try {
+        const health = await nousFetch<{ status: string }>("/api/health");
+        setSystemStatus({ status: health.status === "healthy" ? "online" : "degraded" });
+      } catch {
+        setSystemStatus({ status: "unavailable" });
+      }
     }
   };
 
@@ -476,7 +483,7 @@ function Dashboard() {
       setConnectionMode(data.mode ?? "connected");
       const suffix =
         data.mode === "degraded"
-          ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε ��ξωτερική ενέργεια.]"
+          ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]"
           : data.researchUsed && data.citations?.length
             ? `\n\n[Πηγές: ${data.citations.map((citation) => citation.domain).join(", ")}]`
             : "";
@@ -618,7 +625,7 @@ function Dashboard() {
             <button
               onClick={() => setMenuOpen(true)}
               className="rounded-md border border-border p-1.5 lg:hidden"
-              aria-label="Άνοι��ε το μενού"
+              aria-label="Άνοιξε το μενού"
             >
               <Menu className="size-4" />
             </button>
@@ -653,11 +660,11 @@ function Dashboard() {
                       Agent online · Owner workspace
                     </div>
                     <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-                      Τι αναλαμβ��νουμε σήμερα;
+                      Τι αναλαμβάνουμε σήμερα;
                     </h1>
                     <p className="mt-2 max-w-xl text-sm text-muted-foreground">
                       Στόχοι, missions, browser operator και κώδικας — σε μία ενιαία ροή με έγκριση
-                      πριν από κάθε ��ξωτερική ενέργεια.
+                      πριν από κάθε εξωτερική ενέργεια.
                     </p>
                   </div>
                   <div className="hidden rounded-xl border border-border/70 bg-background/50 p-3 text-right sm:block">
@@ -1180,7 +1187,7 @@ function Dashboard() {
                         ? "Αναζήτηση → σύνθεση…"
                         : "Ο ΝΟΥΣ σκέφτεται…"
                       : connectionMode === "degraded"
-                        ? "Περιορ��σμένη λειτουργία"
+                        ? "Περιορισμένη λειτουργία"
                         : "Έτοιμος για μήνυμα"}
                   </span>
                   <label className="flex items-center gap-1 rounded-md border border-border/70 px-2 py-1">
@@ -1383,7 +1390,7 @@ function Dashboard() {
             <div className="mt-4 rounded-2xl border border-violet/40 bg-violet/5 p-5">
               <h3 className="font-display text-base font-semibold">🤖 Τι θέλει να κάνει ο ΝΟΥΣ</h3>
               <p className="text-xs text-muted-foreground">
-                Α��τόνομες προτάσεις — έγκρινε ή απόρριψε
+                Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
               </p>
               <div className="mt-4 space-y-3">
                 {initiatives.map((i) => {
@@ -1432,9 +1439,9 @@ function Dashboard() {
               <Card title={navLabel(section)}>
                 <p className="text-sm text-muted-foreground">
                   {section === "missions"
-                    ? "Οι α��οστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
+                    ? "Οι αποστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
                     : section === "memory"
-                      ? "Η μνήμη ��ου agent κρατά στόχους, αποφάσεις και συμπεράσματα με σαφή προέλευση."
+                      ? "Η μνήμη του agent κρατά στόχους, αποφάσεις και συμπεράσματα με σαφή προέλευση."
                       : section === "system"
                         ? "Ο ΝΟΥΣ λειτουργεί με ασφαλή όρια: δεν ισχυρίζεται ότι έκανε κάτι αν δεν υπάρχει αποτέλεσμα από backend."
                         : `Η ενότητα ${navLabel(section)} είναι έτοιμη για σύνδεση με το NOUS API.`}
