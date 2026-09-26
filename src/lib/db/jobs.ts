@@ -63,6 +63,21 @@ export async function retryJob(id: string, userId: string) {
   return job;
 }
 
+export async function claimNextJob(userId: string) {
+  const [job] = await db
+    .update(nousJobs)
+    .set({ status: "running", startedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(nousJobs.userId, userId),
+        eq(nousJobs.status, "queued"),
+        sql`${nousJobs.retryCount} < ${NOUS_LIMITS.maxJobRetries}`,
+      ),
+    )
+    .returning();
+  return job;
+}
+
 export async function getJob(id: string, userId: string) {
   const [job] = await db
     .select()

@@ -25,6 +25,7 @@ import { Route as ApiSecurityAuditRouteImport } from './routes/api.security-audi
 import { Route as ApiSecurityLessonsRouteImport } from './routes/api.security-lessons'
 import { Route as ApiStatusRouteImport } from './routes/api.status'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
+import { Route as ApiChatStreamRouteImport } from './routes/api.chat.stream'
 import { Route as ApiKnowledgeFileRouteImport } from './routes/api.knowledge.file'
 import { Route as ApiKnowledgeProcessRouteImport } from './routes/api.knowledge.process'
 import { Route as ApiKnowledgeSearchRouteImport } from './routes/api.knowledge.search'
@@ -111,6 +112,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
+  id: '/stream',
+  path: '/stream',
+  getParentRoute: () => ApiChatRoute,
+} as any)
 const ApiKnowledgeFileRoute = ApiKnowledgeFileRouteImport.update({
   id: '/file',
   path: '/file',
@@ -142,7 +148,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/audit': typeof ApiAuditRoute
-  '/api/chat': typeof ApiChatRoute
+  '/api/chat': typeof ApiChatRouteWithChildren
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/health': typeof ApiHealthRoute
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
   '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
@@ -165,7 +172,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/audit': typeof ApiAuditRoute
-  '/api/chat': typeof ApiChatRoute
+  '/api/chat': typeof ApiChatRouteWithChildren
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/health': typeof ApiHealthRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
   '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
@@ -189,7 +197,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/audit': typeof ApiAuditRoute
-  '/api/chat': typeof ApiChatRoute
+  '/api/chat': typeof ApiChatRouteWithChildren
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/health': typeof ApiHealthRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
   '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/api/security-lessons'
     | '/api/status'
     | '/api/auth/$'
+    | '/api/chat/stream'
     | '/api/knowledge/file'
     | '/api/knowledge/process'
     | '/api/knowledge/search'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/api/security-lessons'
     | '/api/status'
     | '/api/auth/$'
+    | '/api/chat/stream'
     | '/api/knowledge/file'
     | '/api/knowledge/process'
     | '/api/knowledge/search'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/api/security-lessons'
     | '/api/status'
     | '/api/auth/$'
+    | '/api/chat/stream'
     | '/api/knowledge/file'
     | '/api/knowledge/process'
     | '/api/knowledge/search'
@@ -284,7 +296,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ApiApprovalsRoute: typeof ApiApprovalsRoute
   ApiAuditRoute: typeof ApiAuditRoute
-  ApiChatRoute: typeof ApiChatRoute
+  ApiChatRoute: typeof ApiChatRouteWithChildren
   ApiEvaluationRoute: typeof ApiEvaluationRoute
   ApiFeedbackRoute: typeof ApiFeedbackRoute
   ApiHealthRoute: typeof ApiHealthRoute
@@ -413,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat/stream': {
+      id: '/api/chat/stream'
+      path: '/stream'
+      fullPath: '/api/chat/stream'
+      preLoaderRoute: typeof ApiChatStreamRouteImport
+      parentRoute: typeof ApiChatRoute
+    }
     '/api/knowledge/file': {
       id: '/api/knowledge/file'
       path: '/file'
@@ -451,6 +470,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ApiChatRouteChildren {
+  ApiChatStreamRoute: typeof ApiChatStreamRoute
+}
+
+const ApiChatRouteChildren: ApiChatRouteChildren = {
+  ApiChatStreamRoute: ApiChatStreamRoute,
+}
+
+const ApiChatRouteWithChildren =
+  ApiChatRoute._addFileChildren(ApiChatRouteChildren)
+
 interface ApiKnowledgeRouteChildren {
   ApiKnowledgeFileRoute: typeof ApiKnowledgeFileRoute
   ApiKnowledgeProcessRoute: typeof ApiKnowledgeProcessRoute
@@ -484,7 +514,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ApiApprovalsRoute: ApiApprovalsRoute,
   ApiAuditRoute: ApiAuditRoute,
-  ApiChatRoute: ApiChatRoute,
+  ApiChatRoute: ApiChatRouteWithChildren,
   ApiEvaluationRoute: ApiEvaluationRoute,
   ApiFeedbackRoute: ApiFeedbackRoute,
   ApiHealthRoute: ApiHealthRoute,
