@@ -45,17 +45,26 @@ def run(goal="keep alive", interval=300, max_cycles=None):
     autonomy.start()
 
     cycles = 0
+    failures = 0
 
     while autonomy.status().get("running"):
-        result = run_once()
-        print("[AUTONOMY LOOP]", result)
+        started = time.time()
+        try:
+            result = run_once()
+            failures = 0
+            print("[AUTONOMY LOOP]", result, f"({time.time() - started:.2f}s)")
+        except Exception as exc:  # never let one bad cycle kill the loop
+            failures += 1
+            print(f"[AUTONOMY LOOP] cycle failed ({failures} in a row): {exc!r}")
 
         cycles += 1
         if max_cycles is not None and cycles >= int(max_cycles):
             autonomy.stop()
             break
 
-        time.sleep(interval)
+        # exponential backoff on repeated failures, capped at 1 hour
+        delay = interval if failures == 0 else min(interval * (2 ** min(failures, 4)), 3600)
+        time.sleep(delay)
 
     return {
         "stopped": True,
