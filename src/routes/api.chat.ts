@@ -45,7 +45,12 @@ export const Route = createFileRoute("/api/chat")({
           return Response.json({ ok: true, answer: result.text, source: "ai-gateway", mode: "connected" });
         } catch (error) {
           console.error("[v0] Chat request failed", error);
-          return Response.json({ ok: true, answer: offlineAnswer(message), source: "offline-fallback", mode: "degraded" });
+          return Response.json({
+            ok: true,
+            answer: offlineAnswer(message ?? ""),
+            source: "offline-fallback",
+            mode: "degraded",
+          });
         }
       },
     },

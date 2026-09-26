@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Menu, Send, X } from "lucide-react";
+import { Loader2, Menu, RotateCcw, Send, X } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
 
 export const Route = createFileRoute("/dashboard")({
@@ -101,6 +101,7 @@ function Dashboard() {
   const [messages, setMessages] = useState(initialChat);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [connectionMode, setConnectionMode] = useState<"connected" | "degraded" | null>(null);
   const [approvedInitiatives, setApprovedInitiatives] = useState<string[]>([]);
   const [dismissedInitiatives, setDismissedInitiatives] = useState<string[]>([]);
 
@@ -127,11 +128,13 @@ function Dashboard() {
       };
       const answer = data.human_answer ?? data.answer ?? data.response;
       if (!response.ok || !answer) throw new Error(data.error ?? "Chat unavailable");
-      const suffix = data.mode === "degraded" ? "\n\n[Λειτουργία περιορισμένη: δεν εκτελέστηκε εξωτερική ενέργεια.]" : "";
+      setConnectionMode(data.mode ?? "connected");
+      const suffix = data.mode === "degraded" ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]" : "";
       setMessages((m) => [...m, { role: "assistant", text: `${answer}${suffix}` }]);
     } catch (error) {
       console.error("[v0] Chat request failed", error);
-      setMessages((m) => [...m, { role: "assistant", text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δοκίμασε ξανά σε λίγο." }]);
+      setConnectionMode("degraded");
+      setMessages((m) => [...m, { role: "assistant", text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δεν εκτελέστηκε εξωτερική ενέργεια. Δοκίμασε ξανά σε λίγο." }]);
     } finally {
       setIsThinking(false);
     }
@@ -273,6 +276,18 @@ function Dashboard() {
               </div>
             </div>
             <div className="border-t border-border bg-card/60 p-4">
+              <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between text-[11px] text-muted-foreground">
+                <span>{isThinking ? "Ο ΝΟΥΣ σκέφτεται…" : connectionMode === "degraded" ? "Περιορισμένη λειτουργία" : "Έτοιμος για μήνυμα"}</span>
+                <button
+                  type="button"
+                  onClick={() => setMessages(initialChat)}
+                  disabled={isThinking || messages.length <= 1}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Καθαρισμός συνομιλίας"
+                >
+                  <RotateCcw className="size-3" /> Καθαρισμός
+                </button>
+              </div>
               <div className="mx-auto flex max-w-3xl gap-2">
                 <textarea
                   value={draft}
@@ -288,11 +303,14 @@ function Dashboard() {
                   className="flex-1 resize-none rounded-xl border border-input bg-background p-3 text-sm outline-none focus:border-primary"
                 />
                 <button
-                  onClick={send}
-                  className="inline-flex items-center gap-2 rounded-xl bg-violet px-4 text-sm font-semibold text-white"
+                  type="button"
+                  onClick={() => void send()}
+                  disabled={isThinking || !draft.trim()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-violet px-4 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={isThinking ? "Ο ΝΟΥΣ σκέφτεται" : "Στείλε μήνυμα"}
                 >
-                  <Send className="size-4" />
-                  <span className="hidden sm:inline">Στείλε</span>
+                  {isThinking ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                  <span className="hidden sm:inline">{isThinking ? "Σκέψη…" : "Στείλε"}</span>
                 </button>
               </div>
             </div>
