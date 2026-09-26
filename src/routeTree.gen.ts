@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ApiApprovalsRouteImport } from './routes/api.approvals'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
 import { Route as ApiMissionsRouteImport } from './routes/api.missions'
+import { Route as ApiObservabilityRouteImport } from './routes/api.observability'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiApprovalsRoute = ApiApprovalsRouteImport.update({
+  id: '/api/approvals',
+  path: '/api/approvals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -34,39 +41,71 @@ const ApiMissionsRoute = ApiMissionsRouteImport.update({
   path: '/api/missions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiObservabilityRoute = ApiObservabilityRouteImport.update({
+  id: '/api/observability',
+  path: '/api/observability',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/missions': typeof ApiMissionsRoute
+  '/api/observability': typeof ApiObservabilityRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/missions': typeof ApiMissionsRoute
+  '/api/observability': typeof ApiObservabilityRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/api/approvals': typeof ApiApprovalsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/missions': typeof ApiMissionsRoute
+  '/api/observability': typeof ApiObservabilityRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/api/chat' | '/api/missions'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/api/approvals'
+    | '/api/chat'
+    | '/api/missions'
+    | '/api/observability'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/api/chat' | '/api/missions'
-  id: '__root__' | '/' | '/dashboard' | '/api/chat' | '/api/missions'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/api/approvals'
+    | '/api/chat'
+    | '/api/missions'
+    | '/api/observability'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/api/approvals'
+    | '/api/chat'
+    | '/api/missions'
+    | '/api/observability'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  ApiApprovalsRoute: typeof ApiApprovalsRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiMissionsRoute: typeof ApiMissionsRoute
+  ApiObservabilityRoute: typeof ApiObservabilityRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -85,6 +124,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/approvals': {
+      id: '/api/approvals'
+      path: '/api/approvals'
+      fullPath: '/api/approvals'
+      preLoaderRoute: typeof ApiApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -99,14 +145,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMissionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/observability': {
+      id: '/api/observability'
+      path: '/api/observability'
+      fullPath: '/api/observability'
+      preLoaderRoute: typeof ApiObservabilityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  ApiApprovalsRoute: ApiApprovalsRoute,
   ApiChatRoute: ApiChatRoute,
   ApiMissionsRoute: ApiMissionsRoute,
+  ApiObservabilityRoute: ApiObservabilityRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
