@@ -15,6 +15,7 @@ import { Route as ApiApprovalsRouteImport } from './routes/api.approvals'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
 import { Route as ApiMissionsRouteImport } from './routes/api.missions'
 import { Route as ApiObservabilityRouteImport } from './routes/api.observability'
+import { Route as ApiToolsExecuteRouteImport } from './routes/api.tools.execute'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const ApiObservabilityRoute = ApiObservabilityRouteImport.update({
   path: '/api/observability',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiToolsExecuteRoute = ApiToolsExecuteRouteImport.update({
+  id: '/api/tools/execute',
+  path: '/api/tools/execute',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/missions'
     | '/api/observability'
+    | '/api/tools/execute'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/missions'
     | '/api/observability'
+    | '/api/tools/execute'
   id:
     | '__root__'
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/missions'
     | '/api/observability'
+    | '/api/tools/execute'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   ApiChatRoute: typeof ApiChatRoute
   ApiMissionsRoute: typeof ApiMissionsRoute
   ApiObservabilityRoute: typeof ApiObservabilityRoute
+  ApiToolsExecuteRoute: typeof ApiToolsExecuteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiObservabilityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tools/execute': {
+      id: '/api/tools/execute'
+      path: '/api/tools/execute'
+      fullPath: '/api/tools/execute'
+      preLoaderRoute: typeof ApiToolsExecuteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatRoute: ApiChatRoute,
   ApiMissionsRoute: ApiMissionsRoute,
   ApiObservabilityRoute: ApiObservabilityRoute,
+  ApiToolsExecuteRoute: ApiToolsExecuteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
