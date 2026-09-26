@@ -16,6 +16,7 @@ import { Route as ApiChatRouteImport } from './routes/api.chat'
 import { Route as ApiJobsRouteImport } from './routes/api.jobs'
 import { Route as ApiMissionsRouteImport } from './routes/api.missions'
 import { Route as ApiObservabilityRouteImport } from './routes/api.observability'
+import { Route as ApiSecurityAuditRouteImport } from './routes/api.security-audit'
 import { Route as ApiStatusRouteImport } from './routes/api.status'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiMissionsStreamRouteImport } from './routes/api.missions.stream'
@@ -56,6 +57,11 @@ const ApiObservabilityRoute = ApiObservabilityRouteImport.update({
   path: '/api/observability',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSecurityAuditRoute = ApiSecurityAuditRouteImport.update({
+  id: '/api/security-audit',
+  path: '/api/security-audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs': typeof ApiJobsRoute
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/api/jobs': typeof ApiJobsRoute
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/api/jobs': typeof ApiJobsRoute
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/status': typeof ApiStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/api/jobs'
     | '/api/missions'
     | '/api/observability'
+    | '/api/security-audit'
     | '/api/status'
     | '/api/auth/$'
     | '/api/missions/stream'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/api/jobs'
     | '/api/missions'
     | '/api/observability'
+    | '/api/security-audit'
     | '/api/status'
     | '/api/auth/$'
     | '/api/missions/stream'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/api/jobs'
     | '/api/missions'
     | '/api/observability'
+    | '/api/security-audit'
     | '/api/status'
     | '/api/auth/$'
     | '/api/missions/stream'
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   ApiJobsRoute: typeof ApiJobsRoute
   ApiMissionsRoute: typeof ApiMissionsRouteWithChildren
   ApiObservabilityRoute: typeof ApiObservabilityRoute
+  ApiSecurityAuditRoute: typeof ApiSecurityAuditRoute
   ApiStatusRoute: typeof ApiStatusRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiToolsExecuteRoute: typeof ApiToolsExecuteRoute
@@ -223,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiObservabilityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/security-audit': {
+      id: '/api/security-audit'
+      path: '/api/security-audit'
+      fullPath: '/api/security-audit'
+      preLoaderRoute: typeof ApiSecurityAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/status': {
       id: '/api/status'
       path: '/api/status'
@@ -274,6 +294,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsRoute: ApiJobsRoute,
   ApiMissionsRoute: ApiMissionsRouteWithChildren,
   ApiObservabilityRoute: ApiObservabilityRoute,
+  ApiSecurityAuditRoute: ApiSecurityAuditRoute,
   ApiStatusRoute: ApiStatusRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiToolsExecuteRoute: ApiToolsExecuteRoute,
