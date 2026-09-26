@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
-import { nousApprovals } from "../lib/db/schema";
+import { nousApprovals, nousObservabilityEvents } from "../lib/db/schema";
 import { getToolDefinition } from "../lib/tool-registry";
+import { requireAuthenticatedUserId } from "../lib/auth-identity";
 
-function userId(request: Request) {
-  return request.headers.get("x-nous-user-id")?.slice(0, 128) || "anonymous";
+async function userId(request: Request) {
+  return requireAuthenticatedUserId(request);
 }
 
 export const Route = createFileRoute("/api/approvals")({
@@ -17,7 +18,10 @@ export const Route = createFileRoute("/api/approvals")({
           .select()
           .from(nousApprovals)
           .where(
-            and(eq(nousApprovals.userId, userId(request)), eq(nousApprovals.status, "pending")),
+            and(
+              eq(nousApprovals.userId, await userId(request)),
+              eq(nousApprovals.status, "pending"),
+            ),
           )
           .orderBy(desc(nousApprovals.createdAt))
           .limit(50);
@@ -37,7 +41,7 @@ export const Route = createFileRoute("/api/approvals")({
         const approval = {
           id: randomUUID(),
           missionId: body.missionId?.slice(0, 128) ?? null,
-          userId: userId(request),
+          userId: await userId(request),
           tool,
           input: parsed.data,
           status: "pending",
@@ -60,9 +64,18 @@ export const Route = createFileRoute("/api/approvals")({
             ),
           )
           .returning();
-        return approval
-          ? Response.json({ ok: true, approval })
-          : Response.json({ error: "Approval not found or already resolved" }, { status: 404 });
+        if (!approval)
+          return Response.json(
+            { error: "Approval not found or already resolved" },
+            { status: 404 },
+          );
+        await db.insert(nousObservabilityEvents).values({
+          id: randomUUID(),
+          userId: await userId(request),
+          event: `approval.${body.status}`,
+          metadata: { approvalId: approval.id, tool: approval.tool },
+        });
+        return Response.json({ ok: true, approval });
       },
     },
   },
