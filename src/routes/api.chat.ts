@@ -30,12 +30,13 @@ export const Route = createFileRoute("/api/chat")({
     handlers: {
       GET: async () => Response.json(getModelCallMetrics()),
       POST: async ({ request }) => {
+        let message = "";
         try {
           const body = (await request.json()) as {
             message?: string;
             history?: Array<{ role: "user" | "assistant"; text: string }>;
           };
-          const message = body.message?.trim();
+          message = body.message?.trim() ?? "";
           if (!message) {
             return Response.json({ error: "Το μήνυμα είναι κενό." }, { status: 400 });
           }
