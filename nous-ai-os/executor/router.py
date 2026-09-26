@@ -116,6 +116,7 @@ from executor.app_factory_v2 import create_app_from_idea, queue_app_idea, app_fa
 from executor.code_assistant import code_health, code_advice
 from executor.research_browser_agent import research_query, read_url
 from executor.knowledge_research import research_next_topic, learning_cycle
+from executor.autonomous_agent import capabilities as autonomous_capabilities, run_agent as run_autonomous_agent, run_check as run_agent_check, pending_proposals as pending_agent_proposals, approve_proposal as approve_agent_proposal
 
 # Φόρτωση .env (κλειδιά εκτός κώδικα) — προαιρετικό dependency
 try:
@@ -139,6 +140,45 @@ except Exception:
 @app.route("/")
 def home():
     return nous_dashboard_html()
+
+
+@app.route("/remote/agent/capabilities")
+def remote_agent_capabilities_route():
+    return jsonify(autonomous_capabilities())
+
+
+@app.route("/remote/agent/run", methods=["POST"])
+def remote_agent_run_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    return jsonify(run_autonomous_agent(
+        str(data.get("goal", "")),
+        data.get("path"),
+        data.get("content"),
+    ))
+
+
+@app.route("/remote/agent/check", methods=["POST"])
+def remote_agent_check_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    return jsonify(run_agent_check(str(data.get("check", "")), data.get("path")))
+
+
+@app.route("/remote/agent/proposals")
+def remote_agent_proposals_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify(pending_agent_proposals())
+
+
+@app.route("/remote/agent/proposals/<proposal_id>/approve", methods=["POST"])
+def remote_agent_approve_route(proposal_id):
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify(approve_agent_proposal(proposal_id))
 
 def _chat_intent_route(msg: str):
     """Detect app-build / upgrade intents in chat and route them automatically.
@@ -3310,7 +3350,7 @@ FIELD_VISION_PROMPTS = {
         "3) Τύπος σημαδιού — FRP, IRP, cache marker, ή αναγνωριστικό "
         "4) Τεχνική — σκαλιστό, βαμμένο, φυσικό σχήμα "
         "5) Ερμηνεία — τι πιθανολογεί να σημαίνει στο πλαίσιο κρυμμένου θησαυρού "
-        "Να είσαι συγκεκριμένος και πρακτικός."
+        "Να είσαι συγκεκ��ιμένος και πρακτικός."
     ),
     "terrain": (
         "Είσαι ειδικός σε ανάλυση εδάφους και γεωμορφολογία. "
@@ -3515,7 +3555,7 @@ def field_signs_search_route():
         return jsonify({"ok": False, "error": str(e)})
 
 
-# ─── RUNTIME METRICS ──────────────────────────────────────────────────────────
+# ─── RUNTIME METRICS ────────────────────────────────��─────────────────────────
 @app.route("/remote/runtime-metrics", methods=["GET"])
 def remote_runtime_metrics_route():
     try:
