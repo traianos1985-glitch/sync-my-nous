@@ -17,6 +17,23 @@ const allowedTypes = new Set([
   "text/markdown",
 ]);
 
+function hasExpectedFileSignature(bytes: Uint8Array, contentType: string) {
+  if (contentType === "application/pdf")
+    return new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-";
+  if (contentType === "image/png")
+    return bytes
+      .slice(0, 8)
+      .every((value, index) => value === [137, 80, 78, 71, 13, 10, 26, 10][index]);
+  if (contentType === "image/jpeg")
+    return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (contentType === "image/webp")
+    return (
+      new TextDecoder().decode(bytes.slice(0, 4)) === "RIFF" &&
+      new TextDecoder().decode(bytes.slice(8, 12)) === "WEBP"
+    );
+  return true;
+}
+
 function extractText(bytes: Uint8Array, contentType: string) {
   if (contentType.startsWith("text/")) return new TextDecoder().decode(bytes).slice(0, 200_000);
   if (contentType === "application/pdf") {
@@ -60,6 +77,11 @@ export const Route = createFileRoute("/api/knowledge")({
         const safe = validateUploadMetadata(file.name, file.size, file.type);
         if (!safe.ok) return Response.json({ error: safe.reason }, { status: 400 });
         const bytes = new Uint8Array(await file.arrayBuffer());
+        if (!hasExpectedFileSignature(bytes, file.type))
+          return Response.json(
+            { error: "File signature does not match declared type" },
+            { status: 415 },
+          );
         const sha256 = createHash("sha256").update(bytes).digest("hex");
         const id = randomUUID();
         const originalName = file.name.trim().slice(0, 180);
@@ -96,7 +118,7 @@ export const Route = createFileRoute("/api/knowledge")({
               id,
               name: safe.filename,
               contentType: file.type,
-              status: file.type.startsWith("image/") ? "vision_queued" : "indexed",
+              status: file.type.startsWith("image/") ? "vision_queued" : "extraction_review",
               chunks: rows.length,
             },
           },

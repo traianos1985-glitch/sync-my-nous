@@ -1,4 +1,4 @@
-import { boolean, jsonb, pgTable, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { boolean, jsonb, pgTable, text, timestamp, integer, unique } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -127,18 +127,27 @@ export const nousKnowledgeChunks = pgTable("nous_knowledge_chunks", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const nousSecurityLessons = pgTable("nous_security_lessons", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull(),
-  fingerprint: text("fingerprint").notNull(),
-  category: text("category").notNull(),
-  severity: text("severity").notNull(),
-  title: text("title").notNull(),
-  lesson: text("lesson").notNull(),
-  remediation: text("remediation").notNull(),
-  sourceEvent: text("source_event").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const nousSecurityLessons = pgTable(
+  "nous_security_lessons",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    category: text("category").notNull(),
+    severity: text("severity").notNull(),
+    title: text("title").notNull(),
+    lesson: text("lesson").notNull(),
+    remediation: text("remediation").notNull(),
+    sourceEvent: text("source_event").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userFingerprintUnique: unique("nous_security_lessons_user_fingerprint").on(
+      table.userId,
+      table.fingerprint,
+    ),
+  }),
+);
 
 export const nousObservabilityEvents = pgTable("nous_observability_events", {
   id: text("id").primaryKey(),
