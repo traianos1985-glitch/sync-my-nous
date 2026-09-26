@@ -20,7 +20,8 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
 export async function nousFetch<T>(path: string, options: NousApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
-  if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type"))
+    headers.set("Content-Type", "application/json");
   const token = options.token ?? apiToken;
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${apiBase}${path}`, {

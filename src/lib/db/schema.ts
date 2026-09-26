@@ -102,6 +102,43 @@ export const nousRateLimits = pgTable("nous_rate_limits", {
   requestCount: integer("request_count").notNull().default(0),
 });
 
+export const nousKnowledgeDocuments = pgTable("nous_knowledge_documents", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  pathname: text("pathname").notNull(),
+  originalName: text("original_name").notNull(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  sha256: text("sha256").notNull(),
+  status: text("status").notNull().default("uploaded"),
+  extractedText: text("extracted_text"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const nousKnowledgeChunks = pgTable("nous_knowledge_chunks", {
+  id: text("id").primaryKey(),
+  documentId: text("document_id").notNull(),
+  userId: text("user_id").notNull(),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  embeddingStatus: text("embedding_status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const nousSecurityLessons = pgTable("nous_security_lessons", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  fingerprint: text("fingerprint").notNull(),
+  category: text("category").notNull(),
+  severity: text("severity").notNull(),
+  title: text("title").notNull(),
+  lesson: text("lesson").notNull(),
+  remediation: text("remediation").notNull(),
+  sourceEvent: text("source_event").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const nousObservabilityEvents = pgTable("nous_observability_events", {
   id: text("id").primaryKey(),
   userId: text("user_id"),
