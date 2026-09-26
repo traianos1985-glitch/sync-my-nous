@@ -39,7 +39,9 @@ jobs:
       - name: Ruff
         run: ruff check .
       - name: Pytest
-        run: pytest -q
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q
       - name: Secret scan
         shell: bash
         run: |
