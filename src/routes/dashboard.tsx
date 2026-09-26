@@ -64,14 +64,35 @@ const initiatives = [
 const initialChat = [
   {
     role: "assistant" as const,
-    text: "Καλώς ήρθες. Είμαι σε λειτουργία Owner Mode. Τι θέλεις να αναλάβω;",
-  },
-  { role: "user" as const, text: "Δες τι missions τρέχουν και κάνε backup." },
-  {
-    role: "assistant" as const,
-    text: "Τρέχουν 3 missions. Το backup ξεκίνησε — θα σε ενημερώσω όταν ολοκληρωθεί.",
+    text: "Καλώς ήρθες. Είμαι ο NOUS, τοπικός αυτόνομος agent. Μπορώ να σε βοηθήσω με missions, backup, μνήμη, health checks και πλοήγηση στο workspace.",
   },
 ];
+
+function answerLocally(input: string) {
+  const text = input.toLocaleLowerCase("el-GR");
+
+  if (/(τι μπορείς|τι μπορεις|τι πραγματικ|τι πραγματικ|δυνατότητ|δυνατοτητ|help|βοήθεια|βοηθεια)/.test(text)) {
+    return "Μπορώ να διαχειριστώ τοπικά το workspace: να εμφανίσω τα missions, να εξηγήσω την κατάσταση του συστήματος, να ξεκινήσω ή να προγραμματίσω backup και να σε οδηγήσω στις ενότητες Chat, Missions, Memory και System. Δεν προσποιούμαι ότι εκτέλεσα εξωτερική ενέργεια χωρίς συνδεδεμένο backend.";
+  }
+
+  if (/(mission|αποστολ|τρέχ|τρεχ)/.test(text)) {
+    return "Στο workspace υπάρχουν 3 καταχωρημένα missions: ένα running, ένα queued και το backup brain state ως done. Άνοιξε την ενότητα Missions για τις λεπτομέρειες και την πραγματική κατάσταση κάθε αποστολής.";
+  }
+
+  if (/(backup|αντίγραφο|αντιγραφο)/.test(text)) {
+    return "Μπορώ να προετοιμάσω backup μόνο όταν είναι διαθέσιμος ο τοπικός NOUS backend. Αυτή τη στιγμή δεν θα ισχυριστώ ότι δημιουργήθηκε αρχείο: το UI λειτουργεί offline και εμφανίζει την κατάσταση χωρίς να εκτελεί filesystem ενέργειες.";
+  }
+
+  if (/(health|υγεία|υγεια|κατάσταση|κατασταση|status)/.test(text)) {
+    return "Κατάσταση UI: online. Αυτός ο browser workspace λειτουργεί τοπικά, αλλά δεν υπάρχει ενεργή σύνδεση με τον Flask/NOUS backend. Για πραγματικά missions, μνήμη και backup χρειάζεται να τρέχει το backend service.";
+  }
+
+  if (/(chat|συνομιλ|workspace|πού|που|βρω)/.test(text)) {
+    return "Είσαι ήδη στο Chat workspace. Από το μενού μπορείς να ανοίξεις Home, Missions, Memory και System. Σε κινητό, πάτησε το κουμπί του μενού επάνω αριστερά.";
+  }
+
+  return `Κατάλαβα το αίτημα: «${input.trim()}». Μπορώ να απαντήσω για τοπική κατάσταση, missions, backup και τις ενότητες του workspace. Για ενέργειες στον πραγματικό υπολογιστή χρειάζεται συνδεδεμένος NOUS backend.`;
+}
 
 function Dashboard() {
   const [section, setSection] = useState("chat");
@@ -79,19 +100,32 @@ function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [messages, setMessages] = useState(initialChat);
   const [draft, setDraft] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
 
-  const send = () => {
+  const send = async () => {
     const text = draft.trim();
-    if (!text) return;
-    setMessages((m) => [
-      ...m,
-      { role: "user", text },
-      {
-        role: "assistant",
-        text: "Το κατέγραψα. (Σύνδεσε το NOUS API για πραγματικές απαντήσεις.)",
-      },
-    ]);
+    if (!text || isThinking) return;
+    const history = messages.slice(-10);
+    setMessages((m) => [...m, { role: "user", text }]);
     setDraft("");
+    setIsThinking(true);
+
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, history }),
+      });
+      const data = (await response.json()) as { answer?: string; human_answer?: string; response?: string; error?: string };
+      const answer = data.human_answer ?? data.answer ?? data.response;
+      if (!response.ok || !answer) throw new Error(data.error ?? "Chat unavailable");
+      setMessages((m) => [...m, { role: "assistant", text: answer }]);
+    } catch (error) {
+      console.error("[v0] Chat request failed", error);
+      setMessages((m) => [...m, { role: "assistant", text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δοκίμασε ξανά σε λίγο." }]);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const go = (id: string) => {
@@ -235,9 +269,9 @@ function Dashboard() {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                       e.preventDefault();
-                      send();
+                      void send();
                     }
                   }}
                   rows={2}

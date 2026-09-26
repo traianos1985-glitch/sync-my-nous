@@ -116,6 +116,7 @@ from executor.app_factory_v2 import create_app_from_idea, queue_app_idea, app_fa
 from executor.code_assistant import code_health, code_advice
 from executor.research_browser_agent import research_query, read_url
 from executor.knowledge_research import research_next_topic, learning_cycle
+from executor.autonomous_agent import capabilities as autonomous_capabilities, run_agent as run_autonomous_agent, run_check as run_agent_check, pending_proposals as pending_agent_proposals, approve_proposal as approve_agent_proposal
 
 # Φόρτωση .env (κλειδιά εκτός κώδικα) — προαιρετικό dependency
 try:
@@ -139,6 +140,45 @@ except Exception:
 @app.route("/")
 def home():
     return nous_dashboard_html()
+
+
+@app.route("/remote/agent/capabilities")
+def remote_agent_capabilities_route():
+    return jsonify(autonomous_capabilities())
+
+
+@app.route("/remote/agent/run", methods=["POST"])
+def remote_agent_run_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    return jsonify(run_autonomous_agent(
+        str(data.get("goal", "")),
+        data.get("path"),
+        data.get("content"),
+    ))
+
+
+@app.route("/remote/agent/check", methods=["POST"])
+def remote_agent_check_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    return jsonify(run_agent_check(str(data.get("check", "")), data.get("path")))
+
+
+@app.route("/remote/agent/proposals")
+def remote_agent_proposals_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify(pending_agent_proposals())
+
+
+@app.route("/remote/agent/proposals/<proposal_id>/approve", methods=["POST"])
+def remote_agent_approve_route(proposal_id):
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify(approve_agent_proposal(proposal_id))
 
 def _chat_intent_route(msg: str):
     """Detect app-build / upgrade intents in chat and route them automatically.
@@ -210,6 +250,48 @@ def _chat_intent_route(msg: str):
             "intent": "upgrade_nous",
             "nav_hint": "initiatives",
         }
+
+    # ── Browser operator: safe web research/read actions from natural language
+    _BROWSER_SEARCH = r"(ψάξε|αναζήτησε|αναζήτησε στο διαδίκτυο|search|find online|βρες στο web)"
+    _BROWSER_READ = r"(διάβασε|άνοιξε|δείξε μου|read|open)"
+    _URL_RE = r"https?://[^\\s]+"
+    if _re.search(_BROWSER_SEARCH, m):
+        query = _re.sub(_BROWSER_SEARCH, "", msg, flags=_re.IGNORECASE).strip(" :,-")
+        if query:
+            try:
+                result = browser_search(query)
+                if result.get("ok"):
+                    return {
+                        "ok": True,
+                        "source": "browser_operator",
+                        "intent": "browser_search",
+                        "answer": f"Έκανα ασφαλή αναζήτηση στο διαδίκτυο για «{query}».\\n\\n{result.get('result', '')}",
+                        "response": result.get("result", ""),
+                        "text": result.get("result", ""),
+                        "executed": True,
+                    }
+                return {"ok": False, "source": "browser_operator", "answer": "Η αναζήτηση μπλοκαρίστηκε από την πολιτική ασφαλείας.", "error": result.get("error", "browser_search_failed")}
+            except Exception as exc:
+                return {"ok": False, "source": "browser_operator", "answer": "Δεν μπόρεσα να ολοκληρώσω την αναζήτηση αυτή τη στιγμή.", "error": str(exc)}
+
+    url_match = _re.search(_URL_RE, msg)
+    if url_match and _re.search(_BROWSER_READ, m):
+        url = url_match.group(0).rstrip(".,)")
+        try:
+            result = browser_read(url)
+            if result.get("ok"):
+                return {
+                    "ok": True,
+                    "source": "browser_operator",
+                    "intent": "browser_read",
+                    "answer": f"Άνοιξα και διάβασα με ασφαλή λειτουργία τη σελίδα {url}.\\n\\n{result.get('result', '')}",
+                    "response": result.get("result", ""),
+                    "text": result.get("result", ""),
+                    "executed": True,
+                }
+            return {"ok": False, "source": "browser_operator", "answer": "Η σελίδα δεν επιτράπηκε από την πολιτική ασφαλείας.", "error": result.get("error", "browser_read_failed")}
+        except Exception as exc:
+            return {"ok": False, "source": "browser_operator", "answer": "Δεν μπόρεσα να διαβάσω τη σελίδα αυτή τη στιγμή.", "error": str(exc)}
 
     return None  # no intent matched — fall through to normal chat
 
@@ -3268,7 +3350,7 @@ FIELD_VISION_PROMPTS = {
         "3) Τύπος σημαδιού — FRP, IRP, cache marker, ή αναγνωριστικό "
         "4) Τεχνική — σκαλιστό, βαμμένο, φυσικό σχήμα "
         "5) Ερμηνεία — τι πιθανολογεί να σημαίνει στο πλαίσιο κρυμμένου θησαυρού "
-        "Να είσαι συγκεκριμένος και πρακτικός."
+        "Να είσαι συγκεκ��ιμένος και πρακτικός."
     ),
     "terrain": (
         "Είσαι ειδικός σε ανάλυση εδάφους και γεωμορφολογία. "
@@ -3473,7 +3555,7 @@ def field_signs_search_route():
         return jsonify({"ok": False, "error": str(e)})
 
 
-# ─── RUNTIME METRICS ──────────────────────────────────────────────────────────
+# ─── RUNTIME METRICS ────────────────────────────────��─────────────────────────
 @app.route("/remote/runtime-metrics", methods=["GET"])
 def remote_runtime_metrics_route():
     try:

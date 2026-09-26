@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
   ArrowUpRight,
@@ -186,6 +186,13 @@ function Index() {
           </p>
 
           <div className="mt-10 flex flex-wrap gap-3">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-mono text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <Brain className="size-4" />
+              Άνοιξε το chat workspace
+            </Link>
             <a
               href={REPO}
               target="_blank"
