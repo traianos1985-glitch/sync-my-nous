@@ -298,7 +298,7 @@ function Index() {
               <span
                 className={[
                   "font-mono text-xs uppercase tracking-wider",
-                  u.tone === "alert"
+                  (u.tone as string) === "alert"
                     ? "text-alert"
                     : u.tone === "signal"
                       ? "text-primary"
