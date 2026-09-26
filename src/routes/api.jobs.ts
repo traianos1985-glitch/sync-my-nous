@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createJob, getJob, updateJob } from "../lib/db/jobs";
+import { createJob, getJob, listJobs, retryJob, updateJob } from "../lib/db/jobs";
+import { NOUS_LIMITS } from "../lib/platform-policy";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { isAllowedJobKind, NOUS_LIMITS, serializedBytes } from "../lib/platform-policy";
 
@@ -28,8 +29,18 @@ export const Route = createFileRoute("/api/jobs")({
       },
       PATCH: async ({ request }) => {
         const body = (await request.json()) as { id?: string; action?: string };
-        if (!body.id || body.action !== "cancel")
-          return Response.json({ error: "Only cancel is supported" }, { status: 400 });
+        if (!body.id || !["cancel", "retry"].includes(body.action ?? ""))
+          return Response.json({ error: "Supported actions: cancel, retry" }, { status: 400 });
+        if (body.action === "retry") {
+          const job = await getJob(body.id, await userId(request));
+          if (!job) return Response.json({ error: "Job not found" }, { status: 404 });
+          if (job.retryCount >= NOUS_LIMITS.maxJobRetries)
+            return Response.json({ error: "Retry limit reached" }, { status: 409 });
+          const retried = await retryJob(body.id, await userId(request));
+          return retried
+            ? Response.json({ job: retried }, { headers: { "Cache-Control": "private, no-store" } })
+            : Response.json({ error: "Job is not retryable" }, { status: 409 });
+        }
         const job = await getJob(body.id, await userId(request));
         if (!job) return Response.json({ error: "Job not found" }, { status: 404 });
         if (!["queued", "running"].includes(job.status))
@@ -43,8 +54,12 @@ export const Route = createFileRoute("/api/jobs")({
         );
       },
       GET: async ({ request }) => {
-        const id = new URL(request.url).searchParams.get("id");
-        if (!id) return Response.json({ error: "Missing job id" }, { status: 400 });
+        const searchParams = new URL(request.url).searchParams;
+        const id = searchParams.get("id");
+        if (!id) {
+          const jobs = await listJobs(await userId(request), Number(searchParams.get("limit") ?? 25));
+          return Response.json({ jobs }, { headers: { "Cache-Control": "private, no-store" } });
+        }
         const job = await getJob(id, await userId(request));
         return job
           ? Response.json({ job }, { headers: { "Cache-Control": "private, no-store" } })
