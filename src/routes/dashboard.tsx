@@ -64,7 +64,7 @@ const initiatives = [
 const initialChat = [
   {
     role: "assistant" as const,
-    text: "Καλώς ήρθες. Είμαι ο NOUS, τοπικός αυτόνομος agent. Μπορώ να σε βοηθήσω με missions, backup, μνήμη, health checks και πλοήγηση στο workspace.",
+    text: "Καλώς ήρθες. Είμαι ο NOUS. Μπορώ να συζητήσω φυσικά, να αναλύσω στόχους, να προτείνω βήματα και —όταν είναι συνδεδεμένο το backend— να εκτελέσω εγκεκριμένες ενέργειες. Δεν θα παρουσιάσω ποτέ μια πρόταση ως ολοκληρωμένη ενέργεια χωρίς επιβεβαίωση.",
   },
 ];
 
@@ -111,7 +111,7 @@ function Dashboard() {
     setIsThinking(true);
 
     try {
-      const response = await fetch("/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, history }),
