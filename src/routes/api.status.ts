@@ -2,16 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { count, desc, eq } from "drizzle-orm";
 import { db } from "../lib/db";
 import { nousMissions, nousObservabilityEvents, nousToolRuns } from "../lib/db/schema";
+import { requireAuthenticatedUserId } from "../lib/auth-identity";
 
-function getUserId(request: Request) {
-  return request.headers.get("x-nous-user-id")?.slice(0, 128) || "anonymous";
+async function getUserId(request: Request) {
+  return requireAuthenticatedUserId(request);
 }
 
 export const Route = createFileRoute("/api/status")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const userId = getUserId(request);
+        const userId = await getUserId(request);
         try {
           const [missions, runs, events] = await Promise.all([
             db.select({ value: count() }).from(nousMissions).where(eq(nousMissions.userId, userId)),
