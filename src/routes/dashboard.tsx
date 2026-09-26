@@ -17,6 +17,7 @@ import {
   Zap,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
+import { nousFetch } from "@/lib/nous-api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -159,8 +160,7 @@ function Dashboard() {
 
   const loadSystemStatus = async () => {
     try {
-      const response = await fetch("/api/status");
-      const data = (await response.json()) as typeof systemStatus;
+      const data = await nousFetch<typeof systemStatus>("/api/status");
       setSystemStatus(data);
     } catch {
       setSystemStatus({ status: "unavailable" });
@@ -170,9 +170,7 @@ function Dashboard() {
   const loadApprovals = async () => {
     setApprovalStatus("loading");
     try {
-      const response = await fetch("/api/approvals");
-      if (!response.ok) throw new Error("approval request failed");
-      const data = (await response.json()) as { approvals?: typeof approvals };
+      const data = await nousFetch<{ approvals?: typeof approvals }>("/api/approvals");
       setApprovals(data.approvals ?? []);
       setApprovalStatus("idle");
     } catch {
@@ -181,19 +179,23 @@ function Dashboard() {
   };
 
   const resolveApproval = async (id: string, status: "approved" | "rejected") => {
-    const response = await fetch("/api/approvals", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
-    });
-    if (!response.ok) return;
-    if (status === "approved") {
-      const execution = await fetch("/api/tools/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approvalId: id }),
+    try {
+      await nousFetch("/api/approvals", {
+        method: "PATCH",
+        body: JSON.stringify({ id, status }),
       });
-      if (!execution.ok) setApprovalStatus("error");
+    } catch {
+      return;
+    }
+    if (status === "approved") {
+      try {
+        await nousFetch("/api/tools/execute", {
+          method: "POST",
+          body: JSON.stringify({ approvalId: id }),
+        });
+      } catch {
+        setApprovalStatus("error");
+      }
     }
     setApprovals((items) => items.filter((item) => item.id !== id));
   };
@@ -207,12 +209,7 @@ function Dashboard() {
     setIsThinking(true);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, history, researchMode }),
-      });
-      const data = (await response.json()) as {
+      const data = await nousFetch<{
         answer?: string;
         human_answer?: string;
         response?: string;
@@ -220,9 +217,12 @@ function Dashboard() {
         mode?: "connected" | "degraded";
         researchUsed?: boolean;
         citations?: Array<{ title: string; url: string; domain: string }>;
-      };
+      }>("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: text, history, researchMode }),
+      });
       const answer = data.human_answer ?? data.answer ?? data.response;
-      if (!response.ok || !answer) throw new Error(data.error ?? "Chat unavailable");
+      if (!answer) throw new Error(data.error ?? "Chat unavailable");
       setConnectionMode(data.mode ?? "connected");
       const suffix =
         data.mode === "degraded"
