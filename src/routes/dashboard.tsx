@@ -103,7 +103,13 @@ const activityFeed = [
   { time: "08m", text: "Mission queue reviewed", kind: "queued" },
 ];
 
-type Citation = { title: string; url: string; domain: string };
+type Citation = {
+  title: string;
+  url: string;
+  domain: string;
+  sourceType?: string;
+  retrievedAt?: string;
+};
 
 type SpeechRecognitionEventLike = Event & {
   results: { [index: number]: { [index: number]: { transcript: string } } };

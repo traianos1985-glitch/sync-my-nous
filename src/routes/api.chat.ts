@@ -108,6 +108,8 @@ async function tryGeminiFallback(
         title: web.title ?? web.uri,
         url: web.uri,
         domain: new URL(web.uri).hostname,
+        sourceType: "google-grounded",
+        retrievedAt: new Date().toISOString(),
       }));
     return answer
       ? { answer, model: grounded ? "gemini-2.5-flash-grounded" : "gemini-2.5-flash", citations }
