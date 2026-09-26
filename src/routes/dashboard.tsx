@@ -8,6 +8,8 @@ import {
   Loader2,
   Mic,
   MicOff,
+  ThumbsDown,
+  ThumbsUp,
   Volume2,
   VolumeX,
   Menu,
@@ -125,10 +127,17 @@ declare global {
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
 }
-type ChatMessage = { role: "user" | "assistant"; text: string; citations?: Citation[] };
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  citations?: Citation[];
+  feedback?: "positive" | "negative";
+};
 
 const initialChat: ChatMessage[] = [
   {
+    id: "welcome",
     role: "assistant",
     text: "Καλώς ήρθες. Είμαι ο NOUS. Μπορώ να συζητήσω φυσικά, να αναλύσω στόχους, να προτείνω βήματα και —όταν είναι συνδεδεμένο το backend— να εκτελέσω εγκεκριμένες ενέργειες. Δεν θα παρουσιάσω ποτέ μια πρόταση ως ολοκληρωμένη ενέργεια χωρίς επιβεβαίωση.",
   },
@@ -355,7 +364,8 @@ function Dashboard() {
     const text = draft.trim();
     if (!text || isThinking) return;
     const history = messages.slice(-10);
-    setMessages((m) => [...m, { role: "user", text }]);
+    const userMessageId = crypto.randomUUID();
+    setMessages((m) => [...m, { id: userMessageId, role: "user", text }]);
     setDraft("");
     setIsThinking(true);
 
@@ -384,6 +394,7 @@ function Dashboard() {
       setMessages((m) => [
         ...m,
         {
+          id: crypto.randomUUID(),
           role: "assistant",
           text: `${answer}${suffix}`,
           citations: data.researchUsed ? data.citations : undefined,
@@ -402,6 +413,22 @@ function Dashboard() {
       ]);
     } finally {
       setIsThinking(false);
+    }
+  };
+
+  const submitFeedback = async (messageId: string, rating: "positive" | "negative") => {
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === messageId ? { ...message, feedback: rating } : message,
+      ),
+    );
+    try {
+      await nousFetch("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({ messageId, rating }),
+      });
+    } catch (error) {
+      console.error("[v0] Feedback request failed", error);
     }
   };
 
@@ -790,6 +817,29 @@ function Dashboard() {
                       }`}
                     >
                       {m.text}
+                      {m.role === "assistant" && m.id !== "welcome" && (
+                        <div className="mt-3 flex items-center gap-1 border-t border-border/60 pt-2">
+                          <span className="mr-2 text-[10px] text-muted-foreground">
+                            Αξιολόγηση απάντησης
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void submitFeedback(m.id, "positive")}
+                            aria-label="Χρήσιμη απάντηση"
+                            className={`rounded-md p-1.5 transition-colors ${m.feedback === "positive" ? "bg-emerald-400/15 text-emerald-300" : "text-muted-foreground hover:bg-emerald-400/10 hover:text-emerald-300"}`}
+                          >
+                            <ThumbsUp className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void submitFeedback(m.id, "negative")}
+                            aria-label="Μη χρήσιμη απάντηση"
+                            className={`rounded-md p-1.5 transition-colors ${m.feedback === "negative" ? "bg-rose-400/15 text-rose-300" : "text-muted-foreground hover:bg-rose-400/10 hover:text-rose-300"}`}
+                          >
+                            <ThumbsDown className="size-3.5" />
+                          </button>
+                        </div>
+                      )}
                       {m.citations && m.citations.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
                           {m.citations.map((citation) => (
