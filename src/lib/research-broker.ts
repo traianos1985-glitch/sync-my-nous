@@ -19,7 +19,7 @@ const ALLOWED_DOMAINS = new Set([
 ]);
 
 function shouldResearch(message: string) {
-  return /\b(latest|current|today|version|docs?|documentation|package|library|debug|error|api|how to|research|research|τελευτα|τρέχ|έκδοση|τεκμηρί|βιβλιοθήκ|σφάλμα|api|mission|task)\b/i.test(
+  return /\b(latest|current|today|version|docs?|documentation|package|library|debug|error|api|how to|research|mission|task|τελευτα|τρέχ|έκδοση|τεκμηρί|βιβλιοθήκ|σφάλμα)\b/i.test(
     message,
   );
 }
@@ -72,9 +72,11 @@ async function search(query: string, deep: boolean): Promise<Citation[]> {
   const html = await response.text();
   const results: Citation[] = [];
   for (const match of html.matchAll(/result__a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
-    const url = decodeURIComponent(match[1]);
+    const rawHref = match[1].replace(/&amp;/g, "&");
+    const redirectUrl = new URL(rawHref, "https://html.duckduckgo.com");
+    const target = redirectUrl.searchParams.get("uddg") ?? rawHref;
     try {
-      const safe = await assertSafeUrl(url, deep);
+      const safe = await assertSafeUrl(decodeURIComponent(target), deep);
       results.push({
         title: match[2].replace(/<[^>]+>/g, "").trim(),
         url: safe.toString(),
@@ -88,9 +90,19 @@ async function search(query: string, deep: boolean): Promise<Citation[]> {
   return results;
 }
 
+const cache = new Map<
+  string,
+  { expiresAt: number; result: Awaited<ReturnType<typeof research>> }
+>();
+
 export async function research(message: string, mode: ResearchMode = "auto") {
   if (mode === "off" || (mode === "auto" && !shouldResearch(message)))
-    return { used: false, citations: [], context: "" };
+    return { used: false, citations: [], context: "", status: "skipped" as const };
+  const cacheKey = `${mode}:${message.trim().toLowerCase()}`;
+  const cached = cache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now())
+    return { ...cached.result, status: "cached" as const };
+  const startedAt = performance.now();
   try {
     const citations = await search(message, mode === "deep");
     const enriched = await Promise.all(
@@ -109,12 +121,24 @@ export async function research(message: string, mode: ResearchMode = "auto") {
       )
       .join("\n\n")
       .slice(0, mode === "deep" ? 12000 : 6000);
-    return {
+    const result = {
       used: enriched.length > 0,
       citations: enriched.map(({ title, url, domain }) => ({ title, url, domain })),
       context,
     };
+    cache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, result });
+    console.info("[v0] research completed", {
+      mode,
+      used: result.used,
+      sources: result.citations.length,
+      durationMs: Math.round(performance.now() - startedAt),
+    });
+    return { ...result, status: "fresh" as const };
   } catch {
-    return { used: false, citations: [], context: "" };
+    console.warn("[v0] research unavailable", {
+      mode,
+      durationMs: Math.round(performance.now() - startedAt),
+    });
+    return { used: false, citations: [], context: "", status: "unavailable" as const };
   }
 }
