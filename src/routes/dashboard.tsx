@@ -24,7 +24,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
-import { nousFetch, nousStream } from "@/lib/nous-api";
+import { hasConfiguredNousApi, nousFetch, nousStream } from "@/lib/nous-api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -47,14 +47,7 @@ export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
-// Δείγμα δεδομένων — αντικατέστησέ τα με πραγματικές κλήσεις στο /remote/* API.
-const snapshot = [
-  { k: "Health", v: "online", tone: "ok" as const },
-  { k: "Autonomy", v: "active" },
-  { k: "Missions σε εξέλιξη", v: "3" },
-  { k: "Μνήμη", v: "12.4k εγγραφές" },
-  { k: "Τελευταίο backup", v: "πριν 2 ώρες" },
-];
+const snapshotLabels = ["Health", "API connection", "Missions σε εξέλιξη", "Tool runs", "Storage"];
 
 const capabilities = [
   "chat brain",
@@ -630,7 +623,7 @@ function Dashboard() {
             <button
               onClick={() => setMenuOpen(true)}
               className="rounded-md border border-border p-1.5 lg:hidden"
-              aria-label="Άνοιξε το μενού"
+              aria-label="Άνοι��ε το μενού"
             >
               <Menu className="size-4" />
             </button>
@@ -1318,15 +1311,35 @@ function Dashboard() {
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <Card title="System Snapshot">
-                {snapshot.map((r) => (
-                  <div
-                    key={r.k}
-                    className="flex justify-between border-b border-border/60 py-1.5 text-sm last:border-0"
-                  >
-                    <span className="text-muted-foreground">{r.k}</span>
-                    <span className={r.tone === "ok" ? "text-ok" : ""}>{r.v}</span>
-                  </div>
-                ))}
+                {snapshotLabels.map((label) => {
+                  const value =
+                    label === "Health"
+                      ? (systemStatus?.status ?? "loading")
+                      : label === "API connection"
+                        ? hasConfiguredNousApi()
+                          ? "configured"
+                          : "same-origin"
+                        : label === "Missions σε εξέλιξη"
+                          ? String(systemStatus?.counts?.missions ?? "—")
+                          : label === "Tool runs"
+                            ? String(systemStatus?.counts?.toolRuns ?? "—")
+                            : (systemStatus?.storage ?? "—");
+                  return (
+                    <div
+                      key={label}
+                      className="flex justify-between border-b border-border/60 py-1.5 text-sm last:border-0"
+                    >
+                      <span className="text-muted-foreground">{label}</span>
+                      <span
+                        className={
+                          label === "Health" && value === "ok" ? "text-ok" : "text-foreground"
+                        }
+                      >
+                        {value}
+                      </span>
+                    </div>
+                  );
+                })}
               </Card>
 
               <Card title="Capabilities">
