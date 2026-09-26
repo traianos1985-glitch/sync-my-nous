@@ -274,6 +274,7 @@ function Dashboard() {
     positive: number;
     negative: number;
     satisfactionRate: number | null;
+    trend: Array<{ day: string; positive: number; negative: number }>;
   } | null>(null);
   const [evaluationStatus, setEvaluationStatus] = useState<"idle" | "loading" | "error">("idle");
   const [sentinel, setSentinel] = useState<{
@@ -306,6 +307,21 @@ function Dashboard() {
     } catch {
       setEvaluationStatus("error");
     }
+  };
+
+  const exportEvaluation = () => {
+    if (!evaluationMetrics) return;
+    const rows = [
+      ["day", "positive", "negative"],
+      ...evaluationMetrics.trend.map((point) => [point.day, point.positive, point.negative]),
+    ];
+    const csv = rows.map((row) => row.join(",")).join("\\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `nous-evaluation-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const uploadKnowledgeDocument = async (file: File) => {
@@ -644,31 +660,81 @@ function Dashboard() {
                           Μετρικές από τις αξιολογήσεις των απαντήσεων του NOUS.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => void loadEvaluationMetrics()}
-                        className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary"
-                      >
-                        {evaluationStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void loadEvaluationMetrics()}
+                          className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary"
+                        >
+                          {evaluationStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={exportEvaluation}
+                          disabled={!evaluationMetrics}
+                          className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary disabled:opacity-40"
+                        >
+                          Export CSV
+                        </button>
+                      </div>
                     </div>
                     {evaluationStatus === "error" ? (
                       <p className="mt-4 text-xs text-rose-300">
                         Οι μετρικές δεν είναι διαθέσιμες.
                       </p>
                     ) : evaluationMetrics ? (
-                      <div className="mt-4 grid grid-cols-3 gap-2">
-                        <Metric
-                          label="Satisfaction"
-                          value={
-                            evaluationMetrics.satisfactionRate === null
-                              ? "—"
-                              : `${Math.round(evaluationMetrics.satisfactionRate * 100)}%`
-                          }
-                        />
-                        <Metric label="Positive" value={String(evaluationMetrics.positive)} />
-                        <Metric label="Rated" value={String(evaluationMetrics.total)} />
-                      </div>
+                      <>
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                          <Metric
+                            label="Satisfaction"
+                            value={
+                              evaluationMetrics.satisfactionRate === null
+                                ? "—"
+                                : `${Math.round(evaluationMetrics.satisfactionRate * 100)}%`
+                            }
+                          />
+                          <Metric label="Positive" value={String(evaluationMetrics.positive)} />
+                          <Metric label="Rated" value={String(evaluationMetrics.total)} />
+                        </div>
+                        {evaluationMetrics.trend.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            <div className="flex items-end gap-1" aria-label="Evaluation trend">
+                              {evaluationMetrics.trend.slice(-14).map((point) => {
+                                const total = point.positive + point.negative;
+                                const positiveRatio = total ? point.positive / total : 0;
+                                return (
+                                  <div
+                                    key={point.day}
+                                    className="flex min-w-0 flex-1 flex-col items-center gap-1"
+                                    title={`${point.day}: ${point.positive} positive, ${point.negative} negative`}
+                                  >
+                                    <div className="flex h-16 w-full items-end gap-0.5 rounded-sm bg-muted/30 p-0.5">
+                                      <div
+                                        className="w-1/2 rounded-t-sm bg-emerald-400/70"
+                                        style={{
+                                          height: `${Math.max(positiveRatio * 100, total ? 8 : 0)}%`,
+                                        }}
+                                      />
+                                      <div
+                                        className="w-1/2 rounded-t-sm bg-rose-400/70"
+                                        style={{
+                                          height: `${Math.max((1 - positiveRatio) * 100, total ? 8 : 0)}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="truncate text-[8px] text-muted-foreground">
+                                      {point.day.slice(5)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Τάση αξιολογήσεων τελευταίων 14 ημερών
+                            </p>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <p className="mt-4 text-xs text-muted-foreground">
                         Πάτησε «Ανανέωση» για να φορτώσεις τα metrics.
