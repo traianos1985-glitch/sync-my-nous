@@ -1,4 +1,4 @@
-"""Agent Operations Blueprint: ReAct Loop, Swarm & Vector Memory Endpoints."""
+"""Agent Operations Blueprint: ReAct Loop, Swarm, Vector Memory, Self-Healing & Watchdog."""
 from flask import Blueprint, jsonify, request
 from executor.react_agent import run_react_task, GLOBAL_TOOL_REGISTRY
 from executor.swarm_orchestrator import run_swarm
@@ -7,6 +7,8 @@ from executor.vector_memory import (
     search_vector_memory,
     get_vector_stats
 )
+from executor.self_healing_coder import self_heal_snippet
+from executor.background_watchdog import run_watchdog_check
 
 agent_ops_bp = Blueprint("agent_ops_bp", __name__, url_prefix="/api/ops")
 
@@ -61,3 +63,18 @@ def api_vector_search():
 def api_vector_stats():
     stats = get_vector_stats()
     return jsonify({"success": True, "stats": stats})
+
+@agent_ops_bp.route("/self-heal/run", methods=["POST"])
+def api_self_heal():
+    data = request.get_json(silent=True) or {}
+    filename = data.get("filename", "scratch.py")
+    code = data.get("code", "")
+    if not code:
+        return jsonify({"success": False, "error": "code is required"}), 400
+    res = self_heal_snippet(filename, code, data.get("test_cmd"))
+    return jsonify({"success": True, "result": res})
+
+@agent_ops_bp.route("/watchdog/run", methods=["POST", "GET"])
+def api_watchdog_run():
+    res = run_watchdog_check()
+    return jsonify({"success": True, "report": res})

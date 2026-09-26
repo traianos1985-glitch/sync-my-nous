@@ -46,3 +46,22 @@ def test_swarm_orchestrator():
     assert "architect" in roles
     assert "coder" in roles
     assert "reviewer" in roles
+
+from executor.self_healing_coder import self_heal_snippet, DEFAULT_SELF_HEALER
+from executor.background_watchdog import run_watchdog_check
+
+def test_self_healing_coder():
+    # Test syntax verification
+    valid_code = "def hello():\n    return 'world'\n"
+    res = self_heal_snippet("test.py", valid_code)
+    assert res["success"] is True
+    assert res["attempts"] == 1
+
+    invalid_code = "def broken(:\n    pass"
+    assert DEFAULT_SELF_HEALER.verify_syntax(invalid_code) is not None
+
+def test_background_watchdog():
+    report = run_watchdog_check()
+    assert "status" in report
+    assert "git" in report
+    assert "database" in report
