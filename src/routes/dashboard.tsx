@@ -1,11 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
   CheckCircle2,
   Clock3,
   Loader2,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
   Menu,
   RotateCcw,
   ScanLine,
@@ -98,6 +102,29 @@ const activityFeed = [
 ];
 
 type Citation = { title: string; url: string; domain: string };
+
+type SpeechRecognitionEventLike = Event & {
+  results: { [index: number]: { [index: number]: { transcript: string } } };
+};
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 type ChatMessage = { role: "user" | "assistant"; text: string; citations?: Citation[] };
 
 const initialChat: ChatMessage[] = [
@@ -144,6 +171,51 @@ function Dashboard() {
   const [messages, setMessages] = useState(initialChat);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
+  useEffect(() => {
+    const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    setVoiceSupported(Boolean(Recognition && "speechSynthesis" in window));
+    return () => {
+      recognitionRef.current?.stop();
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
+
+  const speak = (text: string) => {
+    if (!voiceEnabled || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "el-GR";
+    utterance.rate = 1;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const toggleListening = () => {
+    const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!Recognition) return;
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = "el-GR";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? "";
+      setDraft((current) => `${current} ${transcript}`.trim());
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    setIsListening(true);
+    recognition.start();
+  };
   const [researchMode, setResearchMode] = useState<"auto" | "off" | "deep">("auto");
   const [connectionMode, setConnectionMode] = useState<"connected" | "degraded" | null>(null);
   const [activeFocus, setActiveFocus] = useState("chat");
@@ -315,6 +387,7 @@ function Dashboard() {
           citations: data.researchUsed ? data.citations : undefined,
         },
       ]);
+      speak(answer);
     } catch (error) {
       console.error("[v0] Chat request failed", error);
       setConnectionMode("degraded");
@@ -775,6 +848,20 @@ function Dashboard() {
                 </button>
               </div>
               <div className="mx-auto flex max-w-3xl gap-2">
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  disabled={!voiceSupported}
+                  aria-label={isListening ? "Σταμάτησε την ακρόαση" : "Μίλησε στον ΝΟΥΣ"}
+                  title={
+                    !voiceSupported
+                      ? "Η φωνητική εισαγωγή δεν υποστηρίζεται σε αυτόν τον browser"
+                      : undefined
+                  }
+                  className={`inline-flex size-11 shrink-0 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isListening ? "border-rose-400/60 bg-rose-400/15 text-rose-300" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"}`}
+                >
+                  {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                </button>
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -793,6 +880,22 @@ function Dashboard() {
                   placeholder="Γράψε στον ΝΟΥΣ…"
                   className="flex-1 resize-none rounded-xl border border-input bg-background p-3 text-sm outline-none focus:border-primary"
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoiceEnabled((enabled) => {
+                      if (enabled) window.speechSynthesis?.cancel();
+                      return !enabled;
+                    });
+                  }}
+                  disabled={!voiceSupported}
+                  aria-label={
+                    voiceEnabled ? "Σίγασε τη φωνή του ΝΟΥΣ" : "Ενεργοποίησε τη φωνή του ΝΟΥΣ"
+                  }
+                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {voiceEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+                </button>
                 <button
                   type="button"
                   onClick={() => void send()}
