@@ -12,6 +12,7 @@ export const Route = createFileRoute("/api/audit")({
         const url = new URL(request.url);
         const format = url.searchParams.get("format") === "csv" ? "csv" : "json";
         const days = Math.min(Math.max(Number(url.searchParams.get("days") ?? 30) || 30, 1), 90);
+        const eventFilter = url.searchParams.get("event")?.trim().slice(0, 80) || null;
         const events = await db
           .select()
           .from(nousObservabilityEvents)
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/api/audit")({
             and(
               eq(nousObservabilityEvents.userId, userId),
               gte(nousObservabilityEvents.createdAt, new Date(Date.now() - days * 86400000)),
+              ...(eventFilter ? [eq(nousObservabilityEvents.event, eventFilter)] : []),
             ),
           )
           .orderBy(desc(nousObservabilityEvents.createdAt))
@@ -48,7 +50,14 @@ export const Route = createFileRoute("/api/audit")({
         }
 
         return Response.json(
-          { ok: true, days, count: events.length, events },
+          {
+            ok: true,
+            days,
+            event: eventFilter,
+            count: events.length,
+            hasMore: events.length === 500,
+            events,
+          },
           { headers: { "Cache-Control": "private, no-store" } },
         );
       },
