@@ -65,12 +65,7 @@ const missions = [
   { title: "Backup brain state", status: "done" },
 ];
 
-const initiatives = [
-  {
-    title: "Να στήσω ημερήσιο backup στις 04:00",
-    why: "Το τελευταίο backup έγινε χειροκίνητα.",
-  },
-];
+const initiatives: Array<{ title: string; why: string }> = [];
 
 const commandSignals = [
   { label: "Brain", value: "Ready", detail: "context indexed", tone: "text-ok", icon: Sparkles },
@@ -232,8 +227,6 @@ function Dashboard() {
   const [researchMode, setResearchMode] = useState<"auto" | "off" | "deep">("auto");
   const [connectionMode, setConnectionMode] = useState<"connected" | "degraded" | null>(null);
   const [activeFocus, setActiveFocus] = useState("chat");
-  const [approvedInitiatives, setApprovedInitiatives] = useState<string[]>([]);
-  const [dismissedInitiatives, setDismissedInitiatives] = useState<string[]>([]);
   const [approvals, setApprovals] = useState<
     Array<{ id: string; tool: string; input: unknown; createdAt: string }>
   >([]);
@@ -1389,48 +1382,12 @@ function Dashboard() {
             </div>
 
             <div className="mt-4 rounded-2xl border border-violet/40 bg-violet/5 p-5">
-              <h3 className="font-display text-base font-semibold">🤖 Τι θέλει να κάνει ο ΝΟΥΣ</h3>
+              <h3 className="font-display text-base font-semibold">Τι θέλει να κάνει ο ΝΟΥΣ</h3>
               <p className="text-xs text-muted-foreground">
                 Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
               </p>
-              <div className="mt-4 space-y-3">
-                {initiatives.map((i) => {
-                  const approved = approvedInitiatives.includes(i.title);
-                  const dismissed = dismissedInitiatives.includes(i.title);
-                  if (dismissed) return null;
-                  return (
-                    <div
-                      key={i.title}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{i.title}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{i.why}</p>
-                        {approved && (
-                          <p className="mt-2 font-mono text-[11px] text-ok">
-                            Εγκρίθηκε και μπήκε στα missions
-                          </p>
-                        )}
-                      </div>
-                      {!approved && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setApprovedInitiatives((items) => [...items, i.title])}
-                            className="rounded-md bg-ok/20 px-3 py-1.5 text-xs font-semibold text-ok"
-                          >
-                            Έγκριση
-                          </button>
-                          <button
-                            onClick={() => setDismissedInitiatives((items) => [...items, i.title])}
-                            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground"
-                          >
-                            Απόρριψη
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                Δεν υπάρχουν εκκρεμείς προτάσεις. Όλες οι προτάσεις του ΝΟΥΣ έχουν υλοποιηθεί.
               </div>
             </div>
           </div>
