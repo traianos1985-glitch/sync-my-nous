@@ -24,7 +24,7 @@ async function tryGroqFallback(
   message: string,
   history: Array<{ role: "user" | "assistant"; text: string }>,
 ) {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env["GROQ_API_KEY"];
   if (!apiKey) return null;
 
   try {
@@ -65,7 +65,7 @@ async function tryGeminiFallback(
   history: Array<{ role: "user" | "assistant"; text: string }>,
   grounded = false,
 ) {
-  const apiKey = process.env.GCP_API_KEY;
+  const apiKey = process.env["GCP_API_KEY"];
   if (!apiKey) return null;
 
   try {
@@ -130,7 +130,7 @@ async function tryOpenRouterFallback(
   message: string,
   history: Array<{ role: "user" | "assistant"; text: string }>,
 ) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env["OPENROUTER_API_KEY"];
   if (!apiKey) return null;
 
   for (const model of OPENROUTER_FREE_MODELS) {
@@ -239,7 +239,7 @@ export const Route = createFileRoute("/api/chat")({
             budget = {
               allowed: true,
               count: 0,
-              limit: Number(process.env.NOUS_AI_DAILY_CALL_LIMIT ?? 100),
+              limit: Number(process.env["NOUS_AI_DAILY_CALL_LIMIT"] ?? 100),
             };
           }
           if (!budget.allowed) {

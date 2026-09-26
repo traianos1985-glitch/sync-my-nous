@@ -74,7 +74,7 @@ async function fetchText(url: string, officialOnly = false, timeoutMs = 8000) {
 
 async function search(query: string, deep: boolean): Promise<Citation[]> {
   const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: AbortSignal.timeout(8000),
     headers: { accept: "text/html" },
   });
   if (!response.ok) throw new Error(`search_${response.status}`);
@@ -101,10 +101,10 @@ async function search(query: string, deep: boolean): Promise<Citation[]> {
 
 const cache = new Map<
   string,
-  { expiresAt: number; result: Awaited<ReturnType<typeof research>> }
+  { expiresAt: number; result: any }
 >();
 
-export async function research(message: string, mode: ResearchMode = "auto") {
+export async function research(message: string, mode: ResearchMode = "auto"): Promise<any> {
   if (mode === "off" || (mode === "auto" && !shouldResearch(message)))
     return { used: false, citations: [], context: "", status: "skipped" as const };
   const cacheKey = `${mode}:${message.trim().toLowerCase()}`;
@@ -137,7 +137,7 @@ export async function research(message: string, mode: ResearchMode = "auto") {
     const context = enriched
       .map(
         (item, index) =>
-          `[Source ${index + 1}] ${item.title} (${item.url})\n${item.content ?? item.snippet ?? ""}`,
+          `[Source ${index + 1}] ${item.title} (${item.url})\n${(item as { content?: string }).content ?? item.snippet ?? ""}`,
       )
       .join("\n\n")
       .slice(0, mode === "deep" ? 12000 : 6000);

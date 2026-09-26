@@ -43,7 +43,7 @@ export function runDefensiveSentinel(): {
       remediation: "Set X-Content-Type-Options to nosniff.",
     });
   }
-  if (process.env.NODE_ENV === "production" && process.env.NOUS_ALERT_WEBHOOK_URL) {
+  if (process.env["NODE_ENV"] === "production" && process.env["NOUS_ALERT_WEBHOOK_URL"]) {
     findings.push({
       id: "alerting-configured",
       severity: "low",

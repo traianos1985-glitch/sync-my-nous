@@ -75,7 +75,7 @@ export const Route = createFileRoute("/api/knowledge")({
       },
       POST: async ({ request }) => {
         const userId = await requireAuthenticatedUserId(request);
-        if (await isDatabaseRateLimited(request, db, sql, "knowledge-upload"))
+        if (await isDatabaseRateLimited(request, db as never, sql, "knowledge-upload"))
           return Response.json(
             { error: "Upload rate limit exceeded" },
             { status: 429, headers: { "Retry-After": "60" } },
@@ -146,7 +146,7 @@ export const Route = createFileRoute("/api/knowledge")({
             ok: true,
             document: {
               id,
-              name: safe.filename,
+              name: (safe as { filename?: string }).filename ?? file.name,
               contentType: file.type,
               status:
                 !scan.clean || file.type.startsWith("image/") ? "quarantined" : "extraction_review",

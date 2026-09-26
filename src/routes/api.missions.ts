@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousMissions } from "../lib/db/schema";
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/missions")({
         return Response.json({ ok: true, missions });
       },
       PATCH: async ({ request }) => {
-        const userId = getUserId(request);
+        const uid = await userId(request);
         const body = (await request.json()) as { id?: string; status?: string };
         const allowed = [
           "queued",
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/missions")({
         const [mission] = await db
           .update(nousMissions)
           .set({ status: body.status, updatedAt: new Date() })
-          .where(and(eq(nousMissions.id, body.id), eq(nousMissions.userId, userId)))
+          .where(and(eq(nousMissions.id, body.id), eq(nousMissions.userId, uid)))
           .returning();
         return mission
           ? Response.json({ mission })

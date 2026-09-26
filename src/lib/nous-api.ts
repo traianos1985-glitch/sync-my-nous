@@ -1,7 +1,7 @@
 export type NousApiOptions = RequestInit & { token?: string };
 
-const apiBase = import.meta.env.VITE_NOUS_API_URL ?? "";
-const apiToken = import.meta.env.VITE_NOUS_API_TOKEN;
+const apiBase = import.meta.env["VITE_NOUS_API_URL"] ?? "";
+const apiToken = import.meta.env["VITE_NOUS_API_TOKEN"];
 
 export function hasConfiguredNousApi(): boolean {
   return Boolean(apiBase || apiToken);

@@ -503,6 +503,7 @@ function Dashboard() {
       setMessages((m) => [
         ...m,
         {
+          id: crypto.randomUUID(),
           role: "assistant",
           text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δεν εκτελέστηκε εξωτερική ενέργεια. Δοκίμασε ξανά σε λίγο.",
         },
@@ -1738,6 +1739,15 @@ function StatBar({ label, pct, color }: { label: string; pct: number; color: str
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <span>{pct}%</span>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-card/60 p-2 text-center">
+      <div className="font-mono text-sm text-foreground">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
     </div>
   );
 }

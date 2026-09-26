@@ -10,9 +10,9 @@ type ModelCallMetric = {
 };
 
 const calls: ModelCallMetric[] = [];
-const DAILY_CALL_LIMIT = Number(process.env.NOUS_AI_DAILY_CALL_LIMIT ?? 100);
-const MODEL_COST_PER_MILLION_INPUT = Number(process.env.NOUS_AI_INPUT_COST_PER_MILLION ?? 1);
-const MODEL_COST_PER_MILLION_OUTPUT = Number(process.env.NOUS_AI_OUTPUT_COST_PER_MILLION ?? 4);
+const DAILY_CALL_LIMIT = Number(process.env["NOUS_AI_DAILY_CALL_LIMIT"] ?? 100);
+const MODEL_COST_PER_MILLION_INPUT = Number(process.env["NOUS_AI_INPUT_COST_PER_MILLION"] ?? 1);
+const MODEL_COST_PER_MILLION_OUTPUT = Number(process.env["NOUS_AI_OUTPUT_COST_PER_MILLION"] ?? 4);
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -54,7 +54,7 @@ export function resetModelCallMetricsForTests() {
 }
 
 export function modelCallTimeoutMs() {
-  return Number(process.env.NOUS_AI_TIMEOUT_MS ?? 30_000);
+  return Number(process.env["NOUS_AI_TIMEOUT_MS"] ?? 30_000);
 }
 
 export function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {

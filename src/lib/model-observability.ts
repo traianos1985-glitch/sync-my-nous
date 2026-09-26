@@ -12,9 +12,9 @@ export async function recordPersistentModelCall(
   recordModelCall(metric);
   const estimatedCostUsd =
     ((metric.inputTokens ?? 0) / 1_000_000) *
-      Number(process.env.NOUS_AI_INPUT_COST_PER_MILLION ?? 1) +
+      Number(process.env["NOUS_AI_INPUT_COST_PER_MILLION"] ?? 1) +
     ((metric.outputTokens ?? 0) / 1_000_000) *
-      Number(process.env.NOUS_AI_OUTPUT_COST_PER_MILLION ?? 4);
+      Number(process.env["NOUS_AI_OUTPUT_COST_PER_MILLION"] ?? 4);
   try {
     await db.insert(nousObservabilityEvents).values({
       id: crypto.randomUUID(),
@@ -50,6 +50,6 @@ export async function getPersistentDailyBudget(userId: string) {
       ),
     );
   const used = Number(result?.calls ?? 0);
-  const limit = Number(process.env.NOUS_AI_DAILY_CALL_LIMIT ?? 100);
+  const limit = Number(process.env["NOUS_AI_DAILY_CALL_LIMIT"] ?? 100);
   return { allowed: used < limit, count: used, limit };
 }

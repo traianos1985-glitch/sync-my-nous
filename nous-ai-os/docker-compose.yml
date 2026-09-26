@@ -4,7 +4,7 @@ services:
     container_name: nous-ai-os
     restart: always
     ports:
-      - "5000:7000"
+      - "5000:5000"
     volumes:
       - ./data:/app/data
       - ./apps:/app/apps
