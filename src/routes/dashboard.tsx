@@ -116,10 +116,17 @@ function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, history }),
       });
-      const data = (await response.json()) as { answer?: string; human_answer?: string; response?: string; error?: string };
+      const data = (await response.json()) as {
+        answer?: string;
+        human_answer?: string;
+        response?: string;
+        error?: string;
+        mode?: "connected" | "degraded";
+      };
       const answer = data.human_answer ?? data.answer ?? data.response;
       if (!response.ok || !answer) throw new Error(data.error ?? "Chat unavailable");
-      setMessages((m) => [...m, { role: "assistant", text: answer }]);
+      const suffix = data.mode === "degraded" ? "\n\n[Λειτουργία περιορισμένη: δεν εκτελέστηκε εξωτερική ενέργεια.]" : "";
+      setMessages((m) => [...m, { role: "assistant", text: `${answer}${suffix}` }]);
     } catch (error) {
       console.error("[v0] Chat request failed", error);
       setMessages((m) => [...m, { role: "assistant", text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δοκίμασε ξανά σε λίγο." }]);
