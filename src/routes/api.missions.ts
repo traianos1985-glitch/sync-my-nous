@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousMissions } from "../lib/db/schema";
 
-function userId(request: Request) {
-  return request.headers.get("x-nous-user-id")?.slice(0, 128) || "anonymous";
+async function userId(request: Request) {
+  return requireAuthenticatedUserId(request);
 }
 
 export const Route = createFileRoute("/api/missions")({
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/api/missions")({
         const missions = await db
           .select()
           .from(nousMissions)
-          .where(eq(nousMissions.userId, userId(request)))
+          .where(eq(nousMissions.userId, await userId(request)))
           .orderBy(desc(nousMissions.updatedAt))
           .limit(50);
         return Response.json({ ok: true, missions });
@@ -51,7 +52,7 @@ export const Route = createFileRoute("/api/missions")({
           return Response.json({ error: "title and objective are required" }, { status: 400 });
         const mission = {
           id: randomUUID(),
-          userId: userId(request),
+          userId: await userId(request),
           title,
           objective,
           status: "queued",

@@ -9,6 +9,7 @@ import {
 } from "../lib/ai-observability";
 import { research, type ResearchMode } from "../lib/research-broker";
 import { db } from "../lib/db";
+import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { nousMessages } from "../lib/db/schema";
 import { randomUUID } from "node:crypto";
 
@@ -167,7 +168,7 @@ function offlineAnswer(message: string) {
   if (/(τι μπορείς|τι μπορεις|δυνατότητ|δυνατοτητ|can you)/.test(text)) {
     return "Μπορώ να συζητήσω, να αναλύσω απαιτήσεις, να σχεδιάσω λύσεις και να γράψω κώδικα στο workspace. Για πραγματική αναζήτηση στο διαδίκτυο, browser actions, missions ή αλλαγές στον υπολογιστή χρειάζεται να είναι συνδεδεμένο το αντίστοιχο NOUS backend εργαλείο. Αυτή τη στιγμή το AI chat λειτουργεί, αλλά δεν θα παρουσιάσω τις backend ενέργειες ως διαθέσιμες.";
   }
-  return `Μπορώ να σε βοηθήσω να το αναλύσουμε και να ετοιμάσουμε ασφαλές σχέδιο, αλλά το AI Gateway δεν απάντησε αυτή τη στιγμή. Δεν εκτέλεσα καμία εξωτερική ενέργεια. Δοκίμασε ξανά ή σύνδεσε το NOUS backend α�� ζητάς browser, missions ή αλλαγές αρχείων.`;
+  return `Μπορ�� να σε βοηθήσω να το αναλύσουμε και να ετοιμάσουμε ασφαλές σχέδιο, αλλά το AI Gateway δεν απάντησε αυτή τη στιγμή. Δεν εκτέλεσα καμία εξωτερική ενέργεια. Δοκίμασε ξανά ή σύνδεσε το NOUS backend α�� ζητάς browser, missions ή αλλαγές αρχείων.`;
 }
 
 export const Route = createFileRoute("/api/chat")({
@@ -184,7 +185,7 @@ export const Route = createFileRoute("/api/chat")({
             missionId?: string;
           };
           message = body.message?.trim() ?? "";
-          const userId = request.headers.get("x-nous-user-id")?.slice(0, 128) || "anonymous";
+          const userId = await requireAuthenticatedUserId(request);
           if (!allowRequest(userId))
             return Response.json({ error: "Too many requests" }, { status: 429 });
           const missionId = body.missionId?.slice(0, 128);

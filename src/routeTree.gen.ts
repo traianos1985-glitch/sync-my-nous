@@ -17,6 +17,7 @@ import { Route as ApiJobsRouteImport } from './routes/api.jobs'
 import { Route as ApiMissionsRouteImport } from './routes/api.missions'
 import { Route as ApiObservabilityRouteImport } from './routes/api.observability'
 import { Route as ApiStatusRouteImport } from './routes/api.status'
+import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiToolsExecuteRouteImport } from './routes/api.tools.execute'
 
 const IndexRoute = IndexRouteImport.update({
@@ -59,6 +60,11 @@ const ApiStatusRoute = ApiStatusRouteImport.update({
   path: '/api/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiToolsExecuteRoute = ApiToolsExecuteRouteImport.update({
   id: '/api/tools/execute',
   path: '/api/tools/execute',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/api/missions': typeof ApiMissionsRoute
   '/api/observability': typeof ApiObservabilityRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/api/missions'
     | '/api/observability'
     | '/api/status'
+    | '/api/auth/$'
     | '/api/tools/execute'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/api/missions'
     | '/api/observability'
     | '/api/status'
+    | '/api/auth/$'
     | '/api/tools/execute'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/api/missions'
     | '/api/observability'
     | '/api/status'
+    | '/api/auth/$'
     | '/api/tools/execute'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   ApiMissionsRoute: typeof ApiMissionsRoute
   ApiObservabilityRoute: typeof ApiObservabilityRoute
   ApiStatusRoute: typeof ApiStatusRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiToolsExecuteRoute: typeof ApiToolsExecuteRoute
 }
 
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tools/execute': {
       id: '/api/tools/execute'
       path: '/api/tools/execute'
@@ -224,6 +244,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMissionsRoute: ApiMissionsRoute,
   ApiObservabilityRoute: ApiObservabilityRoute,
   ApiStatusRoute: ApiStatusRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiToolsExecuteRoute: ApiToolsExecuteRoute,
 }
 export const routeTree = rootRouteImport

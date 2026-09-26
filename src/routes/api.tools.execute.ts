@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
@@ -6,15 +7,15 @@ import { nousApprovals, nousMissions, nousToolRuns } from "../lib/db/schema";
 import { getToolDefinition } from "../lib/tool-registry";
 import { research } from "../lib/research-broker";
 
-function getUserId(request: Request) {
-  return request.headers.get("x-nous-user-id")?.slice(0, 128) || "anonymous";
+async function getUserId(request: Request) {
+  return requireAuthenticatedUserId(request);
 }
 
 export const Route = createFileRoute("/api/tools/execute")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const userId = getUserId(request);
+        const userId = await getUserId(request);
         const body = (await request.json()) as { approvalId?: string };
         if (!body.approvalId)
           return Response.json({ error: "approvalId is required" }, { status: 400 });
