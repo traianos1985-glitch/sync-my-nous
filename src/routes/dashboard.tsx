@@ -61,16 +61,11 @@ const capabilities = [
 ];
 
 const missions = [
-  { title: "Καθαρισμός διπλών agent modules", status: "running" },
   { title: "Ανάλυση εγγράφου SF Caching", status: "queued" },
   { title: "Backup brain state", status: "done" },
 ];
 
 const initiatives = [
-  {
-    title: "Να ενοποιήσω τα autonomy modules σε ένα core",
-    why: "Βρήκα 9 παρόμοια αρχεία με επικαλυπτόμενη λογική.",
-  },
   {
     title: "Να στήσω ημερήσιο backup στις 04:00",
     why: "Το τελευταίο backup έγινε χειροκίνητα.",

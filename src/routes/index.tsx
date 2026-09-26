@@ -117,18 +117,6 @@ const layers = [
 
 const upgrades = [
   {
-    tag: "Προτεραιότητα 1",
-    title: "Καθαρισμός διπλών agent modules",
-    text: "Υπάρχουν πολλά παράλληλα autonomy/agent αρχεία (agent_v2, autonomous_v2, autonomy_v3…). Ένα ενιαίο core με plugins μειώνει δραστικά τα bugs.",
-    tone: "alert" as const,
-  },
-  {
-    tag: "Προτεραιότητα 1",
-    title: "Ένα σύγχρονο web UI αντί dashboard μέσα στη Flask",
-    text: "Ξεχωριστό frontend που μιλά με το API μέσω token: chat, missions, μνήμη, logs, έγγραφα σε πραγματικό χρόνο.",
-    tone: "signal" as const,
-  },
-  {
     tag: "Προτεραιότητα 2",
     title: "Βάση δεδομένων στη θέση των JSON αρχείων",
     text: "Τα data/*.json δεν κλιμακώνουν και χαλάνε σε ταυτόχρονη εγγραφή. SQLite ή Postgres με migrations λύνει μνήμη, αναζήτηση και backup.",
@@ -294,8 +282,8 @@ function Index() {
               Προτάσεις αναβάθμισης
             </h2>
             <p className="mt-3 max-w-xl text-muted-foreground">
-              Έξι βελτιώσεις με σειρά προτεραιότητας, από τον έλεγχο του κώδικα και της δομής του
-              project.
+              Οι επόμενες τέσσερις βελτιώσεις του project, μετά την ολοκλήρωση του core runtime και
+              του web UI.
             </p>
           </div>
           <span className="hidden font-mono text-xs text-muted-foreground md:block">/roadmap</span>
