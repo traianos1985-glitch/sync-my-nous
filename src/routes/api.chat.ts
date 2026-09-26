@@ -17,6 +17,47 @@ const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικ
 Αν δεν έχεις εργαλείο για να εκτελέσεις κάτι, μην απαντήσεις γενικά. Πες: «Μπορώ να το σχεδιάσω τώρα, αλλά δεν μπορώ να το εκτελέσω από αυτό το workspace επειδή λείπει το Χ» και δώσε ακριβώς το επόμενο βήμα.
 Κράτα τις απαντήσεις σύντομες αλλά χρήσιμες. Μην επινοείς δεδομένα, κατάσταση ή αποτελέσματα.`;
 
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+
+async function tryGeminiFallback(
+  message: string,
+  history: Array<{ role: "user" | "assistant"; text: string }>,
+) {
+  const apiKey = process.env.GCP_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const contents = [
+      ...history.map((item) => ({
+        role: item.role === "assistant" ? "model" : "user",
+        parts: [{ text: item.text }],
+      })),
+      { role: "user", parts: [{ text: message }] },
+    ];
+    const response = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents,
+        generationConfig: { temperature: 0.3, maxOutputTokens: 1600 },
+      }),
+      signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const answer = data.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text ?? "")
+      .join("")
+      .trim();
+    return answer ? { answer, model: "gemini-2.5-flash" } : null;
+  } catch {
+    return null;
+  }
+}
+
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_FREE_MODELS = [
   "qwen/qwen3-coder:free",
@@ -134,6 +175,17 @@ export const Route = createFileRoute("/api/chat")({
               ok: false,
               error: error instanceof Error ? error.message : "unknown_error",
             });
+
+            const geminiFallback = await tryGeminiFallback(message, history);
+            if (geminiFallback) {
+              return Response.json({
+                ok: true,
+                answer: geminiFallback.answer,
+                source: "gemini-api",
+                model: geminiFallback.model,
+                mode: "connected",
+              });
+            }
 
             const fallback = await tryOpenRouterFallback(message, history);
             if (fallback) {
