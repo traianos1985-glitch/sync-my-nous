@@ -162,6 +162,17 @@ function Dashboard() {
   >([]);
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "connected">("idle");
   const [providerAction, setProviderAction] = useState<string | null>(null);
+  const [sentinel, setSentinel] = useState<{
+    score: number;
+    findings: Array<{
+      id: string;
+      severity: "low" | "medium" | "high";
+      title: string;
+      detail: string;
+      remediation: string;
+    }>;
+    checkedAt: string;
+  } | null>(null);
 
   const connectMissionStream = async () => {
     if (liveStatus === "connecting" || liveStatus === "connected") return;
@@ -958,6 +969,69 @@ function Dashboard() {
                           </button>
                         </div>
                       ))}
+                    </div>
+                    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 font-semibold">
+                            <ScanLine className="size-4 text-primary" /> Defensive Sentinel
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Ελέγχει μόνο defensive controls του NOUS· δεν κάνει exploit ή scanning
+                            τρίτων.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              setSentinel(await nousFetch<typeof sentinel>("/api/security-audit"));
+                            } catch {
+                              setSentinel(null);
+                            }
+                          }}
+                          className="rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold hover:bg-primary/10"
+                        >
+                          Έλεγχος τώρα
+                        </button>
+                      </div>
+                      {sentinel && (
+                        <div className="mt-4 grid gap-3 md:grid-cols-[auto_1fr]">
+                          <div className="flex size-20 flex-col items-center justify-center rounded-full border-4 border-primary/40">
+                            <strong className="text-xl">{sentinel.score}</strong>
+                            <span className="font-mono text-[9px] text-muted-foreground">
+                              / 100
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {sentinel.findings.length === 0 ? (
+                              <p className="rounded-lg bg-ok/10 p-3 text-xs text-ok">
+                                Όλα τα ενεργά defensive checks είναι εντάξει.
+                              </p>
+                            ) : (
+                              sentinel.findings.map((finding) => (
+                                <div
+                                  key={finding.id}
+                                  className="rounded-lg border border-border bg-background/60 p-3"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <strong className="text-xs">{finding.title}</strong>
+                                    <span className="font-mono text-[9px] uppercase text-muted-foreground">
+                                      {finding.severity}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-[11px] text-muted-foreground">
+                                    {finding.detail}
+                                  </p>
+                                  <p className="mt-1 text-[11px] text-primary">
+                                    Fix: {finding.remediation}
+                                  </p>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="rounded-2xl border border-warn/25 bg-warn/5 p-4 text-sm">
                       <div className="flex items-center gap-2 font-semibold text-warn">
