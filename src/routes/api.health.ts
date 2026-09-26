@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/health")({
           const checks = {
             database: "ok",
             aiGateway:
-              process.env.AI_GATEWAY_API_KEY || process.env.GCP_API_KEY ? "configured" : "missing",
+              process.env["AI_GATEWAY_API_KEY"] || process.env["GCP_API_KEY"] ? "configured" : "missing",
             research: "available",
           } as const;
           const healthy = checks.aiGateway !== "missing";
