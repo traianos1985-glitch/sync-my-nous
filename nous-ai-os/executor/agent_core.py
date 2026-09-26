@@ -49,4 +49,8 @@ class AuditPlugin:
 
 DEFAULT_AGENT = AgentCore(plugins=[AuditPlugin()])
 
-__all__ = ["AgentCore", "AgentPlugin", "AuditPlugin", "DEFAULT_AGENT"]
+def act(task: str, context: dict[str, Any] | None = None) -> Any:
+    return DEFAULT_AGENT.run(task, context=context)
+
+
+__all__ = ["AgentCore", "AgentPlugin", "AuditPlugin", "DEFAULT_AGENT", "act"]
