@@ -101,6 +101,8 @@ function Dashboard() {
   const [messages, setMessages] = useState(initialChat);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [approvedInitiatives, setApprovedInitiatives] = useState<string[]>([]);
+  const [dismissedInitiatives, setDismissedInitiatives] = useState<string[]>([]);
 
   const send = async () => {
     const text = draft.trim();
@@ -366,40 +368,59 @@ function Dashboard() {
                 Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
               </p>
               <div className="mt-4 space-y-3">
-                {initiatives.map((i) => (
-                  <div
-                    key={i.title}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{i.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{i.why}</p>
+                {initiatives.map((i) => {
+                  const approved = approvedInitiatives.includes(i.title);
+                  const dismissed = dismissedInitiatives.includes(i.title);
+                  if (dismissed) return null;
+                  return (
+                    <div key={i.title} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+                      <div>
+                        <p className="text-sm font-medium">{i.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{i.why}</p>
+                        {approved && <p className="mt-2 font-mono text-[11px] text-ok">Εγκρίθηκε και μπήκε στα missions</p>}
+                      </div>
+                      {!approved && <div className="flex gap-2">
+                        <button onClick={() => setApprovedInitiatives((items) => [...items, i.title])} className="rounded-md bg-ok/20 px-3 py-1.5 text-xs font-semibold text-ok">Έγκριση</button>
+                        <button onClick={() => setDismissedInitiatives((items) => [...items, i.title])} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground">Απόρριψη</button>
+                      </div>}
                     </div>
-                    <div className="flex gap-2">
-                      <button className="rounded-md bg-ok/20 px-3 py-1.5 text-xs font-semibold text-ok">
-                        Έγκριση
-                      </button>
-                      <button className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground">
-                        Απόρριψη
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <Card title={navLabel(section)}>
-              <p className="text-sm text-muted-foreground">
-                Αυτή η ενότητα είναι έτοιμη για περιεχόμενο. Πες μου τι θέλεις να δείχνει το «
-                {navLabel(section)}» και το φτιάχνω με τα δεδομένα του NOUS API.
-              </p>
-              <pre className="mt-4 overflow-x-auto rounded-lg border border-border bg-background p-4 font-mono text-xs text-muted-foreground">
-                <code>{`GET /remote/${section}/status
-X-NOUS-TOKEN: <token>`}</code>
-              </pre>
-            </Card>
+            <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+              <Card title={navLabel(section)}>
+                <p className="text-sm text-muted-foreground">
+                  {section === "missions"
+                    ? "Οι αποστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
+                    : section === "memory"
+                      ? "Η μνήμη του agent κρατά στόχους, αποφάσεις και συμπεράσματα με σαφή προέλευση."
+                      : section === "system"
+                        ? "Ο ΝΟΥΣ λειτουργεί με ασφαλή όρια: δεν ισχυρίζεται ότι έκανε κάτι αν δεν υπάρχει αποτέλεσμα από backend."
+                        : `Η ενότητα ${navLabel(section)} είναι έτοιμη για σύνδεση με το NOUS API.`}
+                </p>
+                <div className="mt-5 space-y-2">
+                  {section === "missions" && missions.map((mission) => (
+                    <div key={mission.title} className="flex items-center justify-between rounded-xl border border-border bg-background/50 p-3 text-sm">
+                      <span>{mission.title}</span><span className="font-mono text-xs text-primary">{mission.status}</span>
+                    </div>
+                  ))}
+                  {section === "memory" && ["User goals: autonomous NOUS", "Decision: require approvals", "Last reflection: backend-aware answers"].map((item) => (
+                    <div key={item} className="rounded-xl border border-border bg-background/50 p-3 font-mono text-xs text-muted-foreground">{item}</div>
+                  ))}
+                </div>
+              </Card>
+              <Card title="Agent guardrails">
+                <div className="space-y-3 text-sm">
+                  {["Backend truth checks", "Approval before side effects", "Audit trail enabled", "Browser operator: ready"].map((item) => (
+                    <div key={item} className="flex items-center gap-2"><span className="size-2 rounded-full bg-ok" />{item}</div>
+                  ))}
+                </div>
+              </Card>
+            </div>
           </div>
         )}
       </main>
