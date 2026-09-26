@@ -125,6 +125,23 @@ bash deploy/local_mac_linux/install_autostart_linux.sh
 
 ---
 
+## Ασφαλής συνεχής λειτουργία και ανάκτηση
+
+Ο NOUS μπορεί να τρέχει 24/7 σε VPS ή Docker με `restart: always`, health checks και persistent `data/` volume. Η αυτοβελτίωση είναι σκόπιμα ελεγχόμενη: δεν κατεβάζει και δεν εκτελεί αυθαίρετο remote Python code. Οι ενημερώσεις γίνονται μέσω signed/approved GitHub CI/CD deployment, ώστε να υπάρχει rollback και audit trail.
+
+Για production:
+
+```bash
+# στο VPS, μετά το αρχικό setup
+cp .env.example .env
+# βάλε τα keys και ένα NOUS_VERSION
+sudo docker compose up -d --build
+sudo docker compose ps
+curl http://127.0.0.1:5000/health
+```
+
+Χρησιμοποίησε reverse proxy με HTTPS, firewall που επιτρέπει μόνο 80/443 και καθημερινό backup του `data/`. Μην εκθέτεις απευθείας τα management endpoints στο Internet.
+
 ## Environment Variables (.env)
 
 Δημιούργησε αρχείο `.env` στον κύριο φάκελο:

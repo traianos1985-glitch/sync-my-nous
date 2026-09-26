@@ -10,9 +10,18 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 @app.route('/upgrade', methods=['POST'])
 def upgrade_self():
-    """
-    Λαμβάνει ένα URL για ένα νέο αρχείο Python, το κατεβάζει και το εκτελεί.
-    """
+    """Disabled by default: remote code download/execution is never automatic."""
+    if os.environ.get('NOUS_ALLOW_REMOTE_UPGRADE', '0') != '1':
+        return jsonify({
+            'error': 'Remote self-upgrade is disabled. Use the signed CI/CD deployment path.',
+            'upgrade_mode': 'controlled-deployment',
+        }), 410
+
+    upgrade_token = request.headers.get('X-NOUS-Upgrade-Token', '')
+    expected_token = os.environ.get('NOUS_UPGRADE_TOKEN', '')
+    if not expected_token or upgrade_token != expected_token:
+        return jsonify({'error': 'Upgrade authorization required.'}), 401
+
     data = request.get_json()
     if not data or 'url' not in data:
         return jsonify({'error': 'Παρακαλώ παρέχετε ένα URL στο JSON payload.'}), 400
@@ -89,9 +98,25 @@ except Exception as e:
         return jsonify({'error': f'Σφάλμα κατά την εκτέλεση του script: {e}'}), 500
 
 
+@app.get('/health')
+def health():
+    return jsonify({'status': 'ok', 'service': 'nous', 'version': os.environ.get('NOUS_VERSION', 'dev')}), 200
+
+
+@app.get('/ready')
+def ready():
+    return jsonify({'status': 'ready', 'service': 'nous'}), 200
+
+
 @app.route('/')
 def index():
-    return "Καλώς ήρθατε στο εργαλείο αυτο-αναβάθμισης! Χρησιμοποιήστε το endpoint /upgrade με POST request."
+    return jsonify({
+        'service': 'nous-ai-os',
+        'status': 'online',
+        'health': '/health',
+        'readiness': '/ready',
+        'deployment': 'controlled-ci-cd',
+    })
 
 if __name__ == '__main__':
     # Για να τρέξει σε όλες τις διαθέσιμες διεπαφές, χρησιμοποιήστε '0.0.0.0'
