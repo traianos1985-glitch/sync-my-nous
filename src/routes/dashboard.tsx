@@ -151,6 +151,21 @@ function Dashboard() {
     Array<{ id: string; tool: string; input: unknown; createdAt: string }>
   >([]);
   const [approvalStatus, setApprovalStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [systemStatus, setSystemStatus] = useState<{
+    status: string;
+    counts?: { missions: number; toolRuns: number };
+    storage?: string;
+  } | null>(null);
+
+  const loadSystemStatus = async () => {
+    try {
+      const response = await fetch("/api/status");
+      const data = (await response.json()) as typeof systemStatus;
+      setSystemStatus(data);
+    } catch {
+      setSystemStatus({ status: "unavailable" });
+    }
+  };
 
   const loadApprovals = async () => {
     setApprovalStatus("loading");
@@ -211,7 +226,7 @@ function Dashboard() {
       setConnectionMode(data.mode ?? "connected");
       const suffix =
         data.mode === "degraded"
-          ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]"
+          ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε ��ξωτερική ενέργεια.]"
           : data.researchUsed && data.citations?.length
             ? `\n\n[Πηγές: ${data.citations.map((citation) => citation.domain).join(", ")}]`
             : "";
@@ -340,8 +355,10 @@ function Dashboard() {
               <Menu className="size-4" />
             </button>
             <strong className="font-display text-sm">{navLabel(section)}</strong>
-            <span className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-ok">
-              health: ok
+            <span
+              className={`rounded-full border border-border px-2.5 py-0.5 font-mono text-xs ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
+            >
+              health: {systemStatus?.status ?? "checking"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -391,6 +408,7 @@ function Dashboard() {
                         const focus = label.toLowerCase();
                         setActiveFocus(focus);
                         if (focus === "guard") void loadApprovals();
+                        if (focus === "system") void loadSystemStatus();
                       }}
                       className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
                     >
@@ -405,6 +423,45 @@ function Dashboard() {
                     </button>
                   ))}
                 </div>
+                {activeFocus === "system" && (
+                  <div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">Runtime status</p>
+                        <p className="text-xs text-muted-foreground">
+                          Ζωντανή κατάσταση από το persisted NOUS runtime.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadSystemStatus()}
+                        className="rounded-lg border border-signal/30 px-3 py-1.5 text-xs text-signal hover:bg-signal/10"
+                      >
+                        Ανανέωση
+                      </button>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="rounded-lg bg-card/70 p-2">
+                        <p className="text-muted-foreground">Status</p>
+                        <p className="mt-1 font-semibold text-ok">
+                          {systemStatus?.status ?? "loading"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-card/70 p-2">
+                        <p className="text-muted-foreground">Missions</p>
+                        <p className="mt-1 font-semibold">
+                          {systemStatus?.counts?.missions ?? "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-card/70 p-2">
+                        <p className="text-muted-foreground">Tool runs</p>
+                        <p className="mt-1 font-semibold">
+                          {systemStatus?.counts?.toolRuns ?? "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {activeFocus === "guard" && (
                   <div className="mb-5 rounded-2xl border border-warn/30 bg-warn/5 p-4">
                     <div className="flex items-center justify-between gap-3">

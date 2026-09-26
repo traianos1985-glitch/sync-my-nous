@@ -152,12 +152,22 @@ async function tryOpenRouterFallback(
   return null;
 }
 
+const requestWindows = new Map<string, number[]>();
+function allowRequest(userId: string) {
+  const now = Date.now();
+  const recent = (requestWindows.get(userId) ?? []).filter((time) => now - time < 60_000);
+  if (recent.length >= 20) return false;
+  recent.push(now);
+  requestWindows.set(userId, recent);
+  return true;
+}
+
 function offlineAnswer(message: string) {
   const text = message.toLocaleLowerCase("el-GR");
   if (/(τι μπορείς|τι μπορεις|δυνατότητ|δυνατοτητ|can you)/.test(text)) {
     return "Μπορώ να συζητήσω, να αναλύσω απαιτήσεις, να σχεδιάσω λύσεις και να γράψω κώδικα στο workspace. Για πραγματική αναζήτηση στο διαδίκτυο, browser actions, missions ή αλλαγές στον υπολογιστή χρειάζεται να είναι συνδεδεμένο το αντίστοιχο NOUS backend εργαλείο. Αυτή τη στιγμή το AI chat λειτουργεί, αλλά δεν θα παρουσιάσω τις backend ενέργειες ως διαθέσιμες.";
   }
-  return `Μπορώ να σε βοηθήσω να το αναλύσουμε και να ετοιμάσουμε ασφαλές σχέδιο, αλλά το AI Gateway δεν απάντησε αυτή τη στιγμή. Δεν εκτέλεσα καμία εξωτερική ενέργεια. Δοκίμασε ξανά ή σύνδεσε το NOUS backend αν ζητάς browser, missions ή αλλαγές αρχείων.`;
+  return `Μπορώ να σε βοηθήσω να το αναλύσουμε και να ετοιμάσουμε ασφαλές σχέδιο, αλλά το AI Gateway δεν απάντησε αυτή τη στιγμή. Δεν εκτέλεσα καμία εξωτερική ενέργεια. Δοκίμασε ξανά ή σύνδεσε το NOUS backend α�� ζητάς browser, missions ή αλλαγές αρχείων.`;
 }
 
 export const Route = createFileRoute("/api/chat")({
@@ -175,6 +185,8 @@ export const Route = createFileRoute("/api/chat")({
           };
           message = body.message?.trim() ?? "";
           const userId = request.headers.get("x-nous-user-id")?.slice(0, 128) || "anonymous";
+          if (!allowRequest(userId))
+            return Response.json({ error: "Too many requests" }, { status: 429 });
           const missionId = body.missionId?.slice(0, 128);
           if (!message) {
             return Response.json({ error: "Το μήνυμα είναι κενό." }, { status: 400 });

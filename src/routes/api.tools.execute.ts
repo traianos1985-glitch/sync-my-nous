@@ -39,6 +39,12 @@ export const Route = createFileRoute("/api/tools/execute")({
         if (!parsed.success) return Response.json({ error: "Invalid tool input" }, { status: 400 });
 
         const runId = randomUUID();
+        if (approval.missionId) {
+          await db
+            .update(nousMissions)
+            .set({ status: "running", updatedAt: new Date() })
+            .where(and(eq(nousMissions.id, approval.missionId), eq(nousMissions.userId, userId)));
+        }
         try {
           let output: unknown;
           if (approval.tool === "research") {
