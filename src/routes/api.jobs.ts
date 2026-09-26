@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createJob, getJob } from "../lib/db/jobs";
+import { createJob, getJob, updateJob } from "../lib/db/jobs";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { isAllowedJobKind, NOUS_LIMITS, serializedBytes } from "../lib/platform-policy";
 
@@ -22,6 +22,19 @@ export const Route = createFileRoute("/api/jobs")({
           return Response.json({ error: "Job payload is too large" }, { status: 413 });
         const job = await createJob(await userId(request), body.kind, body.payload ?? {});
         return Response.json({ job }, { status: 202 });
+      },
+      PATCH: async ({ request }) => {
+        const body = (await request.json()) as { id?: string; action?: string };
+        if (!body.id || body.action !== "cancel")
+          return Response.json({ error: "Only cancel is supported" }, { status: 400 });
+        const job = await getJob(body.id, await userId(request));
+        if (!job) return Response.json({ error: "Job not found" }, { status: 404 });
+        if (!["queued", "running"].includes(job.status))
+          return Response.json({ error: "Job cannot be cancelled" }, { status: 409 });
+        const cancelled = await updateJob(body.id, await userId(request), "cancelled", {
+          cancelledAt: new Date().toISOString(),
+        });
+        return Response.json({ job: cancelled });
       },
       GET: async ({ request }) => {
         const id = new URL(request.url).searchParams.get("id");
