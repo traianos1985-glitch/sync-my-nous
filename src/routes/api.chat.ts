@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { generateText, gateway } from "ai";
+import {
+  canStartModelCall,
+  getModelCallMetrics,
+  modelCallTimeoutMs,
+  recordModelCall,
+  withTimeout,
+} from "../lib/ai-observability";
 
 const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικρινής και πρακτικός προσωπικός agent.
 Απάντα φυσικά και ανθρώπινα στα ελληνικά όταν ο χρήστης γράφει ελληνικά, χωρίς canned απαντήσεις ή άσχετες επαναλήψεις.
@@ -21,6 +28,7 @@ function offlineAnswer(message: string) {
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
+      GET: async () => Response.json(getModelCallMetrics()),
       POST: async ({ request }) => {
         try {
           const body = (await request.json()) as {
@@ -33,16 +41,46 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           const history = (body.history ?? []).slice(-10);
-          const result = await generateText({
-            model: gateway("openai/o4-mini"),
-            system: SYSTEM_PROMPT,
-            messages: [
-              ...history.map((item) => ({ role: item.role, content: item.text }) as const),
-              { role: "user" as const, content: message },
-            ],
-          });
+          const budget = canStartModelCall();
+          if (!budget.allowed) {
+            return Response.json(
+              { ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." },
+              { status: 429 },
+            );
+          }
 
-          return Response.json({ ok: true, answer: result.text, source: "ai-gateway", mode: "connected" });
+          const startedAt = new Date().toISOString();
+          const started = performance.now();
+          try {
+            const result = await withTimeout(
+              generateText({
+                model: gateway("openai/o4-mini"),
+                system: SYSTEM_PROMPT,
+                messages: [
+                  ...history.map((item) => ({ role: item.role, content: item.text }) as const),
+                  { role: "user" as const, content: message },
+                ],
+              }),
+              modelCallTimeoutMs(),
+            );
+            recordModelCall({
+              startedAt,
+              durationMs: Math.round(performance.now() - started),
+              ok: true,
+              inputTokens: result.usage?.inputTokens,
+              outputTokens: result.usage?.outputTokens,
+              totalTokens: result.usage?.totalTokens,
+            });
+            return Response.json({ ok: true, answer: result.text, source: "ai-gateway", mode: "connected" });
+          } catch (error) {
+            recordModelCall({
+              startedAt,
+              durationMs: Math.round(performance.now() - started),
+              ok: false,
+              error: error instanceof Error ? error.message : "unknown_error",
+            });
+            throw error;
+          }
         } catch (error) {
           console.error("[v0] Chat request failed", error);
           return Response.json({
