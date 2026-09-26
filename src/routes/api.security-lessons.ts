@@ -42,17 +42,6 @@ export const Route = createFileRoute("/api/security-lessons")({
         const fingerprint = createHash("sha256")
           .update(`${category}:${title}:${lesson}`)
           .digest("hex");
-        const [existing] = await db
-          .select()
-          .from(nousSecurityLessons)
-          .where(
-            and(
-              eq(nousSecurityLessons.userId, userId),
-              eq(nousSecurityLessons.fingerprint, fingerprint),
-            ),
-          )
-          .limit(1);
-        if (existing) return Response.json({ ok: true, lesson: existing, deduplicated: true });
         const [created] = await db
           .insert(nousSecurityLessons)
           .values({
@@ -66,8 +55,22 @@ export const Route = createFileRoute("/api/security-lessons")({
             remediation,
             sourceEvent,
           })
+          .onConflictDoNothing({
+            target: [nousSecurityLessons.userId, nousSecurityLessons.fingerprint],
+          })
           .returning();
-        return Response.json({ ok: true, lesson: created }, { status: 201 });
+        if (created) return Response.json({ ok: true, lesson: created }, { status: 201 });
+        const [existing] = await db
+          .select()
+          .from(nousSecurityLessons)
+          .where(
+            and(
+              eq(nousSecurityLessons.userId, userId),
+              eq(nousSecurityLessons.fingerprint, fingerprint),
+            ),
+          )
+          .limit(1);
+        return Response.json({ ok: true, lesson: existing, deduplicated: true });
       },
     },
   },

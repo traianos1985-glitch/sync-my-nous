@@ -26,6 +26,20 @@ export const Route = createFileRoute("/api/knowledge/process")({
             .limit(1)
         )[0];
         if (!document) return Response.json({ error: "Document not found" }, { status: 404 });
+        if (document.status === "processing")
+          return Response.json(
+            { ok: true, documentId: document.id, status: "processing" },
+            { status: 202 },
+          );
+        await db
+          .update(nousKnowledgeDocuments)
+          .set({ status: "processing", updatedAt: new Date() })
+          .where(
+            and(
+              eq(nousKnowledgeDocuments.id, document.id),
+              eq(nousKnowledgeDocuments.userId, userId),
+            ),
+          );
         const chunks = await db
           .select()
           .from(nousKnowledgeChunks)
@@ -35,14 +49,15 @@ export const Route = createFileRoute("/api/knowledge/process")({
               eq(nousKnowledgeChunks.userId, userId),
             ),
           );
-        const embeddings = await embedKnowledgeChunks(chunks.map((chunk) => chunk.content));
-        for (let index = 0; index < chunks.length; index += 1) {
+        const pendingChunks = chunks.filter((chunk) => chunk.embeddingStatus !== "ready");
+        const embeddings = await embedKnowledgeChunks(pendingChunks.map((chunk) => chunk.content));
+        for (let index = 0; index < pendingChunks.length; index += 1) {
           await db
             .update(nousKnowledgeChunks)
             .set({ embedding: embeddings[index], embeddingStatus: "ready" })
             .where(
               and(
-                eq(nousKnowledgeChunks.id, chunks[index].id),
+                eq(nousKnowledgeChunks.id, pendingChunks[index].id),
                 eq(nousKnowledgeChunks.userId, userId),
               ),
             );

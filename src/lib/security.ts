@@ -10,6 +10,11 @@ export function getClientKey(request: Request) {
 export function isRateLimited(request: Request) {
   const now = Date.now();
   const key = getClientKey(request);
+  if (requestLog.size > 10_000) {
+    for (const [loggedKey, value] of requestLog) {
+      if (value.resetAt <= now) requestLog.delete(loggedKey);
+    }
+  }
   const current = requestLog.get(key);
   if (!current || current.resetAt <= now) {
     requestLog.set(key, { count: 1, resetAt: now + WINDOW_MS });
