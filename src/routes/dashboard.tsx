@@ -89,6 +89,13 @@ const commandSignals = [
   { label: "Missions", value: "03", detail: "1 running now", tone: "text-primary", icon: Activity },
   { label: "Memory", value: "12.4k", detail: "synced 2m ago", tone: "text-signal", icon: ScanLine },
   {
+    label: "Evaluation",
+    value: "—",
+    detail: "response quality",
+    tone: "text-violet-300",
+    icon: Activity,
+  },
+  {
     label: "Guard",
     value: "Armed",
     detail: "approval required",
@@ -262,6 +269,13 @@ function Dashboard() {
     }>
   >([]);
   const [knowledgeUpload, setKnowledgeUpload] = useState("idle");
+  const [evaluationMetrics, setEvaluationMetrics] = useState<{
+    total: number;
+    positive: number;
+    negative: number;
+    satisfactionRate: number | null;
+  } | null>(null);
+  const [evaluationStatus, setEvaluationStatus] = useState<"idle" | "loading" | "error">("idle");
   const [sentinel, setSentinel] = useState<{
     score: number;
     findings: Array<{
@@ -280,6 +294,17 @@ function Dashboard() {
       setKnowledgeDocuments(data.documents);
     } catch {
       setKnowledgeDocuments([]);
+    }
+  };
+
+  const loadEvaluationMetrics = async () => {
+    setEvaluationStatus("loading");
+    try {
+      const data = await nousFetch<{ metrics: typeof evaluationMetrics }>("/api/evaluation");
+      setEvaluationMetrics(data.metrics);
+      setEvaluationStatus("idle");
+    } catch {
+      setEvaluationStatus("error");
     }
   };
 
@@ -595,6 +620,7 @@ function Dashboard() {
                         if (focus === "guard") void loadApprovals();
                         if (focus === "system") void loadSystemStatus();
                         if (focus === "missions") void connectMissionStream();
+                        if (focus === "evaluation") void loadEvaluationMetrics();
                       }}
                       className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
                     >
@@ -609,6 +635,47 @@ function Dashboard() {
                     </button>
                   ))}
                 </div>
+                {activeFocus === "evaluation" && (
+                  <div className="mb-5 rounded-2xl border border-violet/30 bg-violet/5 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">Response quality</p>
+                        <p className="text-xs text-muted-foreground">
+                          Μετρικές από τις αξιολογήσεις των απαντήσεων του NOUS.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadEvaluationMetrics()}
+                        className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary"
+                      >
+                        {evaluationStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
+                      </button>
+                    </div>
+                    {evaluationStatus === "error" ? (
+                      <p className="mt-4 text-xs text-rose-300">
+                        Οι μετρικές δεν είναι διαθέσιμες.
+                      </p>
+                    ) : evaluationMetrics ? (
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <Metric
+                          label="Satisfaction"
+                          value={
+                            evaluationMetrics.satisfactionRate === null
+                              ? "—"
+                              : `${Math.round(evaluationMetrics.satisfactionRate * 100)}%`
+                          }
+                        />
+                        <Metric label="Positive" value={String(evaluationMetrics.positive)} />
+                        <Metric label="Rated" value={String(evaluationMetrics.total)} />
+                      </div>
+                    ) : (
+                      <p className="mt-4 text-xs text-muted-foreground">
+                        Πάτησε «Ανανέωση» για να φορτώσεις τα metrics.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {activeFocus === "missions" && (
                   <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
                     <div className="flex items-center justify-between gap-3">
@@ -877,7 +944,7 @@ function Dashboard() {
                         ? "Αναζήτηση → σύνθεση…"
                         : "Ο ΝΟΥΣ σκέφτεται…"
                       : connectionMode === "degraded"
-                        ? "Περιορισμένη λειτουργία"
+                        ? "Περιορ��σμένη λειτουργία"
                         : "Έτοιμος για μήνυμα"}
                   </span>
                   <label className="flex items-center gap-1 rounded-md border border-border/70 px-2 py-1">
