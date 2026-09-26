@@ -270,6 +270,10 @@ function Dashboard() {
     }>
   >([]);
   const [jobHistoryStatus, setJobHistoryStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [auditEvents, setAuditEvents] = useState<
+    Array<{ id: string; event: string; createdAt: string; tool?: string | null }>
+  >([]);
+  const [auditStatus, setAuditStatus] = useState<"idle" | "loading" | "error">("idle");
   const [providerAction, setProviderAction] = useState<string | null>(null);
   const [knowledgeDocuments, setKnowledgeDocuments] = useState<
     Array<{
@@ -375,6 +379,21 @@ function Dashboard() {
     } catch {
       setLiveStatus("idle");
     }
+  };
+
+  const loadAuditEvents = async () => {
+    setAuditStatus("loading");
+    try {
+      const data = await nousFetch<{ events: typeof auditEvents }>("/api/audit?days=30");
+      setAuditEvents(data.events);
+      setAuditStatus("idle");
+    } catch {
+      setAuditStatus("error");
+    }
+  };
+
+  const exportAudit = () => {
+    window.open("/api/audit?format=csv&days=30", "_blank", "noopener,noreferrer");
   };
 
   const loadJobHistory = async () => {
@@ -665,6 +684,7 @@ function Dashboard() {
                         if (focus === "system") void loadSystemStatus();
                         if (focus === "missions") void connectMissionStream();
                         if (focus === "jobs") void loadJobHistory();
+                        if (focus === "audit") void loadAuditEvents();
                         if (focus === "evaluation") void loadEvaluationMetrics();
                       }}
                       className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
@@ -768,6 +788,57 @@ function Dashboard() {
                       <p className="mt-4 text-xs text-muted-foreground">
                         Πάτησε «Ανανέωση» για να φορτώσεις τα metrics.
                       </p>
+                    )}
+                  </div>
+                )}
+                {activeFocus === "audit" && (
+                  <div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">Audit timeline</p>
+                        <p className="text-xs text-muted-foreground">
+                          Ιστορικό ενεργειών και approvals των τελευταίων 30 ημερών.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void loadAuditEvents()}
+                          className="rounded-lg border border-signal/30 px-3 py-1.5 text-xs text-signal"
+                        >
+                          {auditStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={exportAudit}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                        >
+                          Export CSV
+                        </button>
+                      </div>
+                    </div>
+                    {auditStatus === "error" ? (
+                      <p className="mt-4 text-xs text-rose-300">
+                        Δεν ήταν δυνατή η φόρτωση του audit timeline.
+                      </p>
+                    ) : auditEvents.length === 0 ? (
+                      <p className="mt-4 text-xs text-muted-foreground">
+                        Δεν υπάρχουν audit events ακόμη.
+                      </p>
+                    ) : (
+                      <div className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
+                        {auditEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            className="flex items-center justify-between gap-3 rounded-lg bg-card/70 p-2.5 text-xs"
+                          >
+                            <span className="font-medium">{event.event}</span>
+                            <time className="text-[10px] text-muted-foreground">
+                              {new Date(event.createdAt).toLocaleString()}
+                            </time>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
