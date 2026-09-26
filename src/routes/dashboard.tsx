@@ -174,6 +174,8 @@ function Dashboard() {
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceLanguage, setVoiceLanguage] = useState("el-GR");
+  const [pushToTalk, setPushToTalk] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
@@ -189,7 +191,7 @@ function Dashboard() {
     if (!voiceEnabled || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "el-GR";
+    utterance.lang = voiceLanguage;
     utterance.rate = 1;
     window.speechSynthesis.speak(utterance);
   };
@@ -203,7 +205,7 @@ function Dashboard() {
       return;
     }
     const recognition = new Recognition();
-    recognition.lang = "el-GR";
+    recognition.lang = voiceLanguage;
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.onresult = (event) => {
@@ -847,6 +849,27 @@ function Dashboard() {
                   <RotateCcw className="size-3" /> Καθαρισμός
                 </button>
               </div>
+              <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <label className="flex items-center gap-2">
+                  <span>Γλώσσα φωνής</span>
+                  <select
+                    value={voiceLanguage}
+                    onChange={(event) => setVoiceLanguage(event.target.value)}
+                    className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
+                  >
+                    <option value="el-GR">Ελληνικά</option>
+                    <option value="en-US">English</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={pushToTalk}
+                    onChange={(event) => setPushToTalk(event.target.checked)}
+                  />
+                  Push-to-talk
+                </label>
+              </div>
               <div className="mx-auto flex max-w-3xl gap-2">
                 <button
                   type="button"
@@ -1030,7 +1053,7 @@ function Dashboard() {
               <Card title={navLabel(section)}>
                 <p className="text-sm text-muted-foreground">
                   {section === "missions"
-                    ? "Οι αποστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
+                    ? "Οι α��οστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
                     : section === "memory"
                       ? "Η μνήμη του agent κρατά στόχους, αποφάσεις και συμπεράσματα με σαφή προέλευση."
                       : section === "system"
