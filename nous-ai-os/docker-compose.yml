@@ -9,8 +9,12 @@ services:
       - ./data:/app/data
       - ./apps:/app/apps
     environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - NOUS_TOKEN=${NOUS_TOKEN}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - GCP_API_KEY=${GCP_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - NOUS_TOKEN=${NOUS_TOKEN:-}
+      - NOUS_VERSION=${NOUS_VERSION:-dev}
+      - NOUS_ALLOW_REMOTE_UPGRADE=0
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
