@@ -11,7 +11,10 @@ export async function createJob(userId: string, kind: string, payload: unknown) 
   return job;
 }
 
+const JOB_STATUSES = new Set(["queued", "running", "completed", "failed", "cancelled"]);
+
 export async function updateJob(id: string, userId: string, status: string, output?: unknown) {
+  if (!JOB_STATUSES.has(status)) throw new Error("Invalid job status");
   const [job] = await db
     .update(nousJobs)
     .set({ status, output: output ?? {}, updatedAt: new Date() })
