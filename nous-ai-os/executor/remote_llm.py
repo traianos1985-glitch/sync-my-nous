@@ -111,7 +111,14 @@ def ask_remote_llm(prompt: str) -> dict:
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
-    return _post(messages)
+    res = _post(messages)
+    if res.get("success"):
+        return res
+    # Automatic hybrid fallback to Ollama if remote call failed
+    local = ask_ollama(prompt, purpose=_local_purpose(prompt))
+    if local.get("ok"):
+        return {"success": True, "provider": "ollama_fallback", "model": local["model"], "response": local["response"]}
+    return res
 
 
 def ask_with_turns(turns: list[dict], system: str | None = None) -> dict:
