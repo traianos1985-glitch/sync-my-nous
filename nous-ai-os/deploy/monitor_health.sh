@@ -10,6 +10,8 @@ check() {
   curl --fail --silent --show-error --max-time "$TIMEOUT" "$endpoint" >/dev/null
 }
 
-check "$URL"
-check "$READY_URL"
+if ! check "$URL" || ! check "$READY_URL"; then
+  "$(dirname "$0")/alert_health.sh" "NOUS health check failed at $(date -u +%FT%TZ)" || true
+  exit 1
+fi
 printf 'NOUS healthy: %s\n' "$(date -u +%FT%TZ)"
