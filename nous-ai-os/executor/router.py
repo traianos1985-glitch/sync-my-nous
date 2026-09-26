@@ -127,6 +127,14 @@ except Exception:
 
 app = Flask(__name__)
 
+# Modular Blueprints
+from executor.blueprints.events_sse import events_bp
+from executor.blueprints.system_bp import system_bp
+
+app.register_blueprint(events_bp)
+app.register_blueprint(system_bp)
+
+
 # Fail-closed auth για ΟΛΑ τα endpoints (δες executor/auth_guard.py)
 install_auth_guard(app)
 
