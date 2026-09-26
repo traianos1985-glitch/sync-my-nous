@@ -1,9 +1,16 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { NOUS_LIMITS } from "./platform-policy";
+import { NOUS_LIMITS, researchBudget } from "./platform-policy";
 
 export type ResearchMode = "auto" | "off" | "deep";
-export type Citation = { title: string; url: string; domain: string; snippet?: string };
+export type Citation = {
+  title: string;
+  url: string;
+  domain: string;
+  snippet?: string;
+  sourceType?: "official" | "community" | "web";
+  retrievedAt?: string;
+};
 
 const MAX_RESULTS = NOUS_LIMITS.maxResearchSources;
 
@@ -50,10 +57,10 @@ async function assertSafeUrl(raw: string, officialOnly = false) {
   return url;
 }
 
-async function fetchText(url: string, officialOnly = false) {
+async function fetchText(url: string, officialOnly = false, timeoutMs = 8000) {
   await assertSafeUrl(url, officialOnly);
   const response = await fetch(url, {
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(timeoutMs),
     redirect: "error",
     headers: { accept: "text/html,text/plain" },
   });
@@ -67,7 +74,7 @@ async function fetchText(url: string, officialOnly = false) {
 
 async function search(query: string, deep: boolean): Promise<Citation[]> {
   const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(timeoutMs),
     headers: { accept: "text/html" },
   });
   if (!response.ok) throw new Error(`search_${response.status}`);
@@ -105,12 +112,23 @@ export async function research(message: string, mode: ResearchMode = "auto") {
   if (cached && cached.expiresAt > Date.now())
     return { ...cached.result, status: "cached" as const };
   const startedAt = performance.now();
+  const budget = researchBudget(mode);
   try {
-    const citations = await search(message, mode === "deep");
+    const citations = await Promise.race([
+      search(message, mode === "deep"),
+      new Promise<Citation[]>((_, reject) =>
+        setTimeout(() => reject(new Error("research_timeout")), budget.timeoutMs),
+      ),
+    ]);
     const enriched = await Promise.all(
       citations.slice(0, mode === "deep" ? 3 : 2).map(async (citation) => {
         try {
-          return { ...citation, content: await fetchText(citation.url, mode === "deep") };
+          return {
+            ...citation,
+            sourceType: domainAllowed(citation.domain) ? "official" : "web",
+            retrievedAt: new Date().toISOString(),
+            content: await fetchText(citation.url, mode === "deep", 8000),
+          };
         } catch {
           return citation;
         }
@@ -125,7 +143,13 @@ export async function research(message: string, mode: ResearchMode = "auto") {
       .slice(0, mode === "deep" ? 12000 : 6000);
     const result = {
       used: enriched.length > 0,
-      citations: enriched.map(({ title, url, domain }) => ({ title, url, domain })),
+      citations: enriched.map(({ title, url, domain, sourceType, retrievedAt }) => ({
+        title,
+        url,
+        domain,
+        sourceType,
+        retrievedAt,
+      })),
       context,
     };
     cache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, result });
