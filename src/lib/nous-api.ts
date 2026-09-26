@@ -1,22 +1,53 @@
 export type NousApiOptions = RequestInit & { token?: string };
 
-const apiBase = import.meta.env["VITE_NOUS_API_URL"] ?? "";
+const apiBase = (import.meta.env["VITE_NOUS_API_URL"] ?? "").replace(/\/$/, "");
 const apiToken = import.meta.env["VITE_NOUS_API_TOKEN"];
+const tokenStorageKey = "nous-dashboard-token";
+const requestTimeoutMs = 35_000;
+
+function getStoredToken(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return window.localStorage.getItem(tokenStorageKey) || undefined;
+}
 
 export function hasConfiguredNousApi(): boolean {
-  return Boolean(apiBase || apiToken);
+  return Boolean(apiBase);
+}
+
+export function getNousToken(): string | undefined {
+  return getStoredToken() ?? apiToken;
+}
+
+export function setNousToken(token: string): void {
+  if (typeof window !== "undefined") window.localStorage.setItem(tokenStorageKey, token.trim());
+}
+
+export function clearNousToken(): void {
+  if (typeof window !== "undefined") window.localStorage.removeItem(tokenStorageKey);
 }
 
 export async function nousStream(path: string, options: NousApiOptions = {}): Promise<Response> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "text/event-stream");
-  const token = options.token ?? apiToken;
+  const token = options.token ?? getNousToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`${apiBase}${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
+  if (options.signal) options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBase}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("NOUS API timeout — το Render μπορεί να κάνει cold start. Δοκίμασε ξανά.");
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   if (!response.ok) throw new Error(`NOUS stream failed (${response.status})`);
   return response;
 }
@@ -54,13 +85,25 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
   headers.set("Accept", "application/json");
   if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
-  const token = options.token ?? apiToken;
+  const token = options.token ?? getNousToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`${apiBase}${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
+  if (options.signal) options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBase}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("NOUS API timeout — το Render μπορεί να κάνει cold start. Δοκίμασε ξανά.");
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error ?? `NOUS API request failed (${response.status})`);

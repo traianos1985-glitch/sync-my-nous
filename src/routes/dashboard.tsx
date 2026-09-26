@@ -249,6 +249,7 @@ function Dashboard() {
   >([]);
   const [approvalStatus, setApprovalStatus] = useState<"idle" | "loading" | "error">("idle");
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [systemStatusState, setSystemStatusState] = useState<"loading" | "ready" | "error">("loading");
   const [liveMissions, setLiveMissions] = useState<
     Array<{ id: string; title: string; status: string }>
   >([]);
@@ -415,6 +416,7 @@ function Dashboard() {
   };
 
   const loadSystemStatus = async () => {
+    setSystemStatusState("loading");
     try {
       const [statusResult, metricsResult, overviewResult] = await Promise.allSettled([
         nousFetch<SystemStatus>("/api/status"),
@@ -426,6 +428,7 @@ function Dashboard() {
       const overview = overviewResult.status === "fulfilled" ? overviewResult.value : undefined;
       if (status || metrics || overview) {
         setSystemStatus({ ...(status ?? {}), status: status?.status ?? "online", metrics, overview });
+        setSystemStatusState("ready");
         return;
       }
       throw new Error("NOUS system status unavailable");
@@ -433,8 +436,10 @@ function Dashboard() {
       try {
         const health = await nousFetch<{ status: string }>("/api/health");
         setSystemStatus({ status: health.status === "healthy" ? "online" : "degraded" });
+        setSystemStatusState("ready");
       } catch {
         setSystemStatus({ status: "unavailable" });
+        setSystemStatusState("error");
       }
     }
   };
@@ -1330,6 +1335,12 @@ function Dashboard() {
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <Card title="System Snapshot">
+                {systemStatusState === "loading" && (
+                  <p className="mb-3 text-xs text-muted-foreground">Σύνδεση με NOUS API… Το Render μπορεί να ξυπνά από cold start.</p>
+                )}
+                {systemStatusState === "error" && (
+                  <p className="mb-3 text-xs text-warn">Δεν ήταν δυνατή η σύνδεση. Έλεγξε το token και δοκίμασε Ανανέωση.</p>
+                )}
                 {snapshotLabels.map((label) => {
                   const value =
                     label === "Health"
@@ -1413,7 +1424,7 @@ function Dashboard() {
             <div className="mt-4 rounded-2xl border border-violet/40 bg-violet/5 p-5">
               <h3 className="font-display text-base font-semibold">Τι θέλει να κάνει ο ΝΟΥΣ</h3>
               <p className="text-xs text-muted-foreground">
-                Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
+                Αυτόνομες π��οτάσεις — έγκρινε ή απόρριψε
               </p>
               <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
                 Δεν υπάρχουν εκκρεμείς προτάσεις. Όλες οι προτάσεις του ΝΟΥΣ έχουν υλοποιηθεί.
