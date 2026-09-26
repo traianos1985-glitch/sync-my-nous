@@ -129,9 +129,12 @@ app = Flask(__name__)
 
 # Keep browser access limited to the deployed dashboard and local development.
 ALLOWED_ORIGINS = {
-    "https://sync-my-nous.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:4173",
+    origin.strip()
+    for origin in os.environ.get(
+        "NOUS_CORS_ORIGINS",
+        "https://sync-my-nous.vercel.app,http://localhost:5173,http://localhost:4173",
+    ).split(",")
+    if origin.strip()
 }
 
 @app.after_request
