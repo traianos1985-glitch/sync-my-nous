@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, eq, gte, sql } from "drizzle-orm";
 import { db } from "../lib/db";
 import { nousMessageFeedback } from "../lib/db/schema";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
@@ -21,26 +21,34 @@ export const Route = createFileRoute("/api/evaluation")({
             negative: sql<number>`count(*) filter (where ${nousMessageFeedback.rating} = 'negative')`,
           })
           .from(nousMessageFeedback)
-          .where(eq(nousMessageFeedback.userId, userId))
+          .where(
+            and(
+              eq(nousMessageFeedback.userId, userId),
+              gte(nousMessageFeedback.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
+            ),
+          )
           .groupBy(sql`date_trunc('day', ${nousMessageFeedback.createdAt})`)
           .orderBy(sql`date_trunc('day', ${nousMessageFeedback.createdAt})`);
         const positive = Number(rows.find((row) => row.rating === "positive")?.total ?? 0);
         const negative = Number(rows.find((row) => row.rating === "negative")?.total ?? 0);
         const total = positive + negative;
-        return Response.json({
-          ok: true,
-          metrics: {
-            total,
-            positive,
-            negative,
-            satisfactionRate: total ? Math.round((positive / total) * 100) / 100 : null,
-            trend: trend.map((point) => ({
-              day: point.day,
-              positive: Number(point.positive),
-              negative: Number(point.negative),
-            })),
+        return Response.json(
+          {
+            ok: true,
+            metrics: {
+              total,
+              positive,
+              negative,
+              satisfactionRate: total ? Math.round((positive / total) * 100) / 100 : null,
+              trend: trend.map((point) => ({
+                day: point.day,
+                positive: Number(point.positive),
+                negative: Number(point.negative),
+              })),
+            },
           },
-        });
+          { headers: { "Cache-Control": "private, no-store" } },
+        );
       },
     },
   },
