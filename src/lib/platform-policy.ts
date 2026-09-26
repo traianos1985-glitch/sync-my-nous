@@ -5,6 +5,8 @@ export const NOUS_LIMITS = {
   maxJobKindLength: 80,
   maxConversationMessages: 40,
   maxJobRetries: 3,
+  auditRetentionDays: 90,
+  approvalTtlMinutes: 30,
 } as const;
 
 export const JOB_KINDS = [

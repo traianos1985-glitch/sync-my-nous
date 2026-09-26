@@ -81,6 +81,7 @@ export const nousApprovals = pgTable("nous_approvals", {
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
 });
 
 export const nousToolRuns = pgTable("nous_tool_runs", {
