@@ -5,6 +5,7 @@ import base64
 from executor.local_llm_adapter import ask_ollama
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 MODELS = [
     "mistralai/mistral-small-3.1-24b-instruct:free",
@@ -73,14 +74,39 @@ def _local_purpose(prompt: str) -> str:
     return "coding" if any(term in str(prompt).lower() for term in coding_terms) else "general"
 
 
+def _ask_gemini(prompt: str) -> dict:
+    key = os.environ.get("GCP_API_KEY", "")
+    if not key:
+        return {"success": False, "error": "no_gcp_api_key"}
+    payload = {
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
+    }
+    try:
+        response = requests.post(f"{GEMINI_URL}?key={key}", json=payload, timeout=TIMEOUT)
+        data = response.json()
+        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        text = "".join(part.get("text", "") for part in parts).strip()
+        if response.ok and text:
+            return {"success": True, "provider": "gemini", "model": "gemini-2.5-flash", "response": text}
+        return {"success": False, "error": str(data)}
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
 def ask_remote_llm(prompt: str) -> dict:
-    """Single-turn, with a local Ollama fallback for offline/non-Vercel use."""
+    """Single-turn: Gemini API, OpenRouter, then local Ollama."""
+    gemini = _ask_gemini(prompt)
+    if gemini.get("success"):
+        return gemini
+
     key = os.environ.get("OPENROUTER_API_KEY", "")
     if not key:
         local = ask_ollama(prompt, purpose=_local_purpose(prompt))
         if local.get("ok"):
             return {"success": True, "provider": "ollama", "model": local["model"], "response": local["response"]}
-        return {"success": False, "error": local.get("error", local.get("reason", "local_llm_unavailable")), "provider": "ollama"}
+        return {"success": False, "error": gemini.get("error", local.get("error", local.get("reason", "local_llm_unavailable"))), "provider": "ollama"}
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
