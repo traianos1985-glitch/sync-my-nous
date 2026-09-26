@@ -15,12 +15,13 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from executor.agent_journal import write_journal
+from executor.agent_journal import verify_journal, write_journal
 
 ROOT = Path(os.getenv("NOUS_WORKSPACE", ".")).resolve()
 STATE = ROOT / "data" / "autonomous_agent_state.json"
 MAX_READ = 20_000
-ALLOWED_CHECKS = {"python_compile", "git_diff_check"}
+ALLOWED_CHECKS = {"python_compile", "git_diff_check", "journal_integrity"}
+MAX_CHECK_ATTEMPTS = 2
 
 
 def _state() -> dict[str, Any]:
@@ -90,6 +91,8 @@ def propose_code(goal: str, path: str, content: str) -> dict[str, Any]:
 def run_check(check: str, path: str | None = None) -> dict[str, Any]:
     if check not in ALLOWED_CHECKS:
         return {"ok": False, "error": "check_not_allowed", "allowed": sorted(ALLOWED_CHECKS)}
+    if check == "journal_integrity":
+        return {"check": check, **verify_journal()}
     if check == "python_compile":
         target = _safe_path(path or "")
         if target.suffix != ".py":
@@ -97,8 +100,16 @@ def run_check(check: str, path: str | None = None) -> dict[str, Any]:
         command = ["python", "-m", "py_compile", str(target)]
     else:
         command = ["git", "diff", "--check"]
-    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=15)
-    return {"ok": result.returncode == 0, "check": check, "output": (result.stdout + result.stderr)[-4000:]}
+    last_output = ""
+    for attempt in range(MAX_CHECK_ATTEMPTS):
+        try:
+            result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=15)
+            last_output = (result.stdout + result.stderr)[-4000:]
+            if result.returncode == 0:
+                return {"ok": True, "check": check, "attempts": attempt + 1, "output": last_output}
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            last_output = str(exc)
+    return {"ok": False, "check": check, "attempts": MAX_CHECK_ATTEMPTS, "output": last_output}
 
 
 def run_agent(goal: str, path: str | None = None, content: str | None = None) -> dict[str, Any]:
