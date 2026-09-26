@@ -1,0 +1,52 @@
+import json
+import time
+from flask import Blueprint, Response, request
+from executor.agent_journal import list_journal_entries
+
+events_bp = Blueprint("events_sse", __name__, url_prefix="/api")
+
+@events_bp.route("/agent/stream", methods=["GET"])
+def agent_stream():
+    """Server-Sent Events stream for real-time agent journal and feedback."""
+    def generate():
+        last_count = 0
+        iterations = 0
+        while iterations < 60:  # stream for 60 iterations or client disconnect
+            try:
+                entries = list_journal_entries()
+                if len(entries) > last_count:
+                    new_entries = entries[last_count:]
+                    last_count = len(entries)
+                    yield f"event: agent_journal\ndata: {json.dumps(new_entries)}\n\n"
+                
+                # heartbeat ping every 3 seconds
+                yield f"event: ping\ndata: {json.dumps({'time': time.time(), 'status': 'alive'})}\n\n"
+            except Exception as e:
+                yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+            time.sleep(2)
+            iterations += 1
+
+    return Response(generate(), mimetype="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive"
+    })
+
+@events_bp.route("/missions/stream", methods=["GET"])
+def missions_stream():
+    """Server-Sent Events stream for autonomous missions progress."""
+    def generate():
+        from executor.auto_mission_scheduler import list_missions
+        for _ in range(30):
+            try:
+                missions = list_missions()
+                yield f"event: missions_update\ndata: {json.dumps(missions)}\n\n"
+            except Exception as e:
+                yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+            time.sleep(3)
+
+    return Response(generate(), mimetype="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive"
+    })
