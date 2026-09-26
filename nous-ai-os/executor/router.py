@@ -211,6 +211,48 @@ def _chat_intent_route(msg: str):
             "nav_hint": "initiatives",
         }
 
+    # ── Browser operator: safe web research/read actions from natural language
+    _BROWSER_SEARCH = r"(ψάξε|αναζήτησε|αναζήτησε στο διαδίκτυο|search|find online|βρες στο web)"
+    _BROWSER_READ = r"(διάβασε|άνοιξε|δείξε μου|read|open)"
+    _URL_RE = r"https?://[^\\s]+"
+    if _re.search(_BROWSER_SEARCH, m):
+        query = _re.sub(_BROWSER_SEARCH, "", msg, flags=_re.IGNORECASE).strip(" :,-")
+        if query:
+            try:
+                result = browser_search(query)
+                if result.get("ok"):
+                    return {
+                        "ok": True,
+                        "source": "browser_operator",
+                        "intent": "browser_search",
+                        "answer": f"Έκανα ασφαλή αναζήτηση στο διαδίκτυο για «{query}».\\n\\n{result.get('result', '')}",
+                        "response": result.get("result", ""),
+                        "text": result.get("result", ""),
+                        "executed": True,
+                    }
+                return {"ok": False, "source": "browser_operator", "answer": "Η αναζήτηση μπλοκαρίστηκε από την πολιτική ασφαλείας.", "error": result.get("error", "browser_search_failed")}
+            except Exception as exc:
+                return {"ok": False, "source": "browser_operator", "answer": "Δεν μπόρεσα να ολοκληρώσω την αναζήτηση αυτή τη στιγμή.", "error": str(exc)}
+
+    url_match = _re.search(_URL_RE, msg)
+    if url_match and _re.search(_BROWSER_READ, m):
+        url = url_match.group(0).rstrip(".,)")
+        try:
+            result = browser_read(url)
+            if result.get("ok"):
+                return {
+                    "ok": True,
+                    "source": "browser_operator",
+                    "intent": "browser_read",
+                    "answer": f"Άνοιξα και διάβασα με ασφαλή λειτουργία τη σελίδα {url}.\\n\\n{result.get('result', '')}",
+                    "response": result.get("result", ""),
+                    "text": result.get("result", ""),
+                    "executed": True,
+                }
+            return {"ok": False, "source": "browser_operator", "answer": "Η σελίδα δεν επιτράπηκε από την πολιτική ασφαλείας.", "error": result.get("error", "browser_read_failed")}
+        except Exception as exc:
+            return {"ok": False, "source": "browser_operator", "answer": "Δεν μπόρεσα να διαβάσω τη σελίδα αυτή τη στιγμή.", "error": str(exc)}
+
     return None  # no intent matched — fall through to normal chat
 
 
