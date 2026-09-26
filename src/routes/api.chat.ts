@@ -8,6 +8,9 @@ import {
   withTimeout,
 } from "../lib/ai-observability";
 import { research, type ResearchMode } from "../lib/research-broker";
+import { db } from "../lib/db";
+import { nousMessages } from "../lib/db/schema";
+import { randomUUID } from "node:crypto";
 
 const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικρινής και πρακτικός προσωπικός agent.
 Απάντα φυσικά και ανθρώπινα στα ελληνικά όταν ο χρήστης γράφει ελληνικά, χωρίς canned απαντήσεις ή άσχετες επαναλήψεις.
@@ -168,13 +171,31 @@ export const Route = createFileRoute("/api/chat")({
             message?: string;
             history?: Array<{ role: "user" | "assistant"; text: string }>;
             researchMode?: ResearchMode;
+            missionId?: string;
           };
           message = body.message?.trim() ?? "";
+          const userId = request.headers.get("x-nous-user-id")?.slice(0, 128) || "anonymous";
+          const missionId = body.missionId?.slice(0, 128);
           if (!message) {
             return Response.json({ error: "Το μήνυμα είναι κενό." }, { status: 400 });
           }
 
           const history = (body.history ?? []).slice(-10);
+          try {
+            await db.insert(nousMessages).values({
+              id: randomUUID(),
+              missionId: missionId ?? null,
+              userId,
+              role: "user",
+              content: message,
+              citations: [],
+            });
+          } catch (error) {
+            console.warn(
+              "[v0] message persistence unavailable",
+              error instanceof Error ? error.message : error,
+            );
+          }
           const researchResult = await research(message, body.researchMode ?? "auto");
           const modelMessage = researchResult.context
             ? `${message}\n\n[READ-ONLY RESEARCH CONTEXT — cite only these sources and do not claim actions were performed]\n${researchResult.context}`
@@ -187,6 +208,23 @@ export const Route = createFileRoute("/api/chat")({
             );
           }
 
+          const saveAssistant = async (answer: string, citations = researchResult.citations) => {
+            try {
+              await db.insert(nousMessages).values({
+                id: randomUUID(),
+                missionId: missionId ?? null,
+                userId,
+                role: "assistant",
+                content: answer,
+                citations,
+              });
+            } catch (error) {
+              console.warn(
+                "[v0] assistant persistence unavailable",
+                error instanceof Error ? error.message : error,
+              );
+            }
+          };
           const startedAt = new Date().toISOString();
           const started = performance.now();
           try {
@@ -209,6 +247,7 @@ export const Route = createFileRoute("/api/chat")({
               outputTokens: result.usage?.outputTokens,
               totalTokens: result.usage?.totalTokens,
             });
+            await saveAssistant(result.text);
             return Response.json({
               ok: true,
               answer: result.text,
@@ -227,6 +266,7 @@ export const Route = createFileRoute("/api/chat")({
 
             const groqFallback = await tryGroqFallback(modelMessage, history);
             if (groqFallback) {
+              await saveAssistant(groqFallback.answer);
               return Response.json({
                 ok: true,
                 answer: groqFallback.answer,
@@ -240,6 +280,7 @@ export const Route = createFileRoute("/api/chat")({
 
             const geminiFallback = await tryGeminiFallback(modelMessage, history);
             if (geminiFallback) {
+              await saveAssistant(geminiFallback.answer);
               return Response.json({
                 ok: true,
                 answer: geminiFallback.answer,
@@ -253,6 +294,7 @@ export const Route = createFileRoute("/api/chat")({
 
             const fallback = await tryOpenRouterFallback(modelMessage, history);
             if (fallback) {
+              await saveAssistant(fallback.answer);
               return Response.json({
                 ok: true,
                 answer: fallback.answer,
