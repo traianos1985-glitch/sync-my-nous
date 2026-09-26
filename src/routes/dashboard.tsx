@@ -138,6 +138,7 @@ function Dashboard() {
   const [messages, setMessages] = useState(initialChat);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [researchMode, setResearchMode] = useState<"auto" | "off" | "deep">("auto");
   const [connectionMode, setConnectionMode] = useState<"connected" | "degraded" | null>(null);
   const [activeFocus, setActiveFocus] = useState("chat");
   const [approvedInitiatives, setApprovedInitiatives] = useState<string[]>([]);
@@ -155,7 +156,7 @@ function Dashboard() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, history }),
+        body: JSON.stringify({ message: text, history, researchMode }),
       });
       const data = (await response.json()) as {
         answer?: string;
@@ -163,6 +164,8 @@ function Dashboard() {
         response?: string;
         error?: string;
         mode?: "connected" | "degraded";
+        researchUsed?: boolean;
+        citations?: Array<{ title: string; url: string; domain: string }>;
       };
       const answer = data.human_answer ?? data.answer ?? data.response;
       if (!response.ok || !answer) throw new Error(data.error ?? "Chat unavailable");
@@ -170,7 +173,9 @@ function Dashboard() {
       const suffix =
         data.mode === "degraded"
           ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]"
-          : "";
+          : data.researchUsed && data.citations?.length
+            ? `\n\n[Πηγές: ${data.citations.map((citation) => citation.domain).join(", ")}]`
+            : "";
       setMessages((m) => [...m, { role: "assistant", text: `${answer}${suffix}` }]);
     } catch (error) {
       console.error("[v0] Chat request failed", error);
@@ -439,13 +444,31 @@ function Dashboard() {
             </div>
             <div className="border-t border-border/70 bg-card/75 p-4 backdrop-blur-xl">
               <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between text-[11px] text-muted-foreground">
-                <span>
-                  {isThinking
-                    ? "Ο ΝΟΥΣ σκέφτεται…"
-                    : connectionMode === "degraded"
-                      ? "Περιορισμένη λειτουργία"
-                      : "Έτοιμος για μήνυμα"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span>
+                    {isThinking
+                      ? researchMode === "deep"
+                        ? "Αναζήτηση → σύνθεση…"
+                        : "Ο ΝΟΥΣ σκέφτεται…"
+                      : connectionMode === "degraded"
+                        ? "Περιορισμένη λειτουργία"
+                        : "Έτοιμος για μήνυμα"}
+                  </span>
+                  <label className="flex items-center gap-1 rounded-md border border-border/70 px-2 py-1">
+                    <span className="sr-only">Research mode</span>
+                    <select
+                      value={researchMode}
+                      onChange={(event) =>
+                        setResearchMode(event.target.value as "auto" | "off" | "deep")
+                      }
+                      className="bg-transparent text-[10px] outline-none"
+                    >
+                      <option value="auto">Research: Auto</option>
+                      <option value="deep">Research: Deep</option>
+                      <option value="off">Research: Off</option>
+                    </select>
+                  </label>
+                </div>
                 <button
                   type="button"
                   onClick={() => setMessages(initialChat)}
