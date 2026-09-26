@@ -101,6 +101,10 @@ export const nousJobs = pgTable("nous_jobs", {
   status: text("status").notNull().default("queued"),
   payload: jsonb("payload").notNull().default({}),
   output: jsonb("output").notNull().default({}),
+  retryCount: integer("retry_count").notNull().default(0),
+  lastError: text("last_error"),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
