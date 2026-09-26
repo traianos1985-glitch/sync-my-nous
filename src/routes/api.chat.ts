@@ -1,12 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { generateText, gateway } from "ai";
-import {
-  canStartModelCall,
-  getModelCallMetrics,
-  modelCallTimeoutMs,
-  recordModelCall,
-  withTimeout,
-} from "../lib/ai-observability";
+import { getModelCallMetrics, modelCallTimeoutMs, withTimeout } from "../lib/ai-observability";
+import { getPersistentDailyBudget, recordPersistentModelCall } from "../lib/model-observability";
 import { research, type ResearchMode } from "../lib/research-broker";
 import { db } from "../lib/db";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
@@ -213,7 +208,20 @@ export const Route = createFileRoute("/api/chat")({
           const modelMessage = researchResult.context
             ? `${message}\n\n[READ-ONLY RESEARCH CONTEXT — cite only these sources and do not claim actions were performed]\n${researchResult.context}`
             : message;
-          const budget = canStartModelCall();
+          let budget;
+          try {
+            budget = await getPersistentDailyBudget(userId);
+          } catch (error) {
+            console.warn(
+              "[v0] persistent budget unavailable",
+              error instanceof Error ? error.message : error,
+            );
+            budget = {
+              allowed: true,
+              count: 0,
+              limit: Number(process.env.NOUS_AI_DAILY_CALL_LIMIT ?? 100),
+            };
+          }
           if (!budget.allowed) {
             return Response.json(
               { ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." },
@@ -252,14 +260,19 @@ export const Route = createFileRoute("/api/chat")({
               }),
               modelCallTimeoutMs(),
             );
-            recordModelCall({
-              startedAt,
-              durationMs: Math.round(performance.now() - started),
-              ok: true,
-              inputTokens: result.usage?.inputTokens,
-              outputTokens: result.usage?.outputTokens,
-              totalTokens: result.usage?.totalTokens,
-            });
+            await recordPersistentModelCall(
+              {
+                startedAt,
+                durationMs: Math.round(performance.now() - started),
+                ok: true,
+                inputTokens: result.usage?.inputTokens,
+                outputTokens: result.usage?.outputTokens,
+                totalTokens: result.usage?.totalTokens,
+              },
+              userId,
+              "vercel-ai-gateway",
+              "openai/o4-mini",
+            );
             await saveAssistant(result.text);
             return Response.json({
               ok: true,
@@ -270,12 +283,17 @@ export const Route = createFileRoute("/api/chat")({
               mode: "connected",
             });
           } catch (error) {
-            recordModelCall({
-              startedAt,
-              durationMs: Math.round(performance.now() - started),
-              ok: false,
-              error: error instanceof Error ? error.message : "unknown_error",
-            });
+            await recordPersistentModelCall(
+              {
+                startedAt,
+                durationMs: Math.round(performance.now() - started),
+                ok: false,
+                error: error instanceof Error ? error.message : "unknown_error",
+              },
+              userId,
+              "vercel-ai-gateway",
+              "openai/o4-mini",
+            );
 
             const groqFallback = await tryGroqFallback(modelMessage, history);
             if (groqFallback) {

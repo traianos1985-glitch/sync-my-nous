@@ -109,6 +109,10 @@ export const nousObservabilityEvents = pgTable("nous_observability_events", {
   model: text("model"),
   event: text("event").notNull(),
   latencyMs: integer("latency_ms"),
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  totalTokens: integer("total_tokens"),
+  estimatedCostUsd: text("estimated_cost_usd"),
   metadata: jsonb("metadata").notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
