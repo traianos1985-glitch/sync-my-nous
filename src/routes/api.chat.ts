@@ -17,6 +17,46 @@ const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικ
 Αν δεν έχεις εργαλείο για να εκτελέσεις κάτι, μην απαντήσεις γενικά. Πες: «Μπορώ να το σχεδιάσω τώρα, αλλά δεν μπορώ να το εκτελέσω από αυτό το workspace επειδή λείπει το Χ» και δώσε ακριβώς το επόμενο βήμα.
 Κράτα τις απαντήσεις σύντομες αλλά χρήσιμες. Μην επινοείς δεδομένα, κατάσταση ή αποτελέσματα.`;
 
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "openai/gpt-oss-120b";
+
+async function tryGroqFallback(
+  message: string,
+  history: Array<{ role: "user" | "assistant"; text: string }>,
+) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          ...history.map((item) => ({ role: item.role, content: item.text })),
+          { role: "user", content: message },
+        ],
+        temperature: 0.3,
+        max_tokens: 1600,
+      }),
+      signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const answer = data.choices?.[0]?.message?.content?.trim();
+    return answer ? { answer, model: GROQ_MODEL } : null;
+  } catch {
+    return null;
+  }
+}
+
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 async function tryGeminiFallback(
@@ -175,6 +215,17 @@ export const Route = createFileRoute("/api/chat")({
               ok: false,
               error: error instanceof Error ? error.message : "unknown_error",
             });
+
+            const groqFallback = await tryGroqFallback(message, history);
+            if (groqFallback) {
+              return Response.json({
+                ok: true,
+                answer: groqFallback.answer,
+                source: "groq-api",
+                model: groqFallback.model,
+                mode: "connected",
+              });
+            }
 
             const geminiFallback = await tryGeminiFallback(message, history);
             if (geminiFallback) {
