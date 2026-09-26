@@ -162,6 +162,26 @@ export const nousSecurityLessons = pgTable(
   }),
 );
 
+export const nousMessageFeedback = pgTable(
+  "nous_message_feedback",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    messageId: text("message_id").notNull(),
+    rating: text("rating").notNull(),
+    reason: text("reason"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userMessageUnique: unique("nous_message_feedback_user_message").on(
+      table.userId,
+      table.messageId,
+    ),
+  }),
+);
+
 export const nousObservabilityEvents = pgTable("nous_observability_events", {
   id: text("id").primaryKey(),
   userId: text("user_id"),
