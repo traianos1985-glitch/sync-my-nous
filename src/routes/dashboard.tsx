@@ -3,9 +3,12 @@ import { useState } from "react";
 import {
   Activity,
   ArrowUpRight,
+  CheckCircle2,
+  Clock3,
   Loader2,
   Menu,
   RotateCcw,
+  ScanLine,
   Send,
   ShieldCheck,
   Sparkles,
@@ -72,6 +75,25 @@ const initiatives = [
   },
 ];
 
+const commandSignals = [
+  { label: "Brain", value: "Ready", detail: "context indexed", tone: "text-ok", icon: Sparkles },
+  { label: "Missions", value: "03", detail: "1 running now", tone: "text-primary", icon: Activity },
+  { label: "Memory", value: "12.4k", detail: "synced 2m ago", tone: "text-signal", icon: ScanLine },
+  {
+    label: "Guard",
+    value: "Armed",
+    detail: "approval required",
+    tone: "text-warn",
+    icon: ShieldCheck,
+  },
+];
+
+const activityFeed = [
+  { time: "now", text: "NOUS is ready for a new objective", kind: "signal" },
+  { time: "02m", text: "Memory index synchronized", kind: "done" },
+  { time: "08m", text: "Mission queue reviewed", kind: "queued" },
+];
+
 const initialChat = [
   {
     role: "assistant" as const,
@@ -117,6 +139,7 @@ function Dashboard() {
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [connectionMode, setConnectionMode] = useState<"connected" | "degraded" | null>(null);
+  const [activeFocus, setActiveFocus] = useState("chat");
   const [approvedInitiatives, setApprovedInitiatives] = useState<string[]>([]);
   const [dismissedInitiatives, setDismissedInitiatives] = useState<string[]>([]);
 
@@ -306,6 +329,76 @@ function Dashboard() {
                       Runtime
                     </p>
                     <p className="mt-1 text-sm font-semibold text-ok">Ready</p>
+                  </div>
+                </div>
+                <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {commandSignals.map(({ icon: Icon, label, value, detail, tone }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setActiveFocus(label.toLowerCase())}
+                      className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+                          {label}
+                        </span>
+                        <Icon className={`size-3.5 ${tone}`} />
+                      </div>
+                      <p className={`mt-2 font-display text-lg font-semibold ${tone}`}>{value}</p>
+                      <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{detail}</p>
+                    </button>
+                  ))}
+                </div>
+                <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_250px]">
+                  <div className="rounded-2xl border border-border/70 bg-card/50 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap className="size-3.5 text-primary" />
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Mission pulse
+                        </span>
+                      </div>
+                      <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-0.5 font-mono text-[9px] text-ok">
+                        LIVE
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex -space-x-1">
+                        {["bg-primary", "bg-ok", "bg-warn", "bg-signal"].map((color, index) => (
+                          <span
+                            key={index}
+                            className={`size-2.5 rounded-full border-2 border-card ${color} ${index === 0 ? "animate-pulse" : ""}`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Objective graph is stable{" "}
+                        <span className="text-foreground">· 3 nodes active</span>
+                      </p>
+                    </div>
+                    <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/8">
+                      <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-primary via-violet to-signal" />
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-card/50 p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Clock3 className="size-3.5 text-muted-foreground" />
+                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Recent signal
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {activityFeed.map((event) => (
+                        <div key={event.time} className="flex gap-2 text-[10px]">
+                          <span className="w-7 shrink-0 font-mono text-muted-foreground/60">
+                            {event.time}
+                          </span>
+                          <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-ok" />
+                          <span className="text-muted-foreground">{event.text}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
