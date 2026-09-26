@@ -26,19 +26,21 @@ export const Route = createFileRoute("/api/knowledge/process")({
             .limit(1)
         )[0];
         if (!document) return Response.json({ error: "Document not found" }, { status: 404 });
-        if (document.status === "processing")
-          return Response.json(
-            { ok: true, documentId: document.id, status: "processing" },
-            { status: 202 },
-          );
-        await db
+        const claimed = await db
           .update(nousKnowledgeDocuments)
           .set({ status: "processing", updatedAt: new Date() })
           .where(
             and(
               eq(nousKnowledgeDocuments.id, document.id),
               eq(nousKnowledgeDocuments.userId, userId),
+              eq(nousKnowledgeDocuments.status, "extraction_review"),
             ),
+          )
+          .returning({ id: nousKnowledgeDocuments.id });
+        if (!claimed.length)
+          return Response.json(
+            { ok: true, documentId: document.id, status: document.status },
+            { status: 202 },
           );
         const chunks = await db
           .select()
@@ -54,7 +56,11 @@ export const Route = createFileRoute("/api/knowledge/process")({
         for (let index = 0; index < pendingChunks.length; index += 1) {
           await db
             .update(nousKnowledgeChunks)
-            .set({ embedding: embeddings[index], embeddingStatus: "ready" })
+            .set({
+              embedding: embeddings[index],
+              embeddingVector: embeddings[index],
+              embeddingStatus: "ready",
+            })
             .where(
               and(
                 eq(nousKnowledgeChunks.id, pendingChunks[index].id),
