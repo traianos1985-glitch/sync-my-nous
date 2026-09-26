@@ -95,9 +95,12 @@ const activityFeed = [
   { time: "08m", text: "Mission queue reviewed", kind: "queued" },
 ];
 
-const initialChat = [
+type Citation = { title: string; url: string; domain: string };
+type ChatMessage = { role: "user" | "assistant"; text: string; citations?: Citation[] };
+
+const initialChat: ChatMessage[] = [
   {
-    role: "assistant" as const,
+    role: "assistant",
     text: "Καλώς ήρθες. Είμαι ο NOUS. Μπορώ να συζητήσω φυσικά, να αναλύσω στόχους, να προτείνω βήματα και —όταν είναι συνδεδεμένο το backend— να εκτελέσω εγκεκριμένες ενέργειες. Δεν θα παρουσιάσω ποτέ μια πρόταση ως ολοκληρωμένη ενέργεια χωρίς επιβεβαίωση.",
   },
 ];
@@ -212,7 +215,14 @@ function Dashboard() {
           : data.researchUsed && data.citations?.length
             ? `\n\n[Πηγές: ${data.citations.map((citation) => citation.domain).join(", ")}]`
             : "";
-      setMessages((m) => [...m, { role: "assistant", text: `${answer}${suffix}` }]);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: `${answer}${suffix}`,
+          citations: data.researchUsed ? data.citations : undefined,
+        },
+      ]);
     } catch (error) {
       console.error("[v0] Chat request failed", error);
       setConnectionMode("degraded");
@@ -358,7 +368,7 @@ function Dashboard() {
                       Agent online · Owner workspace
                     </div>
                     <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-                      Τι αναλαμβάνουμε σήμερα;
+                      Τι αναλαμβ��νουμε σήμερα;
                     </h1>
                     <p className="mt-2 max-w-xl text-sm text-muted-foreground">
                       Στόχοι, missions, browser operator και κώδικας — σε μία ενιαία ροή με έγκριση
@@ -540,6 +550,23 @@ function Dashboard() {
                       }`}
                     >
                       {m.text}
+                      {m.citations && m.citations.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
+                          {m.citations.map((citation) => (
+                            <a
+                              key={citation.url}
+                              href={citation.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex max-w-full items-center gap-1 rounded-md border border-signal/25 bg-signal/5 px-2 py-1 text-[10px] text-signal transition-colors hover:bg-signal/15"
+                              title={citation.title}
+                            >
+                              <ArrowUpRight className="size-3 shrink-0" />
+                              <span className="truncate">{citation.domain}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
