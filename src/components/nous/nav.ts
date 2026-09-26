@@ -31,6 +31,7 @@ export const navGroups: NavGroup[] = [
       { id: "larmor", icon: "🧲", label: "Larmor Monitor" },
       { id: "field", icon: "🔍", label: "Πεδίο & Χάρτης" },
       { id: "remote-access", icon: "📡", label: "Remote Access" },
+      { id: "control", icon: "◈", label: "Control Plane" },
       { id: "settings", icon: "⚙", label: "Settings" },
     ],
   },

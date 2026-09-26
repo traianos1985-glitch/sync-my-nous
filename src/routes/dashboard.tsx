@@ -161,6 +161,7 @@ function Dashboard() {
     Array<{ id: string; title: string; status: string }>
   >([]);
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "connected">("idle");
+  const [providerAction, setProviderAction] = useState<string | null>(null);
 
   const connectMissionStream = async () => {
     if (liveStatus === "connecting" || liveStatus === "connected") return;
@@ -833,7 +834,7 @@ function Dashboard() {
             <div className="mt-4 rounded-2xl border border-violet/40 bg-violet/5 p-5">
               <h3 className="font-display text-base font-semibold">🤖 Τι θέλει να κάνει ο ΝΟΥΣ</h3>
               <p className="text-xs text-muted-foreground">
-                Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
+                Α��τόνομες προτάσεις — έγκρινε ή απόρριψε
               </p>
               <div className="mt-4 space-y-3">
                 {initiatives.map((i) => {
@@ -889,6 +890,87 @@ function Dashboard() {
                         ? "Ο ΝΟΥΣ λειτουργεί με ασφαλή όρια: δεν ισχυρίζεται ότι έκανε κάτι αν δεν υπάρχει αποτέλεσμα από backend."
                         : `Η ενότητα ${navLabel(section)} είναι έτοιμη για σύνδεση με το NOUS API.`}
                 </p>
+                {section === "control" && (
+                  <div className="mt-5 space-y-4">
+                    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
+                            NOUS control plane
+                          </p>
+                          <h2 className="mt-2 font-display text-xl font-semibold">
+                            Οι συνδέσεις σου, με όρια που ελέγχεις
+                          </h2>
+                          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                            Ο NOUS μπορεί να χρησιμοποιεί model providers και repositories, αλλά
+                            κάθε εξωτερική αλλαγή παραμένει proposal-first και απαιτεί ρητή έγκριση.
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-1 font-mono text-[10px] text-ok">
+                          GUARD ARMED
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {[
+                        {
+                          name: "Google Gemini",
+                          detail: "Per-user OAuth · model reasoning",
+                          tone: "text-signal",
+                          scope: "Μόνο εγκεκριμένες κλήσεις",
+                        },
+                        {
+                          name: "ChatGPT / OpenAI",
+                          detail: "Gateway provider · shared runtime",
+                          tone: "text-ok",
+                          scope: "Tokens server-side",
+                        },
+                        {
+                          name: "GitHub",
+                          detail: "Repos · branches · pull requests",
+                          tone: "text-primary",
+                          scope: "Push/merge πάντα με approval",
+                        },
+                      ].map((provider) => (
+                        <div
+                          key={provider.name}
+                          className="rounded-2xl border border-border bg-card/60 p-4"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`size-2 rounded-full bg-current ${provider.tone}`} />
+                            <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+                              AVAILABLE
+                            </span>
+                          </div>
+                          <p className="mt-4 font-semibold">{provider.name}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{provider.detail}</p>
+                          <p className="mt-3 rounded-lg bg-background/60 px-2 py-1.5 text-[11px] text-muted-foreground">
+                            {provider.scope}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setProviderAction(provider.name)}
+                            className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold transition-colors hover:border-primary/50 hover:bg-primary/5"
+                          >
+                            {providerAction === provider.name
+                              ? "Έτοιμο για authorization flow"
+                              : "Διαχείριση σύνδεσης"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rounded-2xl border border-warn/25 bg-warn/5 p-4 text-sm">
+                      <div className="flex items-center gap-2 font-semibold text-warn">
+                        <ShieldAlert className="size-4" /> Action policy
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                        Read operations μπορούν να προταθούν αυτόματα. Commit, push, merge, delete
+                        και external side effects δημιουργούν approval record, diff και audit event
+                        πριν εκτελεστούν.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="mt-5 space-y-2">
                   {section === "missions" &&
                     missions.map((mission) => (
