@@ -127,6 +127,24 @@ except Exception:
 
 app = Flask(__name__)
 
+# Keep browser access limited to the deployed dashboard and local development.
+ALLOWED_ORIGINS = {
+    "https://sync-my-nous.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:4173",
+}
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get("Origin")
+    if origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-NOUS-TOKEN"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Vary"] = "Origin"
+    return response
+
 # Modular Blueprints
 from executor.blueprints.events_sse import events_bp
 from executor.blueprints.system_bp import system_bp
@@ -249,7 +267,7 @@ def _chat_intent_route(msg: str):
             "ok": True,
             "source": "chat_intent_upgrade",
             "answer": (
-                "🔧 **Ξεκίνησε η αναβάθμιση NOUS!**\n\n"
+                "🔧 **Ξεκίνησε η ανα��άθμιση NOUS!**\n\n"
                 "Ο ΝΟΥΣ αναλύει και γράφει τον νέο κώδικα αυτόματα.\n\n"
                 "➡️ Πήγαινε στο **App Builder** → «Πρωτοβουλίες» για να παρακολουθείς την εκτέλεση.\n\n"
                 "⏱️ Διαρκεί 30–60 δευτερόλεπτα."
