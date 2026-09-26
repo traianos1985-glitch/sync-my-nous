@@ -1,10 +1,12 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { NOUS_LIMITS } from "./platform-policy";
 
 export type ResearchMode = "auto" | "off" | "deep";
 export type Citation = { title: string; url: string; domain: string; snippet?: string };
 
-const MAX_RESULTS = 4;
+const MAX_RESULTS = NOUS_LIMITS.maxResearchSources;
+
 const MAX_CONTENT = 6000;
 const ALLOWED_DOMAINS = new Set([
   "docs.python.org",
