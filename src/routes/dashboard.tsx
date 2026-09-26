@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Loader2, Menu, RotateCcw, Send, X } from "lucide-react";
+import { Activity, ArrowUpRight, Loader2, Menu, RotateCcw, Send, ShieldCheck, Sparkles, X, Zap } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
 
 export const Route = createFileRoute("/dashboard")({
@@ -232,7 +232,7 @@ function Dashboard() {
 
       {/* Main */}
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-border bg-card/60 px-4 py-3">
+        <header className="flex items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMenuOpen(true)}
@@ -262,7 +262,30 @@ function Dashboard() {
         {section === "chat" ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="mx-auto flex max-w-3xl flex-col gap-3">
+              <div className="mx-auto max-w-4xl">
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
+                      <span className="size-1.5 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
+                      Agent online · Owner workspace
+                    </div>
+                    <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Τι αναλαμβάνουμε σήμερα;</h1>
+                    <p className="mt-2 max-w-xl text-sm text-muted-foreground">Στόχοι, missions, browser operator και κώδικας — σε μία ενιαία ροή με έγκριση πριν από κάθε εξωτερική ενέργεια.</p>
+                  </div>
+                  <div className="hidden rounded-xl border border-border/70 bg-background/50 p-3 text-right sm:block">
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Runtime</p>
+                    <p className="mt-1 text-sm font-semibold text-ok">Ready</p>
+                  </div>
+                </div>
+                <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[{ icon: Sparkles, label: "Ask brain", prompt: "Τι μπορείς να κάνεις;" }, { icon: Activity, label: "Missions", prompt: "Δείξε μου τα missions" }, { icon: ArrowUpRight, label: "Browser", prompt: "Έλεγξε τον browser operator" }, { icon: ShieldCheck, label: "System", prompt: "Ποια είναι η κατάσταση του συστήματος;" }].map(({ icon: Icon, label, prompt }) => (
+                    <button key={label} type="button" onClick={() => setDraft(prompt)} className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8">
+                      <Icon className="size-3.5 text-primary transition-transform group-hover:scale-110" />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-3">
                 {messages.map((m, i) => (
                   <div
                     key={i}
@@ -273,9 +296,10 @@ function Dashboard() {
                     {m.text}
                   </div>
                 ))}
+                </div>
               </div>
             </div>
-            <div className="border-t border-border bg-card/60 p-4">
+            <div className="border-t border-border/70 bg-card/75 p-4 backdrop-blur-xl">
               <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between text-[11px] text-muted-foreground">
                 <span>{isThinking ? "Ο ΝΟΥΣ σκέφτεται…" : connectionMode === "degraded" ? "Περιορισμένη λειτουργία" : "Έτοιμος για μήνυμα"}</span>
                 <button
