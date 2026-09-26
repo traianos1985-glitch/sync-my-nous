@@ -63,6 +63,7 @@ const GEMINI_URL =
 async function tryGeminiFallback(
   message: string,
   history: Array<{ role: "user" | "assistant"; text: string }>,
+  grounded = false,
 ) {
   const apiKey = process.env.GCP_API_KEY;
   if (!apiKey) return null;
@@ -82,18 +83,35 @@ async function tryGeminiFallback(
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents,
         generationConfig: { temperature: 0.3, maxOutputTokens: 1600 },
+        ...(grounded ? { tools: [{ google_search: {} }] } : {}),
       }),
       signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
     });
     if (!response.ok) return null;
     const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+        groundingMetadata?: {
+          groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>;
+        };
+      }>;
     };
-    const answer = data.candidates?.[0]?.content?.parts
+    const candidate = data.candidates?.[0];
+    const answer = candidate?.content?.parts
       ?.map((part) => part.text ?? "")
       .join("")
       .trim();
-    return answer ? { answer, model: "gemini-2.5-flash" } : null;
+    const citations = (candidate?.groundingMetadata?.groundingChunks ?? [])
+      .map((chunk) => chunk.web)
+      .filter((web): web is { uri: string; title?: string } => Boolean(web?.uri))
+      .map((web) => ({
+        title: web.title ?? web.uri,
+        url: web.uri,
+        domain: new URL(web.uri).hostname,
+      }));
+    return answer
+      ? { answer, model: grounded ? "gemini-2.5-flash-grounded" : "gemini-2.5-flash", citations }
+      : null;
   } catch {
     return null;
   }
@@ -248,6 +266,21 @@ export const Route = createFileRoute("/api/chat")({
           };
           const startedAt = new Date().toISOString();
           const started = performance.now();
+          if (researchResult.used || body.researchMode === "deep") {
+            const grounded = await tryGeminiFallback(modelMessage, history, true);
+            if (grounded) {
+              await saveAssistant(grounded.answer, grounded.citations);
+              return Response.json({
+                ok: true,
+                answer: grounded.answer,
+                source: "gemini-google-search-grounded",
+                model: grounded.model,
+                citations: grounded.citations,
+                researchUsed: true,
+                mode: "connected",
+              });
+            }
+          }
           try {
             const result = await withTimeout(
               generateText({
