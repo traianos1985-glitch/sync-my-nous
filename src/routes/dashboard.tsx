@@ -168,7 +168,16 @@ function Dashboard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
-    if (response.ok) setApprovals((items) => items.filter((item) => item.id !== id));
+    if (!response.ok) return;
+    if (status === "approved") {
+      const execution = await fetch("/api/tools/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approvalId: id }),
+      });
+      if (!execution.ok) setApprovalStatus("error");
+    }
+    setApprovals((items) => items.filter((item) => item.id !== id));
   };
 
   const send = async () => {
@@ -353,7 +362,7 @@ function Dashboard() {
                     </h1>
                     <p className="mt-2 max-w-xl text-sm text-muted-foreground">
                       Στόχοι, missions, browser operator και κώδικας — σε μία ενιαία ροή με έγκριση
-                      πριν από κάθε εξωτερική ενέργεια.
+                      πριν από κάθε ��ξωτερική ενέργεια.
                     </p>
                   </div>
                   <div className="hidden rounded-xl border border-border/70 bg-background/50 p-3 text-right sm:block">
