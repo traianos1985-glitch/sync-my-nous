@@ -11,6 +11,7 @@ import {
   ScanLine,
   Send,
   ShieldCheck,
+  ShieldAlert,
   Sparkles,
   X,
   Zap,
@@ -143,6 +144,32 @@ function Dashboard() {
   const [activeFocus, setActiveFocus] = useState("chat");
   const [approvedInitiatives, setApprovedInitiatives] = useState<string[]>([]);
   const [dismissedInitiatives, setDismissedInitiatives] = useState<string[]>([]);
+  const [approvals, setApprovals] = useState<
+    Array<{ id: string; tool: string; input: unknown; createdAt: string }>
+  >([]);
+  const [approvalStatus, setApprovalStatus] = useState<"idle" | "loading" | "error">("idle");
+
+  const loadApprovals = async () => {
+    setApprovalStatus("loading");
+    try {
+      const response = await fetch("/api/approvals");
+      if (!response.ok) throw new Error("approval request failed");
+      const data = (await response.json()) as { approvals?: typeof approvals };
+      setApprovals(data.approvals ?? []);
+      setApprovalStatus("idle");
+    } catch {
+      setApprovalStatus("error");
+    }
+  };
+
+  const resolveApproval = async (id: string, status: "approved" | "rejected") => {
+    const response = await fetch("/api/approvals", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    if (response.ok) setApprovals((items) => items.filter((item) => item.id !== id));
+  };
 
   const send = async () => {
     const text = draft.trim();
@@ -341,7 +368,11 @@ function Dashboard() {
                     <button
                       key={label}
                       type="button"
-                      onClick={() => setActiveFocus(label.toLowerCase())}
+                      onClick={() => {
+                        const focus = label.toLowerCase();
+                        setActiveFocus(focus);
+                        if (focus === "guard") void loadApprovals();
+                      }}
                       className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
                     >
                       <div className="flex items-center justify-between">
@@ -355,6 +386,69 @@ function Dashboard() {
                     </button>
                   ))}
                 </div>
+                {activeFocus === "guard" && (
+                  <div className="mb-5 rounded-2xl border border-warn/30 bg-warn/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="size-4 text-warn" />
+                        <div>
+                          <p className="text-sm font-semibold">Approval queue</p>
+                          <p className="text-xs text-muted-foreground">
+                            Καμία εξωτερική ενέργεια χωρίς δική σου έγκριση.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadApprovals()}
+                        className="rounded-lg border border-warn/30 px-3 py-1.5 text-xs text-warn hover:bg-warn/10"
+                      >
+                        {approvalStatus === "loading" ? "Έλεγχος…" : "Ανανέωση"}
+                      </button>
+                    </div>
+                    {approvalStatus === "error" && (
+                      <p className="mt-3 text-xs text-destructive">
+                        Η approval queue δεν είναι διαθέσιμη.
+                      </p>
+                    )}
+                    {approvalStatus === "idle" && approvals.length === 0 && (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Δεν υπάρχουν pending approvals.
+                      </p>
+                    )}
+                    <div className="mt-3 space-y-2">
+                      {approvals.map((approval) => (
+                        <div
+                          key={approval.id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 p-3"
+                        >
+                          <div>
+                            <p className="font-mono text-xs text-foreground">{approval.tool}</p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Ζητήθηκε {new Date(approval.createdAt).toLocaleString("el-GR")}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void resolveApproval(approval.id, "approved")}
+                              className="rounded-md bg-ok/15 px-3 py-1.5 text-xs font-semibold text-ok"
+                            >
+                              Έγκριση
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void resolveApproval(approval.id, "rejected")}
+                              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground"
+                            >
+                              Απόρριψη
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_250px]">
                   <div className="rounded-2xl border border-border/70 bg-card/50 p-4">
                     <div className="mb-3 flex items-center justify-between">
