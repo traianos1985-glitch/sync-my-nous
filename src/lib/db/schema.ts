@@ -84,6 +84,21 @@ export const nousApprovals = pgTable("nous_approvals", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
 });
 
+export const nousMemoryEntries = pgTable(
+  "nous_memory_entries",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    memoryKey: text("memory_key").notNull(),
+    value: jsonb("value").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userKeyUnique: unique("nous_memory_entries_user_key").on(table.userId, table.memoryKey),
+  }),
+);
+
 export const nousToolRuns = pgTable("nous_tool_runs", {
   id: text("id").primaryKey(),
   missionId: text("mission_id"),
