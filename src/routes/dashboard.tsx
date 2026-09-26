@@ -1,6 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Activity, ArrowUpRight, Loader2, Menu, RotateCcw, Send, ShieldCheck, Sparkles, X, Zap } from "lucide-react";
+import {
+  Activity,
+  ArrowUpRight,
+  Loader2,
+  Menu,
+  RotateCcw,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  X,
+  Zap,
+} from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
 
 export const Route = createFileRoute("/dashboard")({
@@ -71,7 +82,11 @@ const initialChat = [
 function answerLocally(input: string) {
   const text = input.toLocaleLowerCase("el-GR");
 
-  if (/(τι μπορείς|τι μπορεις|τι πραγματικ|τι πραγματικ|δυνατότητ|δυνατοτητ|help|βοήθεια|βοηθεια)/.test(text)) {
+  if (
+    /(τι μπορείς|τι μπορεις|τι πραγματικ|τι πραγματικ|δυνατότητ|δυνατοτητ|help|βοήθεια|βοηθεια)/.test(
+      text,
+    )
+  ) {
     return "Μπορώ να διαχειριστώ τοπικά το workspace: να εμφανίσω τα missions, να εξηγήσω την κατάσταση του συστήματος, να ξεκινήσω ή να προγραμματίσω backup και να σε οδηγήσω στις ενότητες Chat, Missions, Memory και System. Δεν προσποιούμαι ότι εκτέλεσα εξωτερική ενέργεια χωρίς συνδεδεμένο backend.";
   }
 
@@ -129,12 +144,21 @@ function Dashboard() {
       const answer = data.human_answer ?? data.answer ?? data.response;
       if (!response.ok || !answer) throw new Error(data.error ?? "Chat unavailable");
       setConnectionMode(data.mode ?? "connected");
-      const suffix = data.mode === "degraded" ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]" : "";
+      const suffix =
+        data.mode === "degraded"
+          ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]"
+          : "";
       setMessages((m) => [...m, { role: "assistant", text: `${answer}${suffix}` }]);
     } catch (error) {
       console.error("[v0] Chat request failed", error);
       setConnectionMode("degraded");
-      setMessages((m) => [...m, { role: "assistant", text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δεν εκτελέστηκε εξωτερική ενέργεια. Δοκίμασε ξανά σε λίγο." }]);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δεν εκτελέστηκε εξωτερική ενέργεια. Δοκίμασε ξανά σε λίγο.",
+        },
+      ]);
     } finally {
       setIsThinking(false);
     }
@@ -269,39 +293,66 @@ function Dashboard() {
                       <span className="size-1.5 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
                       Agent online · Owner workspace
                     </div>
-                    <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Τι αναλαμβάνουμε σήμερα;</h1>
-                    <p className="mt-2 max-w-xl text-sm text-muted-foreground">Στόχοι, missions, browser operator και κώδικας — σε μία ενιαία ροή με έγκριση πριν από κάθε εξωτερική ενέργεια.</p>
+                    <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                      Τι αναλαμβάνουμε σήμερα;
+                    </h1>
+                    <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                      Στόχοι, missions, browser operator και κώδικας — σε μία ενιαία ροή με έγκριση
+                      πριν από κάθε εξωτερική ενέργεια.
+                    </p>
                   </div>
                   <div className="hidden rounded-xl border border-border/70 bg-background/50 p-3 text-right sm:block">
-                    <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Runtime</p>
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Runtime
+                    </p>
                     <p className="mt-1 text-sm font-semibold text-ok">Ready</p>
                   </div>
                 </div>
                 <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[{ icon: Sparkles, label: "Ask brain", prompt: "Τι μπορείς να κάνεις;" }, { icon: Activity, label: "Missions", prompt: "Δείξε μου τα missions" }, { icon: ArrowUpRight, label: "Browser", prompt: "Έλεγξε τον browser operator" }, { icon: ShieldCheck, label: "System", prompt: "Ποια είναι η κατάσταση του συστήματος;" }].map(({ icon: Icon, label, prompt }) => (
-                    <button key={label} type="button" onClick={() => setDraft(prompt)} className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8">
+                  {[
+                    { icon: Sparkles, label: "Ask brain", prompt: "Τι μπορείς να κάνεις;" },
+                    { icon: Activity, label: "Missions", prompt: "Δείξε μου τα missions" },
+                    { icon: ArrowUpRight, label: "Browser", prompt: "Έλεγξε τον browser operator" },
+                    {
+                      icon: ShieldCheck,
+                      label: "System",
+                      prompt: "Ποια είναι η κατάσταση του συστήματος;",
+                    },
+                  ].map(({ icon: Icon, label, prompt }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setDraft(prompt)}
+                      className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8"
+                    >
                       <Icon className="size-3.5 text-primary transition-transform group-hover:scale-110" />
                       <span>{label}</span>
                     </button>
                   ))}
                 </div>
                 <div className="flex flex-col gap-3">
-                {messages.map((m, i) => (
-                  <div
-                    key={i}
-                    className={`whitespace-pre-wrap rounded-2xl border border-border p-4 text-sm leading-relaxed ${
-                      m.role === "user" ? "self-end bg-violet/15" : "bg-card/80"
-                    }`}
-                  >
-                    {m.text}
-                  </div>
-                ))}
+                  {messages.map((m, i) => (
+                    <div
+                      key={i}
+                      className={`whitespace-pre-wrap rounded-2xl border border-border p-4 text-sm leading-relaxed ${
+                        m.role === "user" ? "self-end bg-violet/15" : "bg-card/80"
+                      }`}
+                    >
+                      {m.text}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
             <div className="border-t border-border/70 bg-card/75 p-4 backdrop-blur-xl">
               <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between text-[11px] text-muted-foreground">
-                <span>{isThinking ? "Ο ΝΟΥΣ σκέφτεται…" : connectionMode === "degraded" ? "Περιορισμένη λειτουργία" : "Έτοιμος για μήνυμα"}</span>
+                <span>
+                  {isThinking
+                    ? "Ο ΝΟΥΣ σκέφτεται…"
+                    : connectionMode === "degraded"
+                      ? "Περιορισμένη λειτουργία"
+                      : "Έτοιμος για μήνυμα"}
+                </span>
                 <button
                   type="button"
                   onClick={() => setMessages(initialChat)}
@@ -317,7 +368,12 @@ function Dashboard() {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      !e.nativeEvent.isComposing &&
+                      e.keyCode !== 229
+                    ) {
                       e.preventDefault();
                       void send();
                     }
@@ -333,7 +389,11 @@ function Dashboard() {
                   className="inline-flex items-center gap-2 rounded-xl bg-violet px-4 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label={isThinking ? "Ο ΝΟΥΣ σκέφτεται" : "Στείλε μήνυμα"}
                 >
-                  {isThinking ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                  {isThinking ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Send className="size-4" />
+                  )}
                   <span className="hidden sm:inline">{isThinking ? "Σκέψη…" : "Στείλε"}</span>
                 </button>
               </div>
@@ -415,16 +475,35 @@ function Dashboard() {
                   const dismissed = dismissedInitiatives.includes(i.title);
                   if (dismissed) return null;
                   return (
-                    <div key={i.title} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+                    <div
+                      key={i.title}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
+                    >
                       <div>
                         <p className="text-sm font-medium">{i.title}</p>
                         <p className="mt-1 text-xs text-muted-foreground">{i.why}</p>
-                        {approved && <p className="mt-2 font-mono text-[11px] text-ok">Εγκρίθηκε και μπήκε στα missions</p>}
+                        {approved && (
+                          <p className="mt-2 font-mono text-[11px] text-ok">
+                            Εγκρίθηκε και μπήκε στα missions
+                          </p>
+                        )}
                       </div>
-                      {!approved && <div className="flex gap-2">
-                        <button onClick={() => setApprovedInitiatives((items) => [...items, i.title])} className="rounded-md bg-ok/20 px-3 py-1.5 text-xs font-semibold text-ok">Έγκριση</button>
-                        <button onClick={() => setDismissedInitiatives((items) => [...items, i.title])} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground">Απόρριψη</button>
-                      </div>}
+                      {!approved && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setApprovedInitiatives((items) => [...items, i.title])}
+                            className="rounded-md bg-ok/20 px-3 py-1.5 text-xs font-semibold text-ok"
+                          >
+                            Έγκριση
+                          </button>
+                          <button
+                            onClick={() => setDismissedInitiatives((items) => [...items, i.title])}
+                            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground"
+                          >
+                            Απόρριψη
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -445,20 +524,43 @@ function Dashboard() {
                         : `Η ενότητα ${navLabel(section)} είναι έτοιμη για σύνδεση με το NOUS API.`}
                 </p>
                 <div className="mt-5 space-y-2">
-                  {section === "missions" && missions.map((mission) => (
-                    <div key={mission.title} className="flex items-center justify-between rounded-xl border border-border bg-background/50 p-3 text-sm">
-                      <span>{mission.title}</span><span className="font-mono text-xs text-primary">{mission.status}</span>
-                    </div>
-                  ))}
-                  {section === "memory" && ["User goals: autonomous NOUS", "Decision: require approvals", "Last reflection: backend-aware answers"].map((item) => (
-                    <div key={item} className="rounded-xl border border-border bg-background/50 p-3 font-mono text-xs text-muted-foreground">{item}</div>
-                  ))}
+                  {section === "missions" &&
+                    missions.map((mission) => (
+                      <div
+                        key={mission.title}
+                        className="flex items-center justify-between rounded-xl border border-border bg-background/50 p-3 text-sm"
+                      >
+                        <span>{mission.title}</span>
+                        <span className="font-mono text-xs text-primary">{mission.status}</span>
+                      </div>
+                    ))}
+                  {section === "memory" &&
+                    [
+                      "User goals: autonomous NOUS",
+                      "Decision: require approvals",
+                      "Last reflection: backend-aware answers",
+                    ].map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-xl border border-border bg-background/50 p-3 font-mono text-xs text-muted-foreground"
+                      >
+                        {item}
+                      </div>
+                    ))}
                 </div>
               </Card>
               <Card title="Agent guardrails">
                 <div className="space-y-3 text-sm">
-                  {["Backend truth checks", "Approval before side effects", "Audit trail enabled", "Browser operator: ready"].map((item) => (
-                    <div key={item} className="flex items-center gap-2"><span className="size-2 rounded-full bg-ok" />{item}</div>
+                  {[
+                    "Backend truth checks",
+                    "Approval before side effects",
+                    "Audit trail enabled",
+                    "Browser operator: ready",
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-2">
+                      <span className="size-2 rounded-full bg-ok" />
+                      {item}
+                    </div>
                   ))}
                 </div>
               </Card>

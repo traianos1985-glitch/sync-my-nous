@@ -17,6 +17,55 @@ const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικ
 Αν δεν έχεις εργαλείο για να εκτελέσεις κάτι, μην απαντήσεις γενικά. Πες: «Μπορώ να το σχεδιάσω τώρα, αλλά δεν μπορώ να το εκτελέσω από αυτό το workspace επειδή λείπει το Χ» και δώσε ακριβώς το επόμενο βήμα.
 Κράτα τις απαντήσεις σύντομες αλλά χρήσιμες. Μην επινοείς δεδομένα, κατάσταση ή αποτελέσματα.`;
 
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_FREE_MODELS = [
+  "qwen/qwen3-coder:free",
+  "deepseek/deepseek-r1-0528:free",
+  "google/gemma-3-27b-it:free",
+];
+
+async function tryOpenRouterFallback(
+  message: string,
+  history: Array<{ role: "user" | "assistant"; text: string }>,
+) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+
+  for (const model of OPENROUTER_FREE_MODELS) {
+    try {
+      const response = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://nous.local",
+          "X-Title": "NOUS-AI-OS",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...history.map((item) => ({ role: item.role, content: item.text })),
+            { role: "user", content: message },
+          ],
+          temperature: 0.3,
+          max_tokens: 1600,
+        }),
+        signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
+      });
+      if (!response.ok) continue;
+      const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const answer = data.choices?.[0]?.message?.content?.trim();
+      if (answer) return { answer, model };
+    } catch {
+      // Try the next free model, then use the deterministic offline response.
+    }
+  }
+  return null;
+}
+
 function offlineAnswer(message: string) {
   const text = message.toLocaleLowerCase("el-GR");
   if (/(τι μπορείς|τι μπορεις|δυνατότητ|δυνατοτητ|can you)/.test(text)) {
@@ -72,7 +121,12 @@ export const Route = createFileRoute("/api/chat")({
               outputTokens: result.usage?.outputTokens,
               totalTokens: result.usage?.totalTokens,
             });
-            return Response.json({ ok: true, answer: result.text, source: "ai-gateway", mode: "connected" });
+            return Response.json({
+              ok: true,
+              answer: result.text,
+              source: "ai-gateway",
+              mode: "connected",
+            });
           } catch (error) {
             recordModelCall({
               startedAt,
@@ -80,6 +134,17 @@ export const Route = createFileRoute("/api/chat")({
               ok: false,
               error: error instanceof Error ? error.message : "unknown_error",
             });
+
+            const fallback = await tryOpenRouterFallback(message, history);
+            if (fallback) {
+              return Response.json({
+                ok: true,
+                answer: fallback.answer,
+                source: "openrouter-free-fallback",
+                model: fallback.model,
+                mode: "connected",
+              });
+            }
             throw error;
           }
         } catch (error) {
