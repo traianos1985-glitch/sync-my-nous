@@ -25,7 +25,10 @@ export const Route = createFileRoute("/api/approvals")({
           )
           .orderBy(desc(nousApprovals.createdAt))
           .limit(50);
-        return Response.json({ ok: true, approvals });
+        return Response.json(
+          { ok: true, approvals },
+          { headers: { "Cache-Control": "private, no-store" } },
+        );
       },
       POST: async ({ request }) => {
         const body = (await request.json()) as {
@@ -59,7 +62,7 @@ export const Route = createFileRoute("/api/approvals")({
           .where(
             and(
               eq(nousApprovals.id, body.id),
-              eq(nousApprovals.userId, userId(request)),
+              eq(nousApprovals.userId, await userId(request)),
               eq(nousApprovals.status, "pending"),
             ),
           )
