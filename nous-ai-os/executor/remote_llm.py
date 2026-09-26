@@ -2,6 +2,8 @@ import requests
 import os
 import base64
 
+from executor.local_llm_adapter import ask_ollama
+
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 MODELS = [
@@ -63,8 +65,23 @@ def _post(messages: list, max_tokens: int = 4096) -> dict:
     return {"success": False, "error": last_error or "no_response"}
 
 
+def _local_purpose(prompt: str) -> str:
+    coding_terms = (
+        "code", "coding", "python", "javascript", "typescript", "bug", "debug",
+        "function", "api", "program", "κώδικ", "πρόγραμμα", "σφάλμα", "τεστ",
+    )
+    return "coding" if any(term in str(prompt).lower() for term in coding_terms) else "general"
+
+
 def ask_remote_llm(prompt: str) -> dict:
-    """Single-turn: send one user message."""
+    """Single-turn, with a local Ollama fallback for offline/non-Vercel use."""
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not key:
+        local = ask_ollama(prompt, purpose=_local_purpose(prompt))
+        if local.get("ok"):
+            return {"success": True, "provider": "ollama", "model": local["model"], "response": local["response"]}
+        return {"success": False, "error": local.get("error", local.get("reason", "local_llm_unavailable")), "provider": "ollama"}
+
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
