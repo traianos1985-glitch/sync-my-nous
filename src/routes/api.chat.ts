@@ -7,6 +7,7 @@ import {
   recordModelCall,
   withTimeout,
 } from "../lib/ai-observability";
+import { research, type ResearchMode } from "../lib/research-broker";
 
 const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικρινής και πρακτικός προσωπικός agent.
 Απάντα φυσικά και ανθρώπινα στα ελληνικά όταν ο χρήστης γράφει ελληνικά, χωρίς canned απαντήσεις ή άσχετες επαναλήψεις.
@@ -166,6 +167,7 @@ export const Route = createFileRoute("/api/chat")({
           const body = (await request.json()) as {
             message?: string;
             history?: Array<{ role: "user" | "assistant"; text: string }>;
+            researchMode?: ResearchMode;
           };
           message = body.message?.trim() ?? "";
           if (!message) {
@@ -173,6 +175,10 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           const history = (body.history ?? []).slice(-10);
+          const researchResult = await research(message, body.researchMode ?? "auto");
+          const modelMessage = researchResult.context
+            ? `${message}\n\n[READ-ONLY RESEARCH CONTEXT — cite only these sources and do not claim actions were performed]\n${researchResult.context}`
+            : message;
           const budget = canStartModelCall();
           if (!budget.allowed) {
             return Response.json(
@@ -190,7 +196,7 @@ export const Route = createFileRoute("/api/chat")({
                 system: SYSTEM_PROMPT,
                 messages: [
                   ...history.map((item) => ({ role: item.role, content: item.text }) as const),
-                  { role: "user" as const, content: message },
+                  { role: "user" as const, content: modelMessage },
                 ],
               }),
               modelCallTimeoutMs(),
@@ -207,6 +213,8 @@ export const Route = createFileRoute("/api/chat")({
               ok: true,
               answer: result.text,
               source: "ai-gateway",
+              citations: researchResult.citations,
+              researchUsed: researchResult.used,
               mode: "connected",
             });
           } catch (error) {
@@ -217,35 +225,41 @@ export const Route = createFileRoute("/api/chat")({
               error: error instanceof Error ? error.message : "unknown_error",
             });
 
-            const groqFallback = await tryGroqFallback(message, history);
+            const groqFallback = await tryGroqFallback(modelMessage, history);
             if (groqFallback) {
               return Response.json({
                 ok: true,
                 answer: groqFallback.answer,
                 source: "groq-api",
                 model: groqFallback.model,
+                citations: researchResult.citations,
+                researchUsed: researchResult.used,
                 mode: "connected",
               });
             }
 
-            const geminiFallback = await tryGeminiFallback(message, history);
+            const geminiFallback = await tryGeminiFallback(modelMessage, history);
             if (geminiFallback) {
               return Response.json({
                 ok: true,
                 answer: geminiFallback.answer,
                 source: "gemini-api",
                 model: geminiFallback.model,
+                citations: researchResult.citations,
+                researchUsed: researchResult.used,
                 mode: "connected",
               });
             }
 
-            const fallback = await tryOpenRouterFallback(message, history);
+            const fallback = await tryOpenRouterFallback(modelMessage, history);
             if (fallback) {
               return Response.json({
                 ok: true,
                 answer: fallback.answer,
                 source: "openrouter-free-fallback",
                 model: fallback.model,
+                citations: researchResult.citations,
+                researchUsed: researchResult.used,
                 mode: "connected",
               });
             }
