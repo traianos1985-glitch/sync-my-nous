@@ -24,7 +24,14 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
-import { hasConfiguredNousApi, nousFetch, nousStream } from "@/lib/nous-api";
+import {
+  clearNousToken,
+  getNousToken,
+  hasConfiguredNousApi,
+  nousFetch,
+  nousStream,
+  setNousToken,
+} from "@/lib/nous-api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -254,6 +261,8 @@ function Dashboard() {
   >([]);
   const [approvalStatus, setApprovalStatus] = useState<"idle" | "loading" | "error">("idle");
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [tokenDraft, setTokenDraft] = useState("");
+  const [hasToken, setHasToken] = useState(() => Boolean(getNousToken()));
   const [systemStatusState, setSystemStatusState] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -1347,6 +1356,57 @@ function Dashboard() {
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <Card title="System Snapshot">
+                <form
+                  className="mb-3 flex flex-col gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!tokenDraft.trim()) return;
+                    setNousToken(tokenDraft);
+                    setTokenDraft("");
+                    setHasToken(true);
+                    void loadSystemStatus();
+                  }}
+                >
+                  <label htmlFor="nous-token" className="text-xs text-muted-foreground">
+                    NOUS API token{" "}
+                    {hasToken ? (
+                      <span className="text-primary">· αποθηκευμένο σε αυτόν τον browser</span>
+                    ) : (
+                      <span className="text-warn">· δεν έχει οριστεί</span>
+                    )}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="nous-token"
+                      type="password"
+                      autoComplete="off"
+                      value={tokenDraft}
+                      onChange={(event) => setTokenDraft(event.target.value)}
+                      placeholder={hasToken ? "Νέο token για αντικατάσταση" : "Επικόλλησε το token"}
+                      className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!tokenDraft.trim()}
+                      className="rounded-lg bg-violet px-3 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      Αποθήκευση
+                    </button>
+                    {hasToken && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearNousToken();
+                          setHasToken(Boolean(getNousToken()));
+                          void loadSystemStatus();
+                        }}
+                        className="rounded-lg border border-border px-3 text-sm text-muted-foreground"
+                      >
+                        Αφαίρεση
+                      </button>
+                    )}
+                  </div>
+                </form>
                 {systemStatusState === "loading" && (
                   <p className="mb-3 text-xs text-muted-foreground">
                     Σύνδεση με NOUS API… Το Render μπορεί να ξυπνά από cold start.
@@ -1354,7 +1414,7 @@ function Dashboard() {
                 )}
                 {systemStatusState === "error" && (
                   <p className="mb-3 text-xs text-warn">
-                    Δεν ήταν δυνατή η σύνδεση. Έλεγξε το token και δοκίμασε Ανανέωση.
+                    Δεν ήταν δυνατή η σύνδεση. Έλεγ��ε το token και δοκίμασε Ανανέωση.
                   </p>
                 )}
                 {snapshotLabels.map((label) => {
