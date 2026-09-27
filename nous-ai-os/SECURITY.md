@@ -18,13 +18,13 @@
 
 Το API είναι **fail-closed**:
 
-| Κατάσταση | Αποτέλεσμα |
-|---|---|
-| `NOUS_TOKEN` ορισμένο + σωστό `X-NOUS-TOKEN` | ✅ |
-| Έγκυρο αποθηκευμένο API token (`/token/create`) | ✅ |
-| Χωρίς token, request από localhost | ✅ (τοπική χρήση) |
-| Χωρίς token, request από το internet | ❌ 401 |
-| `NOUS_ALLOW_ANONYMOUS=1` | ✅ (μόνο για δοκιμές — μη το χρησιμοποιείς σε public deploy) |
+| Κατάσταση                                       | Αποτέλεσμα                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| `NOUS_TOKEN` ορισμένο + σωστό `X-NOUS-TOKEN`    | ✅                                                           |
+| Έγκυρο αποθηκευμένο API token (`/token/create`) | ✅                                                           |
+| Χωρίς token, request από localhost              | ✅ (τοπική χρήση)                                            |
+| Χωρίς token, request από το internet            | ❌ 401                                                       |
+| `NOUS_ALLOW_ANONYMOUS=1`                        | ✅ (μόνο για δοκιμές — μη το χρησιμοποιείς σε public deploy) |
 
 Δημόσια paths: `/`, `/health`, `/favicon.ico`, `/robots.txt`, `/static/*`, `/token/*`.
 

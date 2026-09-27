@@ -33,7 +33,8 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
-  if (options.signal) options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  if (options.signal)
+    options.signal.addEventListener("abort", () => controller.abort(), { once: true });
   let response: Response;
   try {
     response = await fetch(`${apiBase}${path}`, {
@@ -43,7 +44,8 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
       signal: controller.signal,
     });
   } catch (error) {
-    if (controller.signal.aborted) throw new Error("NOUS API timeout — το Render μπορεί να κάνει cold start. Δοκίμασε ξανά.");
+    if (controller.signal.aborted)
+      throw new Error("NOUS API timeout — το Render μπορεί να κάνει cold start. Δοκίμασε ξανά.");
     throw error;
   } finally {
     window.clearTimeout(timeout);
@@ -89,7 +91,8 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
-  if (options.signal) options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  if (options.signal)
+    options.signal.addEventListener("abort", () => controller.abort(), { once: true });
   let response: Response;
   try {
     response = await fetch(`${apiBase}${path}`, {
@@ -99,7 +102,8 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
       signal: controller.signal,
     });
   } catch (error) {
-    if (controller.signal.aborted) throw new Error("NOUS API timeout — το Render μπορεί να κάνει cold start. Δοκίμασε ξανά.");
+    if (controller.signal.aborted)
+      throw new Error("NOUS API timeout — το Render μπορεί να κάνει cold start. Δοκίμασε ξανά.");
     throw error;
   } finally {
     window.clearTimeout(timeout);

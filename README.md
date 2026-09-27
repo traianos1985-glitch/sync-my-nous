@@ -17,7 +17,6 @@ python -m executor.router
 Τα runtime δεδομένα (`nous-ai-os/data/`) και τα secrets παραμένουν εκτός Git.
 Για τις οδηγίες API, ασφάλειας και deployment δες το [`nous-ai-os/README.md`](nous-ai-os/README.md).
 
-
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable

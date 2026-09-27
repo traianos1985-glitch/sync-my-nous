@@ -182,7 +182,12 @@ type SystemStatus = {
   status: string;
   counts?: { missions: number; toolRuns: number };
   storage?: string;
-  metrics?: { cpu_percent?: number; memory_percent?: number; disk_free_mb?: number; uptime_s?: number };
+  metrics?: {
+    cpu_percent?: number;
+    memory_percent?: number;
+    disk_free_mb?: number;
+    uptime_s?: number;
+  };
   overview?: { metrics?: unknown; local_llm?: unknown };
 };
 
@@ -249,7 +254,9 @@ function Dashboard() {
   >([]);
   const [approvalStatus, setApprovalStatus] = useState<"idle" | "loading" | "error">("idle");
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [systemStatusState, setSystemStatusState] = useState<"loading" | "ready" | "error">("loading");
+  const [systemStatusState, setSystemStatusState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   const [liveMissions, setLiveMissions] = useState<
     Array<{ id: string; title: string; status: string }>
   >([]);
@@ -427,7 +434,12 @@ function Dashboard() {
       const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : undefined;
       const overview = overviewResult.status === "fulfilled" ? overviewResult.value : undefined;
       if (status || metrics || overview) {
-        setSystemStatus({ ...(status ?? {}), status: status?.status ?? "online", metrics, overview });
+        setSystemStatus({
+          ...(status ?? {}),
+          status: status?.status ?? "online",
+          metrics,
+          overview,
+        });
         setSystemStatusState("ready");
         return;
       }
@@ -1336,10 +1348,14 @@ function Dashboard() {
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <Card title="System Snapshot">
                 {systemStatusState === "loading" && (
-                  <p className="mb-3 text-xs text-muted-foreground">Σύνδεση με NOUS API… Το Render μπορεί να ξυπνά από cold start.</p>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Σύνδεση με NOUS API… Το Render μπορεί να ξυπνά από cold start.
+                  </p>
                 )}
                 {systemStatusState === "error" && (
-                  <p className="mb-3 text-xs text-warn">Δεν ήταν δυνατή η σύνδεση. Έλεγξε το token και δοκίμασε Ανανέωση.</p>
+                  <p className="mb-3 text-xs text-warn">
+                    Δεν ήταν δυνατή η σύνδεση. Έλεγξε το token και δοκίμασε Ανανέωση.
+                  </p>
                 )}
                 {snapshotLabels.map((label) => {
                   const value =
@@ -1358,7 +1374,9 @@ function Dashboard() {
                               : label === "Memory"
                                 ? `${systemStatus?.metrics?.memory_percent ?? "—"}%`
                                 : label === "Overview"
-                                  ? systemStatus?.overview ? "live" : "—"
+                                  ? systemStatus?.overview
+                                    ? "live"
+                                    : "—"
                                   : (systemStatus?.storage ?? "—");
                   return (
                     <div

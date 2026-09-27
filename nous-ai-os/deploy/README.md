@@ -21,6 +21,7 @@
 ```
 
 **Αυτόματη εκκίνηση με τα Windows:**
+
 ```
 deploy\local_windows\setup_autostart.bat
 ```
@@ -40,6 +41,7 @@ bash deploy/local_mac_linux/start_nous.sh
 ```
 
 **Αυτόματη εκκίνηση κάθε φορά που ανοίγει ο Mac:**
+
 ```bash
 bash deploy/local_mac_linux/install_autostart_mac.sh
 ```
@@ -77,11 +79,13 @@ bash deploy/local_mac_linux/install_autostart_linux.sh
 Ο NOUS τρέχει σε cloud server 24/7 — ανεξάρτητα από τον υπολογιστή σου.
 
 **Καλύτερα providers:**
+
 - **Hetzner Cloud** (EU) — CX22: 2 CPU, 4GB RAM = **€3.79/μήνα** ← συνιστάται
 - **DigitalOcean** — Basic 1GB = **$6/μήνα**
 - **Vultr** — Cloud Compute 1GB = **$5/μήνα**
 
 **Εγκατάσταση (μία φορά):**
+
 ```bash
 # Συνδέσου στον server με SSH, μετά:
 bash deploy/setup_vps.sh
@@ -93,6 +97,7 @@ bash deploy/setup_vps.sh
 ### 🐳 Επιλογή Γ: Docker (Windows/Mac/Linux)
 
 Αν έχεις Docker Desktop εγκατεστημένο:
+
 ```bash
 cp .env.example .env
 # Βάλε το OPENROUTER_API_KEY στο .env
@@ -106,6 +111,7 @@ docker-compose up -d
 ### 🥧 Επιλογή Δ: Raspberry Pi (δωρεάν, τρέχει 24/7 στο σπίτι)
 
 Αν έχεις Raspberry Pi 3/4 — κόστος: **€0/μήνα** (μόνο ρεύμα ~€1-2):
+
 ```bash
 bash deploy/local_mac_linux/start_nous.sh
 # + αυτόματη εκκίνηση:
@@ -116,12 +122,12 @@ bash deploy/local_mac_linux/install_autostart_linux.sh
 
 ## Σύγκριση Επιλογών
 
-| | Κόστος | Online 24/7 | Απαιτήσεις |
-|---|---|---|---|
-| Προσωπικός PC | €0 | Μόνο αν είναι ανοιχτός | Python |
-| VPS | ~€4-6/μήνα | ✅ Ναι | Πιστωτική κάρτα |
-| Docker | €0 | Μόνο αν είναι ανοιχτός | Docker Desktop |
-| Raspberry Pi | ~€1-2/μήνα ρεύμα | ✅ Ναι | Pi + Linux |
+|               | Κόστος           | Online 24/7            | Απαιτήσεις      |
+| ------------- | ---------------- | ---------------------- | --------------- |
+| Προσωπικός PC | €0               | Μόνο αν είναι ανοιχτός | Python          |
+| VPS           | ~€4-6/μήνα       | ✅ Ναι                 | Πιστωτική κάρτα |
+| Docker        | €0               | Μόνο αν είναι ανοιχτός | Docker Desktop  |
+| Raspberry Pi  | ~€1-2/μήνα ρεύμα | ✅ Ναι                 | Pi + Linux      |
 
 ---
 
@@ -164,6 +170,7 @@ curl http://127.0.0.1:5000/ready
 ## Environment Variables (.env)
 
 Δημιούργησε αρχείο `.env` στον κύριο φάκελο:
+
 ```
 OPENROUTER_API_KEY=sk-or-v1-PUT_YOUR_KEY_HERE
 ```

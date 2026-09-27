@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 export interface SwarmAgentStep {
-  role: 'architect' | 'researcher' | 'coder' | 'reviewer';
+  role: "architect" | "researcher" | "coder" | "reviewer";
   status: string;
   summary?: string;
   diff_summary?: string;
@@ -13,31 +13,31 @@ export interface SwarmAgentStep {
 export interface SwarmVisualizerProps {
   mission?: string;
   steps?: SwarmAgentStep[];
-  status?: 'idle' | 'running' | 'completed' | 'error';
+  status?: "idle" | "running" | "completed" | "error";
   onRunMission?: (mission: string) => void;
 }
 
 const roleColors: Record<string, string> = {
-  architect: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
-  researcher: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
-  coder: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
-  reviewer: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+  architect: "bg-purple-500/10 border-purple-500/30 text-purple-400",
+  researcher: "bg-blue-500/10 border-blue-500/30 text-blue-400",
+  coder: "bg-amber-500/10 border-amber-500/30 text-amber-400",
+  reviewer: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
 };
 
 const roleIcons: Record<string, string> = {
-  architect: '🏛️ Architect',
-  researcher: '🔍 Researcher',
-  coder: '💻 Coder',
-  reviewer: '🛡️ Reviewer',
+  architect: "🏛️ Architect",
+  researcher: "🔍 Researcher",
+  coder: "💻 Coder",
+  reviewer: "🛡️ Reviewer",
 };
 
 export const SwarmVisualizer: React.FC<SwarmVisualizerProps> = ({
-  mission = 'System Health & Maintenance Mission',
+  mission = "System Health & Maintenance Mission",
   steps = [],
-  status = 'completed',
+  status = "completed",
   onRunMission,
 }) => {
-  const [inputMission, setInputMission] = useState('');
+  const [inputMission, setInputMission] = useState("");
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm">
@@ -67,7 +67,7 @@ export const SwarmVisualizer: React.FC<SwarmVisualizerProps> = ({
           onClick={() => {
             if (inputMission && onRunMission) {
               onRunMission(inputMission);
-              setInputMission('');
+              setInputMission("");
             }
           }}
           className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -81,7 +81,7 @@ export const SwarmVisualizer: React.FC<SwarmVisualizerProps> = ({
           Live Agent Swarm Pipeline
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {(['architect', 'researcher', 'coder', 'reviewer'] as const).map((role) => {
+          {(["architect", "researcher", "coder", "reviewer"] as const).map((role) => {
             const agentStep = steps.find((s) => s.role === role);
             return (
               <div
@@ -93,13 +93,15 @@ export const SwarmVisualizer: React.FC<SwarmVisualizerProps> = ({
                 <div className="flex items-center justify-between font-medium text-sm">
                   <span>{roleIcons[role]}</span>
                   <span className="text-xs opacity-80 uppercase">
-                    {agentStep ? agentStep.status : 'Ready'}
+                    {agentStep ? agentStep.status : "Ready"}
                   </span>
                 </div>
                 <div className="mt-2 text-xs text-muted-foreground">
                   {agentStep?.summary ||
                     agentStep?.diff_summary ||
-                    (agentStep?.verifications ? `${agentStep.verifications.length} verified` : 'Awaiting dispatch')}
+                    (agentStep?.verifications
+                      ? `${agentStep.verifications.length} verified`
+                      : "Awaiting dispatch")}
                 </div>
               </div>
             );

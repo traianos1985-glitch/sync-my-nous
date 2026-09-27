@@ -1,4 +1,5 @@
 # Roadmap
+
 - [x] Fix broken build (vite config)
 - [x] Home ↔ dashboard link
 - [x] Loop: crash-safe cycles + backoff
