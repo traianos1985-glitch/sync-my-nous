@@ -1,6 +1,7 @@
 export type NousApiOptions = RequestInit & { token?: string };
 
-const apiBase = (import.meta.env["VITE_NOUS_API_URL"] ?? "").replace(/\/$/, "");
+const defaultApiBase = import.meta.env.DEV ? "/api/nous" : "https://nous-ai-os-api.onrender.com";
+const apiBase = (import.meta.env["VITE_NOUS_API_URL"] || defaultApiBase).replace(/\/$/, "");
 const apiToken = import.meta.env["VITE_NOUS_API_TOKEN"];
 const tokenStorageKey = "nous-dashboard-token";
 const requestTimeoutMs = 35_000;
