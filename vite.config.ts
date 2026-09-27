@@ -6,9 +6,10 @@ export default defineConfig({
     server: {
       proxy: {
         "/api/nous": {
-          target: process.env["VITE_NOUS_API_URL"] || "http://127.0.0.1:5000",
+          target: process.env["NOUS_API_URL"] || "https://nous-ai-os-api.onrender.com",
           changeOrigin: true,
-          secure: false,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/api\/nous/, ""),
         },
       },
     },
