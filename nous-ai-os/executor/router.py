@@ -132,7 +132,7 @@ ALLOWED_ORIGINS = {
     origin.strip()
     for origin in os.environ.get(
         "NOUS_CORS_ORIGINS",
-        "https://sync-my-nous.vercel.app,http://localhost:5173,http://localhost:4173",
+        "https://sync-my-nous.vercel.app,https://traianos1985-glitch.github.io,http://localhost:5173,http://localhost:4173",
     ).split(",")
     if origin.strip()
 }
