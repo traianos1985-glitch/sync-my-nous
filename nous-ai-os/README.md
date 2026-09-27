@@ -25,13 +25,13 @@ gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 executor.router:app
 
 ## Environment variables
 
-| Variable | Ρόλος |
-|---|---|
-| `OPENROUTER_API_KEY` | LLM calls (OpenRouter) — **απαραίτητο** για chat/brain |
-| `NOUS_TOKEN` | master API token· απαραίτητο για κάθε remote πρόσβαση |
-| `NOUS_ALLOW_ANONYMOUS` | `1` = χωρίς auth (μόνο για τοπικές δοκιμές) |
-| `NGROK_AUTHTOKEN` | remote tunnel μέσω pyngrok |
-| `PORT` | port του dev server (default `5000`) |
+| Variable               | Ρόλος                                                  |
+| ---------------------- | ------------------------------------------------------ |
+| `OPENROUTER_API_KEY`   | LLM calls (OpenRouter) — **απαραίτητο** για chat/brain |
+| `NOUS_TOKEN`           | master API token· απαραίτητο για κάθε remote πρόσβαση  |
+| `NOUS_ALLOW_ANONYMOUS` | `1` = χωρίς auth (μόνο για τοπικές δοκιμές)            |
+| `NGROK_AUTHTOKEN`      | remote tunnel μέσω pyngrok                             |
+| `PORT`                 | port του dev server (default `5000`)                   |
 
 Το `.env` φορτώνεται αυτόματα (python-dotenv). Ποτέ μην commitάρεις κλειδιά.
 

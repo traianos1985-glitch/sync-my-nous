@@ -108,7 +108,7 @@ async function tryGeminiFallback(
         title: web.title ?? web.uri,
         url: web.uri,
         domain: new URL(web.uri).hostname,
-        sourceType: "google-grounded",
+        sourceType: "google-grounded" as const,
         retrievedAt: new Date().toISOString(),
       }));
     return answer

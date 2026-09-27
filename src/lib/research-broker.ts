@@ -8,7 +8,7 @@ export type Citation = {
   url: string;
   domain: string;
   snippet?: string;
-  sourceType?: "official" | "community" | "web";
+  sourceType?: "official" | "community" | "web" | "google-grounded";
   retrievedAt?: string;
 };
 
@@ -99,12 +99,22 @@ async function search(query: string, deep: boolean): Promise<Citation[]> {
   return results;
 }
 
-const cache = new Map<
-  string,
-  { expiresAt: number; result: any }
->();
+type ResearchData = {
+  used: boolean;
+  citations: Citation[];
+  context: string;
+};
 
-export async function research(message: string, mode: ResearchMode = "auto"): Promise<any> {
+export type ResearchResult = ResearchData & {
+  status: "skipped" | "cached" | "fresh" | "unavailable";
+};
+
+const cache = new Map<string, { expiresAt: number; result: ResearchData }>();
+
+export async function research(
+  message: string,
+  mode: ResearchMode = "auto",
+): Promise<ResearchResult> {
   if (mode === "off" || (mode === "auto" && !shouldResearch(message)))
     return { used: false, citations: [], context: "", status: "skipped" as const };
   const cacheKey = `${mode}:${message.trim().toLowerCase()}`;
@@ -121,18 +131,20 @@ export async function research(message: string, mode: ResearchMode = "auto"): Pr
       ),
     ]);
     const enriched = await Promise.all(
-      citations.slice(0, mode === "deep" ? 3 : 2).map(async (citation) => {
-        try {
-          return {
-            ...citation,
-            sourceType: domainAllowed(citation.domain) ? "official" : "web",
-            retrievedAt: new Date().toISOString(),
-            content: await fetchText(citation.url, mode === "deep", 8000),
-          };
-        } catch {
-          return citation;
-        }
-      }),
+      citations
+        .slice(0, mode === "deep" ? 3 : 2)
+        .map(async (citation): Promise<Citation & { content?: string }> => {
+          try {
+            return {
+              ...citation,
+              sourceType: domainAllowed(citation.domain) ? "official" : "web",
+              retrievedAt: new Date().toISOString(),
+              content: await fetchText(citation.url, mode === "deep", 8000),
+            };
+          } catch {
+            return citation;
+          }
+        }),
     );
     const context = enriched
       .map(

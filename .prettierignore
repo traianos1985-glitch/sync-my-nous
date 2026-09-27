@@ -6,3 +6,6 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+.github/workflows
+nous-ai-os/executor/memory/*.json
+AGENTS.md
