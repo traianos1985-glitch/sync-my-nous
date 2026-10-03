@@ -263,6 +263,10 @@ function Dashboard() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [tokenDraft, setTokenDraft] = useState("");
   const [hasToken, setHasToken] = useState(() => Boolean(getNousToken()));
+  const [geminiTestState, setGeminiTestState] = useState<"idle" | "testing" | "ok" | "error">(
+    "idle",
+  );
+  const [geminiTestMessage, setGeminiTestMessage] = useState("");
   const [systemStatusState, setSystemStatusState] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -462,6 +466,28 @@ function Dashboard() {
         setSystemStatus({ status: "unavailable" });
         setSystemStatusState("error");
       }
+    }
+  };
+
+  const testGeminiConnection = async () => {
+    setGeminiTestState("testing");
+    setGeminiTestMessage("");
+    try {
+      const result = await nousFetch<{ answer?: string; model?: string; source?: string }>(
+        "/api/chat",
+        {
+          method: "POST",
+          body: JSON.stringify({ message: "Απάντησε μόνο: GEMINI_OK" }),
+        },
+      );
+      if (!result.answer?.includes("GEMINI_OK")) throw new Error("unexpected response");
+      setGeminiTestState("ok");
+      setGeminiTestMessage(`Επικοινωνία OK${result.model ? ` · ${result.model}` : ""}`);
+    } catch {
+      setGeminiTestState("error");
+      setGeminiTestMessage(
+        "Αποτυχία επικοινωνίας. Έλεγξε το NOUS token και το Gemini key στο backend.",
+      );
     }
   };
 
@@ -1400,6 +1426,8 @@ function Dashboard() {
                         onClick={() => {
                           clearNousToken();
                           setHasToken(Boolean(getNousToken()));
+                          setGeminiTestState("idle");
+                          setGeminiTestMessage("");
                           void loadSystemStatus();
                         }}
                         className="rounded-lg border border-border px-3 text-sm text-muted-foreground"
@@ -1408,6 +1436,24 @@ function Dashboard() {
                       </button>
                     )}
                   </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Το token είναι password field και μένει μόνο στο session του browser.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void testGeminiConnection()}
+                    disabled={!hasToken || geminiTestState === "testing"}
+                    className="self-start rounded-lg border border-primary/40 px-3 py-2 text-xs font-semibold text-primary disabled:opacity-50"
+                  >
+                    {geminiTestState === "testing"
+                      ? "Έλεγχος Gemini…"
+                      : "Έλεγχος επικοινωνίας με Gemini"}
+                  </button>
+                  {geminiTestMessage && (
+                    <p className={`text-xs ${geminiTestState === "ok" ? "text-ok" : "text-warn"}`}>
+                      {geminiTestMessage}
+                    </p>
+                  )}
                 </form>
                 {systemStatusState === "loading" && (
                   <p className="mb-3 text-xs text-muted-foreground">
