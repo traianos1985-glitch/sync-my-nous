@@ -506,7 +506,7 @@ function Dashboard() {
       setGeminiTestMessage(
         error instanceof Error
           ? `Αποτυχία επικοινωνίας: ${error.message}`
-          : "Αποτυχία επικοινωνίας. Έλεγξε το NOUS token και το Gemini key στο backend.",
+          : "Αποτυχία επικοινωνίας. Έλεγξε το Render backend και το NOUS token.",
       );
     }
   };
@@ -1409,10 +1409,19 @@ function Dashboard() {
                   onSubmit={(event) => {
                     event.preventDefault();
                     if (!tokenDraft.trim()) return;
-                    setNousToken(tokenDraft);
-                    setTokenDraft("");
-                    setHasToken(true);
-                    void loadSystemStatus();
+                    try {
+                      setNousToken(tokenDraft);
+                      setTokenDraft("");
+                      setHasToken(true);
+                      setGeminiTestState("idle");
+                      setGeminiTestMessage("");
+                      void loadSystemStatus();
+                    } catch (error) {
+                      setGeminiTestState("error");
+                      setGeminiTestMessage(
+                        error instanceof Error ? error.message : "Μη έγκυρο NOUS token.",
+                      );
+                    }
                   }}
                 >
                   <label htmlFor="nous-token" className="text-xs text-muted-foreground">
