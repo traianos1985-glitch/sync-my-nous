@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { generateText, gateway } from "ai";
 import { getModelCallMetrics, modelCallTimeoutMs, withTimeout } from "../lib/ai-observability";
 import { getPersistentDailyBudget, recordPersistentModelCall } from "../lib/model-observability";
 import { research, type ResearchMode } from "../lib/research-broker";
@@ -17,46 +16,6 @@ const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικ
 Αν δεν έχεις εργαλείο για να εκτελέσεις κάτι, μην απαντήσεις γενικά. Πες: «Μπορώ να το σχεδιάσω τώρα, αλλά δεν μπορώ να το εκτελέσω από αυτό το workspace επειδή λείπει το Χ» και δώσε ακριβώς το επόμενο βήμα.
 Κράτα τις απαντήσεις σύντομες αλλά χρήσιμες. Μην επινοείς δεδομένα, κατάσταση ή αποτελέσματα.`;
 
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "openai/gpt-oss-120b";
-
-async function tryGroqFallback(
-  message: string,
-  history: Array<{ role: "user" | "assistant"; text: string }>,
-) {
-  const apiKey = process.env["GROQ_API_KEY"];
-  if (!apiKey) return null;
-
-  try {
-    const response = await fetch(GROQ_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...history.map((item) => ({ role: item.role, content: item.text })),
-          { role: "user", content: message },
-        ],
-        temperature: 0.3,
-        max_tokens: 1600,
-      }),
-      signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
-    });
-    if (!response.ok) return null;
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const answer = data.choices?.[0]?.message?.content?.trim();
-    return answer ? { answer, model: GROQ_MODEL } : null;
-  } catch {
-    return null;
-  }
-}
-
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -65,7 +24,7 @@ async function tryGeminiFallback(
   history: Array<{ role: "user" | "assistant"; text: string }>,
   grounded = false,
 ) {
-  const apiKey = process.env["GCP_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GCP_API_KEY"];
   if (!apiKey) return null;
 
   try {
@@ -119,55 +78,6 @@ async function tryGeminiFallback(
   }
 }
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_FREE_MODELS = [
-  "qwen/qwen3-coder:free",
-  "deepseek/deepseek-r1-0528:free",
-  "google/gemma-3-27b-it:free",
-];
-
-async function tryOpenRouterFallback(
-  message: string,
-  history: Array<{ role: "user" | "assistant"; text: string }>,
-) {
-  const apiKey = process.env["OPENROUTER_API_KEY"];
-  if (!apiKey) return null;
-
-  for (const model of OPENROUTER_FREE_MODELS) {
-    try {
-      const response = await fetch(OPENROUTER_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://nous.local",
-          "X-Title": "NOUS-AI-OS",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            ...history.map((item) => ({ role: item.role, content: item.text })),
-            { role: "user", content: message },
-          ],
-          temperature: 0.3,
-          max_tokens: 1600,
-        }),
-        signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
-      });
-      if (!response.ok) continue;
-      const data = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      const answer = data.choices?.[0]?.message?.content?.trim();
-      if (answer) return { answer, model };
-    } catch {
-      // Try the next free model, then use the deterministic offline response.
-    }
-  }
-  return null;
-}
-
 const requestWindows = new Map<string, number[]>();
 function allowRequest(userId: string) {
   const now = Date.now();
@@ -181,7 +91,7 @@ function allowRequest(userId: string) {
 function offlineAnswer(message: string) {
   const text = message.toLocaleLowerCase("el-GR");
   if (/(τι μπορείς|τι μπορεις|δυνατότητ|δυνατοτητ|can you)/.test(text)) {
-    return "Μπορώ να συζητήσω, να αναλύσω απαιτήσεις, να σχεδιάσω λύσεις και να γράψω κώδικα στο workspace. Για πραγματική αναζήτηση στο διαδίκτυο, browser actions, missions ή αλλαγές στον υπολογιστή χρειάζεται να είναι συνδεδεμένο το αντίστοιχο NOUS backend εργαλείο. Αυτή τη στιγμή το AI chat λειτουργεί, αλλά δεν θα παρουσιάσω τις backend ενέργειες ως διαθέσιμες.";
+    return "Μπορώ να συζητήσω, να αναλύσω απαιτήσεις, να σχεδιάσω λύσεις και να γράψω κώδικα στο workspace. Για πραγματική αναζήτηση στο διαδίκτυο, browser actions, missions ή αλλαγές στον υπολογιστή χρειάζεται να είναι συνδεδεμένο το αντίστοιχο NOUS backend εργαλείο. Αυτή τη στιγμή το AI chat λειτουργεί, αλλά δεν θα παρουσι��σω τις backend ενέργειες ως διαθέσιμες.";
   }
   return `Μπορώ να σε βοηθήσω να το αναλύσουμε και να ετοιμάσουμε ασφαλές σχέδιο, αλλά το AI Gateway δεν απάντησε αυτή τη στιγμή. Δεν εκτέλεσα καμία εξωτερική ενέργεια. Δοκίμασε ξανά ή σύνδεσε το NOUS backend αν ζητάς browser, missions ή αλλαγές αρχείων.`;
 }
@@ -284,35 +194,24 @@ export const Route = createFileRoute("/api/chat")({
             }
           }
           try {
-            const result = await withTimeout(
-              generateText({
-                model: gateway("openai/o4-mini"),
-                system: SYSTEM_PROMPT,
-                messages: [
-                  ...history.map((item) => ({ role: item.role, content: item.text }) as const),
-                  { role: "user" as const, content: modelMessage },
-                ],
-              }),
-              modelCallTimeoutMs(),
-            );
+            const gemini = await tryGeminiFallback(modelMessage, history);
+            if (!gemini) throw new Error("GEMINI_API_KEY is missing or Gemini did not respond");
             await recordPersistentModelCall(
               {
                 startedAt,
                 durationMs: Math.round(performance.now() - started),
                 ok: true,
-                inputTokens: result.usage?.inputTokens,
-                outputTokens: result.usage?.outputTokens,
-                totalTokens: result.usage?.totalTokens,
               },
               userId,
-              "vercel-ai-gateway",
-              "openai/o4-mini",
+              "gemini-api",
+              gemini.model,
             );
-            await saveAssistant(result.text);
+            await saveAssistant(gemini.answer);
             return Response.json({
               ok: true,
-              answer: result.text,
-              source: "ai-gateway",
+              answer: gemini.answer,
+              source: "gemini-api",
+              model: gemini.model,
               citations: researchResult.citations,
               researchUsed: researchResult.used,
               mode: "connected",
@@ -326,51 +225,9 @@ export const Route = createFileRoute("/api/chat")({
                 error: error instanceof Error ? error.message : "unknown_error",
               },
               userId,
-              "vercel-ai-gateway",
-              "openai/o4-mini",
+              "gemini-api",
+              "gemini-2.5-flash",
             );
-
-            const groqFallback = await tryGroqFallback(modelMessage, history);
-            if (groqFallback) {
-              await saveAssistant(groqFallback.answer);
-              return Response.json({
-                ok: true,
-                answer: groqFallback.answer,
-                source: "groq-api",
-                model: groqFallback.model,
-                citations: researchResult.citations,
-                researchUsed: researchResult.used,
-                mode: "connected",
-              });
-            }
-
-            const geminiFallback = await tryGeminiFallback(modelMessage, history);
-            if (geminiFallback) {
-              await saveAssistant(geminiFallback.answer);
-              return Response.json({
-                ok: true,
-                answer: geminiFallback.answer,
-                source: "gemini-api",
-                model: geminiFallback.model,
-                citations: researchResult.citations,
-                researchUsed: researchResult.used,
-                mode: "connected",
-              });
-            }
-
-            const fallback = await tryOpenRouterFallback(modelMessage, history);
-            if (fallback) {
-              await saveAssistant(fallback.answer);
-              return Response.json({
-                ok: true,
-                answer: fallback.answer,
-                source: "openrouter-free-fallback",
-                model: fallback.model,
-                citations: researchResult.citations,
-                researchUsed: researchResult.used,
-                mode: "connected",
-              });
-            }
             throw error;
           }
         } catch (error) {
