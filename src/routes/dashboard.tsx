@@ -473,20 +473,30 @@ function Dashboard() {
     setGeminiTestState("testing");
     setGeminiTestMessage("");
     try {
-      const result = await nousFetch<{ answer?: string; model?: string; source?: string }>(
-        "/api/chat",
-        {
-          method: "POST",
-          body: JSON.stringify({ message: "Απάντησε μόνο: GEMINI_OK" }),
-        },
-      );
-      if (!result.answer?.includes("GEMINI_OK")) throw new Error("unexpected response");
+      const result = await nousFetch<{
+        answer?: string;
+        reply?: string;
+        response?: string;
+        model?: string;
+        source?: string;
+      }>("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: "Απάντησε μόνο: GEMINI_OK" }),
+      });
+      const answer = result.answer ?? result.reply ?? result.response ?? "";
+      if (!answer.toUpperCase().includes("GEMINI_OK")) {
+        throw new Error("Το NOUS backend απάντησε, αλλά όχι με GEMINI_OK.");
+      }
       setGeminiTestState("ok");
-      setGeminiTestMessage(`Επικοινωνία OK${result.model ? ` · ${result.model}` : ""}`);
-    } catch {
+      setGeminiTestMessage(
+        `Επικοινωνία OK${result.model ? ` · ${result.model}` : result.source ? ` · ${result.source}` : ""}`,
+      );
+    } catch (error) {
       setGeminiTestState("error");
       setGeminiTestMessage(
-        "Αποτυχία επικοινωνίας. Έλεγξε το NOUS token και το Gemini key στο backend.",
+        error instanceof Error
+          ? `Αποτυχία επικοινωνίας: ${error.message}`
+          : "Αποτυχία επικοινωνίας. Έλεγξε το NOUS token και το Gemini key στο backend.",
       );
     }
   };
@@ -1541,7 +1551,7 @@ function Dashboard() {
 
               <Card title="Companion">
                 <p className="text-sm text-muted-foreground">
-                  Android companion: συνδεδεμένο · accessibility service ενεργό · 4 ασφαλείς εντολές
+                  Android companion: συνδεδεμένο · accessibility service ενεργό �� 4 ασφαλείς εντολές
                   διαθέσιμες.
                 </p>
               </Card>
