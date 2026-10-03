@@ -8,7 +8,7 @@ const requestTimeoutMs = 35_000;
 
 function getStoredToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
-  return window.localStorage.getItem(tokenStorageKey) || undefined;
+  return window.sessionStorage.getItem(tokenStorageKey) || undefined;
 }
 
 export function hasConfiguredNousApi(): boolean {
@@ -20,11 +20,11 @@ export function getNousToken(): string | undefined {
 }
 
 export function setNousToken(token: string): void {
-  if (typeof window !== "undefined") window.localStorage.setItem(tokenStorageKey, token.trim());
+  if (typeof window !== "undefined") window.sessionStorage.setItem(tokenStorageKey, token.trim());
 }
 
 export function clearNousToken(): void {
-  if (typeof window !== "undefined") window.localStorage.removeItem(tokenStorageKey);
+  if (typeof window !== "undefined") window.sessionStorage.removeItem(tokenStorageKey);
 }
 
 export async function nousStream(path: string, options: NousApiOptions = {}): Promise<Response> {
