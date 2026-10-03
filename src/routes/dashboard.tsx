@@ -1551,8 +1551,8 @@ function Dashboard() {
 
               <Card title="Companion">
                 <p className="text-sm text-muted-foreground">
-                  Android companion: συνδεδεμένο · accessibility service ενεργό �� 4 ασφαλείς εντολές
-                  διαθέσιμες.
+                  Android companion: συνδεδεμένο · accessibility service ενεργό �� 4 ασφαλείς
+                  εντολές διαθέσιμες.
                 </p>
               </Card>
             </div>
