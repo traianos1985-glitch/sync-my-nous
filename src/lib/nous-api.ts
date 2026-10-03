@@ -16,11 +16,31 @@ export function hasConfiguredNousApi(): boolean {
 }
 
 export function getNousToken(): string | undefined {
-  return getStoredToken() ?? apiToken;
+  const token = getStoredToken() ?? apiToken;
+  return token?.trim() || undefined;
 }
 
 export function setNousToken(token: string): void {
-  if (typeof window !== "undefined") window.sessionStorage.setItem(tokenStorageKey, token.trim());
+  const normalizedToken = token.trim();
+  if (!normalizedToken) {
+    clearNousToken();
+    return;
+  }
+  if ([...normalizedToken].some((character) => character.charCodeAt(0) > 255)) {
+    throw new Error("Το NOUS token πρέπει να αποτελείται μόνο από λατινικούς χαρακτήρες.");
+  }
+  if (typeof window !== "undefined")
+    window.sessionStorage.setItem(tokenStorageKey, normalizedToken);
+}
+
+function setAuthorizationHeader(headers: Headers, token: string | undefined): void {
+  if (!token) return;
+  if ([...token].some((character) => character.charCodeAt(0) > 255)) {
+    throw new Error(
+      "Το NOUS token περιέχει μη έγκυρους χαρακτήρες. Κάνε επικόλληση του token χωρίς ελληνικά ή κενά.",
+    );
+  }
+  headers.set("Authorization", `Bearer ${token}`);
 }
 
 export function clearNousToken(): void {
@@ -31,7 +51,7 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
   const headers = new Headers(options.headers);
   headers.set("Accept", "text/event-stream");
   const token = options.token ?? getNousToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  setAuthorizationHeader(headers, token);
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
   if (options.signal)
@@ -89,7 +109,7 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
   if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
   const token = options.token ?? getNousToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  setAuthorizationHeader(headers, token);
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
   if (options.signal)
