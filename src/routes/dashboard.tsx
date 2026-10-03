@@ -473,16 +473,26 @@ function Dashboard() {
     setGeminiTestState("testing");
     setGeminiTestMessage("");
     try {
-      const result = await nousFetch<{
+      const request = {
+        method: "POST",
+        body: JSON.stringify({
+          message: "Απάντησε ακριβώς με GEMINI_OK",
+          prompt: "Απάντησε ακριβώς με GEMINI_OK",
+        }),
+      };
+      let result: {
         answer?: string;
         reply?: string;
         response?: string;
         model?: string;
         source?: string;
-      }>("/api/chat", {
-        method: "POST",
-        body: JSON.stringify({ message: "Απάντησε μόνο: GEMINI_OK" }),
-      });
+      };
+      try {
+        result = await nousFetch<typeof result>("/api/chat", request);
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.includes("(404)")) throw error;
+        result = await nousFetch<typeof result>("/chat", request);
+      }
       const answer = result.answer ?? result.reply ?? result.response ?? "";
       if (!answer.toUpperCase().includes("GEMINI_OK")) {
         throw new Error("Το NOUS backend απάντησε, αλλά όχι με GEMINI_OK.");
