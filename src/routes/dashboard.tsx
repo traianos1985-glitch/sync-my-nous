@@ -541,15 +541,17 @@ function Dashboard() {
       speak(answer);
     } catch (error) {
       console.error("[v0] Chat request failed", error);
+      const localAnswer = answerLocally(text);
       setConnectionMode("degraded");
       setMessages((m) => [
         ...m,
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          text: "Δεν μπόρεσα να συνδεθώ τώρα με το AI. Δεν εκτελέστηκε εξωτερική ενέργεια. Δοκίμασε ξανά σε λίγο.",
+          text: `${localAnswer}\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]`,
         },
       ]);
+      speak(localAnswer);
     } finally {
       setIsThinking(false);
     }
