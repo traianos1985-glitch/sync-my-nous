@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify
 import subprocess
+
+from executor.remote_llm import ask_remote_llm, check_gemini
 import sys
 import os
 
@@ -96,6 +98,27 @@ except Exception as e:
         return jsonify({'error': f'Σφάλμα κατά το κατέβασμα του script: {e}'}), 500
     except Exception as e:
         return jsonify({'error': f'Σφάλμα κατά την εκτέλεση του script: {e}'}), 500
+
+
+def _request_prompt():
+    payload = request.get_json(silent=True) or {}
+    return str(payload.get('prompt') or payload.get('message') or '').strip()
+
+
+@app.post('/chat')
+def chat():
+    prompt = _request_prompt()
+    if not prompt:
+        return jsonify({'error': 'Missing prompt or message.'}), 400
+    result = ask_remote_llm(prompt)
+    return jsonify(result), 200 if result.get('success') else 502
+
+
+@app.post('/gemini-check')
+def gemini_check():
+    prompt = _request_prompt() or 'Απάντησε ακριβώς με GEMINI_OK'
+    result = check_gemini(prompt)
+    return jsonify(result), 200 if result.get('success') else 502
 
 
 @app.get('/health')

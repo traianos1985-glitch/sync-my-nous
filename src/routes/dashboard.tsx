@@ -486,17 +486,19 @@ function Dashboard() {
         response?: string;
         model?: string;
         source?: string;
+        provider?: string;
       };
       try {
-        result = await nousFetch<typeof result>("/api/chat", request);
+        result = await nousFetch<typeof result>("/api/gemini-check", request);
       } catch (error) {
         if (!(error instanceof Error) || !error.message.includes("(404)")) throw error;
-        result = await nousFetch<typeof result>("/chat", request);
+        result = await nousFetch<typeof result>("/gemini-check", request);
       }
       const answer = result.answer ?? result.reply ?? result.response ?? "";
-      if (!answer.toUpperCase().includes("GEMINI_OK")) {
-        throw new Error("Το NOUS backend απάντησε, αλλά όχι με GEMINI_OK.");
+      if (result.source !== "gemini" && result.provider !== "gemini") {
+        throw new Error("Το NOUS απάντησε, αλλά δεν επιβεβαίωσε provider Gemini.");
       }
+      if (!answer) throw new Error("Το Gemini επέστρεψε κενή απάντηση.");
       setGeminiTestState("ok");
       setGeminiTestMessage(
         `Επικοινωνία OK${result.model ? ` · ${result.model}` : result.source ? ` · ${result.source}` : ""}`,
