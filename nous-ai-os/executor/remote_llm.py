@@ -94,6 +94,11 @@ def _ask_gemini(prompt: str) -> dict:
         return {"success": False, "error": str(error)}
 
 
+def check_gemini(prompt: str = "Απάντησε ακριβώς με GEMINI_OK") -> dict:
+    """Call Gemini directly without falling back to another provider."""
+    return _ask_gemini(prompt)
+
+
 def ask_remote_llm(prompt: str) -> dict:
     """Single-turn: Gemini API, OpenRouter, then local Ollama."""
     gemini = _ask_gemini(prompt)
