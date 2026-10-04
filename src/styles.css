@@ -137,9 +137,18 @@
     border-color: var(--color-border);
   }
 
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    overflow-x: clip;
   }
 }
 

@@ -1,25 +1,13 @@
-import requests
 import os
+
+import requests
 
 from executor.local_llm_adapter import ask_ollama
 
-API_URL = "https://openrouter.ai/api/v1/chat/completions"
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-
-MODELS = [
-    "mistralai/mistral-small-3.1-24b-instruct:free",
-    "meta-llama/llama-3.3-8b-instruct:free",
-    "google/gemma-3-12b-it:free",
-    "openrouter/auto",
-]
-
-VISION_MODELS = [
-    "google/gemma-3-12b-it:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
-    "meta-llama/llama-3.2-11b-vision-instruct:free",
-    "openrouter/auto",
-]
-
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/"
+    "models/gemini-2.5-flash:generateContent"
+)
 TIMEOUT = 60
 
 SYSTEM_PROMPT = (
@@ -30,39 +18,52 @@ SYSTEM_PROMPT = (
 )
 
 
-def _post(messages: list, max_tokens: int = 4096) -> dict:
-    key = os.environ.get("OPENROUTER_API_KEY", "")
+def _api_key() -> str:
+    """Accept the current key name and the older deployment name."""
+    return os.environ.get("GEMINI_API_KEY", "").strip() or os.environ.get("GCP_API_KEY", "").strip()
+
+
+def _call_gemini(contents: list, system: str, max_tokens: int = 4096) -> dict:
+    key = _api_key()
     if not key:
-        return {"success": False, "error": "no_api_key"}
+        return {"success": False, "error": "no_gemini_api_key", "provider": "gemini"}
 
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://nous.local",
-        "X-Title": "NOUS-AI-OS",
+    payload = {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": contents,
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": max_tokens},
     }
-
-    last_error = None
-    for model in MODELS:
-        payload = {
-            "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": 0.3,
+    try:
+        response = requests.post(
+            GEMINI_URL,
+            params={"key": key},
+            json=payload,
+            timeout=TIMEOUT,
+        )
+        data = response.json()
+        if not response.ok:
+            error = data.get("error", {})
+            message = error.get("message", "request_failed") if isinstance(error, dict) else "request_failed"
+            return {
+                "success": False,
+                "error": f"gemini_http_{response.status_code}:{message}",
+                "provider": "gemini",
+            }
+        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        text = "".join(part.get("text", "") for part in parts).strip()
+        if not text:
+            return {"success": False, "error": "gemini_empty_response", "provider": "gemini"}
+        return {
+            "success": True,
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "response": text,
         }
-        try:
-            r = requests.post(API_URL, headers=headers, json=payload, timeout=TIMEOUT)
-            data = r.json()
-            if "choices" in data and data["choices"]:
-                text = data["choices"][0]["message"]["content"].strip()
-                if text:
-                    return {"success": True, "model": model, "response": text}
-            last_error = str(data)
-        except Exception as e:
-            last_error = str(e)
-            continue
-
-    return {"success": False, "error": last_error or "no_response"}
+    except requests.RequestException:
+        # Do not return exception text: request URLs may contain sensitive credentials.
+        return {"success": False, "error": "gemini_request_failed", "provider": "gemini"}
+    except (ValueError, KeyError, IndexError, TypeError):
+        return {"success": False, "error": "gemini_invalid_response", "provider": "gemini"}
 
 
 def _local_purpose(prompt: str) -> str:
@@ -73,25 +74,40 @@ def _local_purpose(prompt: str) -> str:
     return "coding" if any(term in str(prompt).lower() for term in coding_terms) else "general"
 
 
+def _contents_from_turns(turns: list[dict]) -> list[dict]:
+    contents = []
+    for turn in turns:
+        role = turn.get("role")
+        if role == "system":
+            continue
+        if role not in ("user", "assistant", "model"):
+            continue
+        contents.append(
+            {
+                "role": "model" if role in ("assistant", "model") else "user",
+                "parts": [{"text": str(turn.get("content", ""))}],
+            }
+        )
+    return contents
+
+
+def _post(messages: list, max_tokens: int = 4096) -> dict:
+    """Compatibility wrapper for callers using chat-completions messages."""
+    system = SYSTEM_PROMPT
+    turns = []
+    for message in messages:
+        if message.get("role") == "system":
+            system = str(message.get("content", SYSTEM_PROMPT))
+        else:
+            turns.append(message)
+    return _call_gemini(_contents_from_turns(turns), system, max_tokens)
+
+
 def _ask_gemini(prompt: str) -> dict:
-    key = os.environ.get("GCP_API_KEY", "")
-    if not key:
-        return {"success": False, "error": "no_gcp_api_key"}
-    payload = {
-        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
-    }
-    try:
-        response = requests.post(f"{GEMINI_URL}?key={key}", json=payload, timeout=TIMEOUT)
-        data = response.json()
-        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-        text = "".join(part.get("text", "") for part in parts).strip()
-        if response.ok and text:
-            return {"success": True, "provider": "gemini", "model": "gemini-2.5-flash", "response": text}
-        return {"success": False, "error": str(data)}
-    except Exception as error:
-        return {"success": False, "error": str(error)}
+    return _call_gemini(
+        [{"role": "user", "parts": [{"text": prompt}]}],
+        SYSTEM_PROMPT,
+    )
 
 
 def check_gemini(prompt: str = "Απάντησε ακριβώς με GEMINI_OK") -> dict:
@@ -100,80 +116,47 @@ def check_gemini(prompt: str = "Απάντησε ακριβώς με GEMINI_OK")
 
 
 def ask_remote_llm(prompt: str) -> dict:
-    """Single-turn: Gemini API, OpenRouter, then local Ollama."""
+    """Single-turn Gemini call, with the existing optional local Ollama fallback."""
     gemini = _ask_gemini(prompt)
     if gemini.get("success"):
         return gemini
 
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not key:
-        local = ask_ollama(prompt, purpose=_local_purpose(prompt))
-        if local.get("ok"):
-            return {"success": True, "provider": "ollama", "model": local["model"], "response": local["response"]}
-        return {"success": False, "error": gemini.get("error", local.get("error", local.get("reason", "local_llm_unavailable"))), "provider": "ollama"}
-
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": prompt},
-    ]
-    res = _post(messages)
-    if res.get("success"):
-        return res
-    # Automatic hybrid fallback to Ollama if remote call failed
     local = ask_ollama(prompt, purpose=_local_purpose(prompt))
     if local.get("ok"):
-        return {"success": True, "provider": "ollama_fallback", "model": local["model"], "response": local["response"]}
-    return res
+        return {
+            "success": True,
+            "provider": "ollama_fallback",
+            "model": local["model"],
+            "response": local["response"],
+        }
+    return gemini
 
 
 def ask_with_turns(turns: list[dict], system: str | None = None) -> dict:
-    """Multi-turn: pass a list of {role, content} dicts (user/assistant alternating).
-    System prompt is prepended automatically."""
-    messages = [{"role": "system", "content": system or SYSTEM_PROMPT}]
-    messages.extend(turns)
-    return _post(messages)
+    """Multi-turn Gemini chat using {role, content} turns."""
+    return _call_gemini(
+        _contents_from_turns(turns),
+        system or SYSTEM_PROMPT,
+    )
 
 
-def ask_with_image(prompt: str, image_b64: str, mime: str = "image/jpeg",
-                   system: str | None = None) -> dict:
-    """Vision: send an image (base64) + text prompt to a vision-capable model."""
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not key:
-        return {"success": False, "error": "no_api_key"}
-
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://nous.local",
-        "X-Title": "NOUS-AI-OS",
-    }
-    sys_msg = system or SYSTEM_PROMPT
-    messages = [
-        {"role": "system", "content": sys_msg},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url",
-                 "image_url": {"url": f"data:{mime};base64,{image_b64}"}},
-            ],
-        },
-    ]
-
-    last_error = None
-    for model in VISION_MODELS:
-        payload = {"model": model, "messages": messages,
-                   "max_tokens": 2400, "temperature": 0.3}
-        try:
-            r = requests.post(API_URL, headers=headers, json=payload, timeout=60)
-            data = r.json()
-            if "choices" in data and data["choices"]:
-                text = data["choices"][0]["message"]["content"].strip()
-                if text:
-                    return {"success": True, "model": model, "response": text}
-            last_error = str(data)
-        except Exception as e:
-            last_error = str(e)
-            continue
-
-    return {"success": False, "error": last_error or "no_response"}
+def ask_with_image(
+    prompt: str,
+    image_b64: str,
+    mime: str = "image/jpeg",
+    system: str | None = None,
+) -> dict:
+    """Send text and an inline image to Gemini's vision-capable model."""
+    return _call_gemini(
+        [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": prompt},
+                    {"inlineData": {"mimeType": mime, "data": image_b64}},
+                ],
+            }
+        ],
+        system or SYSTEM_PROMPT,
+        max_tokens=2400,
+    )

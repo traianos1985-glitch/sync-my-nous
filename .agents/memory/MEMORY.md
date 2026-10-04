@@ -1,0 +1,1 @@
+- [Gemini as the NOUS model provider](gemini-provider.md) — use Gemini instead of paid OpenRouter for NOUS AI features.

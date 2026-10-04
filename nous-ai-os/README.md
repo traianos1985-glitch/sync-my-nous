@@ -12,7 +12,7 @@ cd Nous-AI-OS
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env        # βάλε το OPENROUTER_API_KEY σου
+cp .env.example .env        # βάλε το GEMINI_API_KEY σου
 python -m executor.router   # http://localhost:5000
 ```
 
@@ -27,13 +27,16 @@ gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 executor.router:app
 
 | Variable               | Ρόλος                                                  |
 | ---------------------- | ------------------------------------------------------ |
-| `OPENROUTER_API_KEY`   | LLM calls (OpenRouter) — **απαραίτητο** για chat/brain |
+| `GEMINI_API_KEY`       | Gemini για chat, agent, εικόνες και multimodal λειτουργίες |
+| `GCP_API_KEY`          | Παλαιότερο όνομα Gemini key, διατηρείται για συμβατότητα |
 | `NOUS_TOKEN`           | master API token· απαραίτητο για κάθε remote πρόσβαση  |
 | `NOUS_ALLOW_ANONYMOUS` | `1` = χωρίς auth (μόνο για τοπικές δοκιμές)            |
 | `NGROK_AUTHTOKEN`      | remote tunnel μέσω pyngrok                             |
 | `PORT`                 | port του dev server (default `5000`)                   |
 
-Το `.env` φορτώνεται αυτόματα (python-dotenv). Ποτέ μην commitάρεις κλειδιά.
+Το `.env` φορτώνεται αυτόματα (python-dotenv). Χωρίς Gemini key, οι κλήσεις AI
+δεν λειτουργούν· μόνο το απλό chat μπορεί προαιρετικά να χρησιμοποιήσει τοπικό
+Ollama. Ποτέ μην κάνεις commit κλειδιά.
 
 ## Ασφάλεια
 

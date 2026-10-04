@@ -25,8 +25,8 @@ cat > "$PLIST" << EOF
     <string>${NOUS_DIR}</string>
     <key>EnvironmentVariables</key>
     <dict>
-        <key>OPENROUTER_API_KEY</key>
-        <string>$(grep OPENROUTER_API_KEY ${NOUS_DIR}/.env 2>/dev/null | cut -d= -f2)</string>
+        <key>GEMINI_API_KEY</key>
+        <string>$(grep GEMINI_API_KEY ${NOUS_DIR}/.env 2>/dev/null | cut -d= -f2)</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>

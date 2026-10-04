@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { pool } from "./db";
 
 export const auth = betterAuth({
+  secret: process.env["BETTER_AUTH_SECRET"] ?? process.env["SESSION_SECRET"],
   database: {
     db: pool,
     type: "postgres",
@@ -16,6 +17,7 @@ export const auth = betterAuth({
         : process.env["V0_RUNTIME_URL"]),
   emailAndPassword: { enabled: true, autoSignIn: true },
   trustedOrigins: [
+    ...(process.env["REPLIT_DEV_DOMAIN"] ? [`https://${process.env["REPLIT_DEV_DOMAIN"]}`] : []),
     ...(process.env["NODE_ENV"] === "development"
       ? [
           "http://localhost:3000",

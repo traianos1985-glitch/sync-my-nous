@@ -14,7 +14,7 @@ from executor.knowledge_memory_engine import status as knowledge_memory_status, 
 from executor.patch_quality_gate import quality_gate
 from executor.error_learning_engine import status as error_learning_status, search_errors, search_solutions
 from executor.field_engine import add_entry, list_entries, delete_entry, get_map_markers
-from executor.remote_llm import ask_with_image
+from executor.remote_llm import ask_with_image, check_gemini
 from executor.nous_ui import nous_dashboard_html
 from executor.kernel import handle
 from executor.security import check_token, check_admin_token
@@ -589,6 +589,33 @@ def inject_cache_knowledge():
 @app.route("/health")
 def health():
     return jsonify(health_status())
+
+
+@app.route("/api/gemini-check", methods=["POST"])
+@app.route("/gemini-check", methods=["POST"])
+def gemini_check_route():
+    data = request.get_json(silent=True) or {}
+    prompt = str(data.get("prompt") or data.get("message") or "Απάντησε ακριβώς με GEMINI_OK").strip()
+    result = check_gemini(prompt)
+    if not result.get("success"):
+        return jsonify(
+            {
+                "ok": False,
+                "source": "gemini",
+                "provider": "gemini",
+                "error": result.get("error", "gemini_request_failed"),
+            }
+        ), 503
+    return jsonify(
+        {
+            "ok": True,
+            "source": "gemini",
+            "provider": "gemini",
+            "model": result.get("model"),
+            "response": result.get("response", ""),
+        }
+    )
+
 
 @app.route("/remote/tunnel/status")
 def tunnel_status_route():

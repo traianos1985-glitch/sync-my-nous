@@ -39,3 +39,10 @@ nous-ai-os/attached_assets/
 nous-ai-os/.env
 nous-ai-os/.venv/
 nous-ai-os/venv/
+
+# Replit-managed Python dependencies and Python caches
+.pythonlibs/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+/data/nous_storage.db

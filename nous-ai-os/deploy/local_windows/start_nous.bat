@@ -33,7 +33,7 @@ if not exist "forge" mkdir forge
 :: Φόρτωση API key
 if exist ".env" (
     for /f "tokens=1,2 delims==" %%a in (.env) do (
-        if "%%a"=="OPENROUTER_API_KEY" set OPENROUTER_API_KEY=%%b
+        if "%%a"=="GEMINI_API_KEY" set GEMINI_API_KEY=%%b
     )
 )
 

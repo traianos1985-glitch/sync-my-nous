@@ -9,7 +9,7 @@ SERVICE_DIR="$HOME/.config/systemd/user"
 mkdir -p "$SERVICE_DIR"
 
 # Φόρτωση API key
-API_KEY=$(grep OPENROUTER_API_KEY "${NOUS_DIR}/.env" 2>/dev/null | cut -d= -f2 || echo "")
+API_KEY=$(grep GEMINI_API_KEY "${NOUS_DIR}/.env" 2>/dev/null | cut -d= -f2 || echo "")
 
 cat > "$SERVICE_DIR/nous.service" << EOF
 [Unit]
@@ -21,7 +21,7 @@ WorkingDirectory=${NOUS_DIR}
 ExecStart=${NOUS_DIR}/venv/bin/python3 -m executor.router
 Restart=always
 RestartSec=5
-Environment=OPENROUTER_API_KEY=${API_KEY}
+Environment=GEMINI_API_KEY=${API_KEY}
 StandardOutput=journal
 StandardError=journal
 

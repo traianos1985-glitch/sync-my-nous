@@ -1,0 +1,61 @@
+modules = ["python-3.12", "bash", "web", "nodejs-22"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["postgresql"]
+
+[agent]
+expertMode = true
+
+[userenv]
+
+[userenv.development]
+BETTER_AUTH_URL = "https://41b0a0ff-b2b8-48fe-927f-6529328f311f-00-3vycq256clzbi.spock.replit.dev"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "NOUS backend"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "NOUS backend"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd nous-ai-os && : \"${NOUS_TOKEN:?Add NOUS_TOKEN in Replit Secrets before starting the backend}\" && python -m gunicorn --bind 0.0.0.0:8000 --workers 1 --timeout 120 executor.router:app"
+waitForPort = 8000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
