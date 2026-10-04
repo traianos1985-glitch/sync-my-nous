@@ -1,7 +1,6 @@
 # Running Sync My Nous on Replit
 
-- The frontend uses the `Start application` workflow (`npm run dev`) on port
-  5000. Vite proxies `/api/nous/*` to the local Python backend.
+- The frontend uses the `Start application` workflow (`npm run dev`) on port 5000. Vite proxies `/api/nous/*` to the local Python backend.
 - The Python/Flask backend uses the `NOUS backend` workflow on port 8000. It
   binds to `0.0.0.0` for workflow port detection and requires `NOUS_TOKEN` for
   remote API access.

@@ -25,14 +25,14 @@ gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 executor.router:app
 
 ## Environment variables
 
-| Variable               | Ρόλος                                                  |
-| ---------------------- | ------------------------------------------------------ |
+| Variable               | Ρόλος                                                      |
+| ---------------------- | ---------------------------------------------------------- |
 | `GEMINI_API_KEY`       | Gemini για chat, agent, εικόνες και multimodal λειτουργίες |
-| `GCP_API_KEY`          | Παλαιότερο όνομα Gemini key, διατηρείται για συμβατότητα |
-| `NOUS_TOKEN`           | master API token· απαραίτητο για κάθε remote πρόσβαση  |
-| `NOUS_ALLOW_ANONYMOUS` | `1` = χωρίς auth (μόνο για τοπικές δοκιμές)            |
-| `NGROK_AUTHTOKEN`      | remote tunnel μέσω pyngrok                             |
-| `PORT`                 | port του dev server (default `5000`)                   |
+| `GCP_API_KEY`          | Παλαιότερο όνομα Gemini key, διατηρείται για συμβατότητα   |
+| `NOUS_TOKEN`           | master API token· απαραίτητο για κάθε remote πρόσβαση      |
+| `NOUS_ALLOW_ANONYMOUS` | `1` = χωρίς auth (μόνο για τοπικές δοκιμές)                |
+| `NGROK_AUTHTOKEN`      | remote tunnel μέσω pyngrok                                 |
+| `PORT`                 | port του dev server (default `5000`)                       |
 
 Το `.env` φορτώνεται αυτόματα (python-dotenv). Χωρίς Gemini key, οι κλήσεις AI
 δεν λειτουργούν· μόνο το απλό chat μπορεί προαιρετικά να χρησιμοποιήσει τοπικό
