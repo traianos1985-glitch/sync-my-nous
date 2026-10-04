@@ -348,7 +348,7 @@ function Dashboard() {
       ["day", "positive", "negative"],
       ...evaluationMetrics.trend.map((point) => [point.day, point.positive, point.negative]),
     ];
-    const csv = rows.map((row) => row.join(",")).join("\\n");
+    const csv = rows.map((row) => row.join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
