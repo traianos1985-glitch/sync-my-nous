@@ -19,8 +19,12 @@ SYSTEM_PROMPT = (
 
 
 def _api_key() -> str:
-    """Accept the current key name and the older deployment name."""
-    return os.environ.get("GEMINI_API_KEY", "").strip() or os.environ.get("GCP_API_KEY", "").strip()
+    """Accept the supported Gemini key names used by local and cloud deployments."""
+    for name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GEMINI_API_KEY", "GCP_API_KEY"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
 
 
 def _call_gemini(contents: list, system: str, max_tokens: int = 4096) -> dict:
