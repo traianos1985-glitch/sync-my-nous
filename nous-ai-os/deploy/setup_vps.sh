@@ -60,10 +60,10 @@ mkdir -p data apps forge executor/plugins
 # ── 6. Environment ────────────────────────────────────────────
 echo "[6/7] Ρύθμιση environment..."
 if [ ! -f "$NOUS_DIR/.env" ]; then
-    echo "Βάλε το OpenRouter API key:"
-    read -r -p "OPENROUTER_API_KEY: " API_KEY
+    echo "Βάλε το Gemini API key:"
+    read -r -p "GEMINI_API_KEY: " API_KEY
     cat > $NOUS_DIR/.env << EOF
-OPENROUTER_API_KEY=${API_KEY}
+GEMINI_API_KEY=${API_KEY}
 EOF
     echo "✅ .env αποθηκεύτηκε"
 fi

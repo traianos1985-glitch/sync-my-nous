@@ -627,7 +627,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background font-sans text-foreground">
+    <div className="flex h-dvh min-h-0 w-full min-w-0 max-w-full overflow-hidden bg-background font-sans text-foreground">
       {/* Sidebar */}
       {menuOpen && (
         <button
@@ -712,9 +712,9 @@ function Dashboard() {
       </aside>
 
       {/* Main */}
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
-          <div className="flex items-center gap-3">
+      <main className="flex min-w-0 max-w-full flex-1 flex-col">
+        <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={() => setMenuOpen(true)}
               className="rounded-md border border-border p-1.5 lg:hidden"
@@ -729,7 +729,7 @@ function Dashboard() {
               health: {systemStatus?.status ?? "checking"}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <span className="hidden rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground sm:block">
               Owner Mode
             </span>
@@ -743,8 +743,8 @@ function Dashboard() {
         </header>
 
         {section === "chat" ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
               <div className="mx-auto max-w-4xl">
                 <div className="mb-6 flex items-start justify-between gap-4">
                   <div>
@@ -1271,7 +1271,7 @@ function Dashboard() {
                 </div>
               </div>
             </div>
-            <div className="border-t border-border/70 bg-card/75 p-4 backdrop-blur-xl">
+            <div className="min-w-0 border-t border-border/70 bg-card/75 p-4 backdrop-blur-xl">
               <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between text-[11px] text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <span>
@@ -1329,7 +1329,7 @@ function Dashboard() {
                   Push-to-talk
                 </label>
               </div>
-              <div className="mx-auto flex max-w-3xl gap-2">
+              <div className="mx-auto flex min-w-0 max-w-3xl gap-2">
                 <button
                   type="button"
                   onClick={toggleListening}
@@ -1360,7 +1360,7 @@ function Dashboard() {
                   }}
                   rows={2}
                   placeholder="Γράψε στον ΝΟΥΣ…"
-                  className="flex-1 resize-none rounded-xl border border-input bg-background p-3 text-sm outline-none focus:border-primary"
+                  className="min-w-0 flex-1 resize-none rounded-xl border border-input bg-background p-3 text-sm outline-none focus:border-primary"
                 />
                 <button
                   type="button"
@@ -1396,15 +1396,15 @@ function Dashboard() {
             </div>
           </div>
         ) : section === "home" ? (
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <div className="rounded-2xl border border-border bg-gradient-to-br from-violet/20 to-primary/10 p-5">
+          <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+            <div className="min-w-0 max-w-full rounded-2xl border border-border bg-gradient-to-br from-violet/20 to-primary/10 p-5">
               <h1 className="font-display text-2xl font-bold">Καλώς ήρθες στον ΝΟΥΣ</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 Agent chat + workspace + Android companion + deploy, σε μία οθόνη.
               </p>
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
               <Card title="System Snapshot">
                 <form
                   className="mb-3 flex flex-col gap-2"
@@ -1434,7 +1434,7 @@ function Dashboard() {
                       <span className="text-warn">· δεν έχει οριστεί</span>
                     )}
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex min-w-0 flex-wrap gap-2">
                     <input
                       id="nous-token"
                       type="password"
@@ -1442,12 +1442,12 @@ function Dashboard() {
                       value={tokenDraft}
                       onChange={(event) => setTokenDraft(event.target.value)}
                       placeholder={hasToken ? "Νέο token για αντικατάσταση" : "Επικόλλησε το token"}
-                      className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet"
+                      className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet sm:w-auto sm:flex-1"
                     />
                     <button
                       type="submit"
                       disabled={!tokenDraft.trim()}
-                      className="rounded-lg bg-violet px-3 text-sm font-semibold text-white disabled:opacity-50"
+                      className="shrink-0 rounded-lg bg-violet px-3 text-sm font-semibold text-white disabled:opacity-50"
                     >
                       Αποθήκευση
                     </button>
@@ -1461,7 +1461,7 @@ function Dashboard() {
                           setGeminiTestMessage("");
                           void loadSystemStatus();
                         }}
-                        className="rounded-lg border border-border px-3 text-sm text-muted-foreground"
+                        className="shrink-0 rounded-lg border border-border px-3 text-sm text-muted-foreground"
                       >
                         Αφαίρεση
                       </button>
@@ -1520,13 +1520,11 @@ function Dashboard() {
                   return (
                     <div
                       key={label}
-                      className="flex justify-between border-b border-border/60 py-1.5 text-sm last:border-0"
+                      className="flex min-w-0 items-start justify-between gap-3 border-b border-border/60 py-1.5 text-sm last:border-0"
                     >
-                      <span className="text-muted-foreground">{label}</span>
+                      <span className="min-w-0 break-words text-muted-foreground">{label}</span>
                       <span
-                        className={
-                          label === "Health" && value === "ok" ? "text-ok" : "text-foreground"
-                        }
+                        className={`shrink-0 text-right ${label === "Health" && value === "ok" ? "text-ok" : "text-foreground"}`}
                       >
                         {value}
                       </span>
@@ -1589,8 +1587,8 @@ function Dashboard() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+          <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+            <div className="mx-auto grid min-w-0 max-w-5xl gap-4 lg:grid-cols-[1.3fr_0.7fr]">
               <Card title={navLabel(section)}>
                 <p className="text-sm text-muted-foreground">
                   {section === "missions"
@@ -1878,7 +1876,7 @@ function NavButton({
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-5">
+    <section className="min-w-0 max-w-full rounded-2xl border border-border bg-card p-5">
       <h3 className="mb-3 font-display text-base font-semibold">{title}</h3>
       {children}
     </section>

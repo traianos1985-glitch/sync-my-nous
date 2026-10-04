@@ -100,7 +100,7 @@ bash deploy/setup_vps.sh
 
 ```bash
 cp .env.example .env
-# Βάλε το OPENROUTER_API_KEY στο .env
+# Βάλε το GEMINI_API_KEY στο .env
 
 docker-compose up -d
 # Άνοιξε: http://localhost:5000
@@ -172,7 +172,7 @@ curl http://127.0.0.1:5000/ready
 Δημιούργησε αρχείο `.env` στον κύριο φάκελο:
 
 ```
-OPENROUTER_API_KEY=sk-or-v1-PUT_YOUR_KEY_HERE
+GEMINI_API_KEY=βάλε_το_κλειδί_σου_τοπικά
 ```
 
 ---
