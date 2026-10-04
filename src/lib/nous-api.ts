@@ -92,13 +92,13 @@ export async function streamNousAnswer(
   while (true) {
     const { value, done } = await reader.read();
     buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
-    for (const block of buffer.split("\\n\\n").slice(0, -1)) {
-      const line = block.split("\\n").find((item) => item.startsWith("data: "));
+    for (const block of buffer.split("\n\n").slice(0, -1)) {
+      const line = block.split("\n").find((item) => item.startsWith("data: "));
       if (!line) continue;
       const data = JSON.parse(line.slice(6)) as { text?: string };
       if (data.text) onToken(data.text);
     }
-    buffer = buffer.split("\\n\\n").at(-1) ?? "";
+    buffer = buffer.split("\n\n").at(-1) ?? "";
     if (done) break;
   }
 }
