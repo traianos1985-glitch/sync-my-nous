@@ -5,9 +5,7 @@ import { pool } from "./db";
 const resolvedSecret =
   process.env["BETTER_AUTH_SECRET"] ??
   process.env["SESSION_SECRET"] ??
-  (process.env["NODE_ENV"] === "production"
-    ? undefined
-    : `dev-only-secret-${randomUUID()}`);
+  (process.env["NODE_ENV"] === "production" ? undefined : `dev-only-secret-${randomUUID()}`);
 
 if (!resolvedSecret && process.env["NODE_ENV"] === "production") {
   console.error(
@@ -31,9 +29,7 @@ export const auth = betterAuth({
         : process.env["V0_RUNTIME_URL"]),
   emailAndPassword: { enabled: true, autoSignIn: true },
   trustedOrigins: [
-    ...(process.env["REPLIT_DEV_DOMAIN"]
-      ? [`https://${process.env["REPLIT_DEV_DOMAIN"]}`]
-      : []),
+    ...(process.env["REPLIT_DEV_DOMAIN"] ? [`https://${process.env["REPLIT_DEV_DOMAIN"]}`] : []),
     ...(process.env["NODE_ENV"] === "development"
       ? [
           "http://localhost:3000",
@@ -44,9 +40,7 @@ export const auth = betterAuth({
       : []),
     ...(process.env["NODE_ENV"] === "production"
       ? [
-          ...(process.env["VERCEL_URL"]
-            ? [`https://${process.env["VERCEL_URL"]}`]
-            : []),
+          ...(process.env["VERCEL_URL"] ? [`https://${process.env["VERCEL_URL"]}`] : []),
           ...(process.env["VERCEL_PROJECT_PRODUCTION_URL"]
             ? [`https://${process.env["VERCEL_PROJECT_PRODUCTION_URL"]}`]
             : []),

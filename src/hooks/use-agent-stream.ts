@@ -31,8 +31,7 @@ export function useAgentStream(streamUrl = "/api/missions/stream") {
             event: "mission_update",
             data: mission,
           }));
-          if (newEntries.length)
-            setEntries((prev) => [...prev, ...newEntries].slice(-200));
+          if (newEntries.length) setEntries((prev) => [...prev, ...newEntries].slice(-200));
         } catch (err) {
           console.error("Error parsing agent stream data", err);
         }

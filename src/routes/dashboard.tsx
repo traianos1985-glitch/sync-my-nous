@@ -77,7 +77,13 @@ const initiatives: Array<{ title: string; why: string }> = [];
 
 const commandSignals = [
   { label: "Brain", value: "Ready", detail: "context indexed", tone: "text-ok", icon: Sparkles },
-  { label: "Missions", value: "—", detail: "άνοιξε για live", tone: "text-primary", icon: Activity },
+  {
+    label: "Missions",
+    value: "—",
+    detail: "άνοιξε για live",
+    tone: "text-primary",
+    icon: Activity,
+  },
   { label: "Memory", value: "—", detail: "δεν έχει μετρηθεί", tone: "text-signal", icon: ScanLine },
   {
     label: "Evaluation",
@@ -377,8 +383,7 @@ function Dashboard() {
           const line = event.split("\n").find((item) => item.startsWith("data: "));
           if (!line) continue;
           const data = JSON.parse(line.slice(6)) as
-            | { missions?: typeof liveMissions }
-            | typeof liveMissions;
+            { missions?: typeof liveMissions } | typeof liveMissions;
           // Tolerate both {missions: [...]} and a bare array payload.
           setLiveMissions(Array.isArray(data) ? data : (data.missions ?? []));
         }
