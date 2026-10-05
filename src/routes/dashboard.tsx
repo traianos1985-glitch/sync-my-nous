@@ -3,8 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
-  CheckCircle2,
-  Clock3,
   Loader2,
   Mic,
   MicOff,
@@ -20,7 +18,6 @@ import {
   ShieldAlert,
   Sparkles,
   X,
-  Zap,
   UploadCloud,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
@@ -76,17 +73,12 @@ const capabilities = [
   "scheduler",
 ];
 
-const missions = [
-  { title: "Ανάλυση εγγράφου SF Caching", status: "queued" },
-  { title: "Backup brain state", status: "done" },
-];
-
 const initiatives: Array<{ title: string; why: string }> = [];
 
 const commandSignals = [
   { label: "Brain", value: "Ready", detail: "context indexed", tone: "text-ok", icon: Sparkles },
-  { label: "Missions", value: "03", detail: "1 running now", tone: "text-primary", icon: Activity },
-  { label: "Memory", value: "12.4k", detail: "synced 2m ago", tone: "text-signal", icon: ScanLine },
+  { label: "Missions", value: "—", detail: "άνοιξε για live", tone: "text-primary", icon: Activity },
+  { label: "Memory", value: "—", detail: "δεν έχει μετρηθεί", tone: "text-signal", icon: ScanLine },
   {
     label: "Evaluation",
     value: "—",
@@ -96,17 +88,11 @@ const commandSignals = [
   },
   {
     label: "Guard",
-    value: "Armed",
-    detail: "approval required",
+    value: "Approvals",
+    detail: "άνοιξε την ουρά",
     tone: "text-warn",
     icon: ShieldCheck,
   },
-];
-
-const activityFeed = [
-  { time: "now", text: "NOUS is ready for a new objective", kind: "signal" },
-  { time: "02m", text: "Memory index synchronized", kind: "done" },
-  { time: "08m", text: "Mission queue reviewed", kind: "queued" },
 ];
 
 type Citation = {
@@ -167,7 +153,7 @@ function answerLocally(input: string) {
   }
 
   if (/(mission|αποστολ|τρέχ|τρεχ)/.test(text)) {
-    return "Στο workspace υπάρχουν 3 καταχωρημένα missions: ένα running, ένα queued και το backup brain state ως done. Άνοιξε την ενότητα Missions για τις λεπτομέρειες και την πραγματική κατάσταση κάθε αποστολής.";
+    return "Δεν υπάρχει σύνδεση με το backend, οπότε δεν μπορώ να δω τα πραγματικά missions. Άνοιξε την ενότητα Missions όταν το backend είναι συνδεδεμένο για την πραγματική κατάσταση κάθε αποστολής.";
   }
 
   if (/(backup|αντίγραφο|αντιγραφο)/.test(text)) {
@@ -292,6 +278,7 @@ function Dashboard() {
   const [auditStatus, setAuditStatus] = useState<"idle" | "loading" | "error">("idle");
   const [auditFilter, setAuditFilter] = useState("");
   const [providerAction, setProviderAction] = useState<string | null>(null);
+  const [sentinelError, setSentinelError] = useState(false);
   const [knowledgeDocuments, setKnowledgeDocuments] = useState<
     Array<{
       id: string;
@@ -389,10 +376,15 @@ function Dashboard() {
         for (const event of events) {
           const line = event.split("\n").find((item) => item.startsWith("data: "));
           if (!line) continue;
-          const data = JSON.parse(line.slice(6)) as { missions?: typeof liveMissions };
-          setLiveMissions(data.missions ?? []);
+          const data = JSON.parse(line.slice(6)) as
+            | { missions?: typeof liveMissions }
+            | typeof liveMissions;
+          // Tolerate both {missions: [...]} and a bare array payload.
+          setLiveMissions(Array.isArray(data) ? data : (data.missions ?? []));
         }
       }
+      // Stream ended normally: allow the user to reconnect.
+      setLiveStatus("idle");
     } catch {
       setLiveStatus("idle");
     }
@@ -413,10 +405,30 @@ function Dashboard() {
     }
   };
 
-  const exportAudit = () => {
-    const query = new URLSearchParams({ format: "csv", days: "30" });
+  const exportAudit = async () => {
+    const query = new URLSearchParams({ days: "30" });
     if (auditFilter.trim()) query.set("event", auditFilter.trim());
-    window.open(`/api/audit?${query.toString()}`, "_blank", "noopener,noreferrer");
+    try {
+      // Fetch through nousFetch so the API base URL and token are applied.
+      const data = await nousFetch<{ events: typeof auditEvents }>(
+        `/api/audit?${query.toString()}`,
+      );
+      const rows = [
+        ["id", "event", "tool", "createdAt"],
+        ...data.events.map((item) => [item.id, item.event, item.tool ?? "", item.createdAt]),
+      ];
+      const csv = rows
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `nous-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setAuditStatus("error");
+    }
   };
 
   const loadJobHistory = async () => {
@@ -431,8 +443,12 @@ function Dashboard() {
   };
 
   const updateJob = async (id: string, action: "cancel" | "retry") => {
-    await nousFetch("/api/jobs", { method: "PATCH", body: JSON.stringify({ id, action }) });
-    await loadJobHistory();
+    try {
+      await nousFetch("/api/jobs", { method: "PATCH", body: JSON.stringify({ id, action }) });
+      await loadJobHistory();
+    } catch {
+      setJobHistoryStatus("error");
+    }
   };
 
   const loadSystemStatus = async () => {
@@ -531,6 +547,7 @@ function Dashboard() {
         body: JSON.stringify({ id, status }),
       });
     } catch {
+      setApprovalStatus("error");
       return;
     }
     if (status === "approved") {
@@ -588,7 +605,7 @@ function Dashboard() {
       ]);
       speak(answer);
     } catch (error) {
-      console.error("[v0] Chat request failed", error);
+      console.error("[nous] Chat request failed", error);
       const localAnswer = answerLocally(text);
       setConnectionMode("degraded");
       setMessages((m) => [
@@ -617,7 +634,7 @@ function Dashboard() {
         body: JSON.stringify({ messageId, rating }),
       });
     } catch (error) {
-      console.error("[v0] Feedback request failed", error);
+      console.error("[nous] Feedback request failed", error);
     }
   };
 
@@ -706,8 +723,16 @@ function Dashboard() {
         </nav>
 
         <div className="border-t border-border px-3 py-3">
-          <StatBar label="CPU" pct={34} color="bg-violet" />
-          <StatBar label="RAM" pct={61} color="bg-primary" />
+          <StatBar
+            label="CPU"
+            pct={Math.round(systemStatus?.metrics?.cpu_percent ?? 0)}
+            color="bg-violet"
+          />
+          <StatBar
+            label="RAM"
+            pct={Math.round(systemStatus?.metrics?.memory_percent ?? 0)}
+            color="bg-primary"
+          />
         </div>
       </aside>
 
@@ -764,7 +789,11 @@ function Dashboard() {
                     <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       Runtime
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-ok">Ready</p>
+                    <p
+                      className={`mt-1 text-sm font-semibold ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
+                    >
+                      {systemStatus?.status ?? "checking"}
+                    </p>
                   </div>
                 </div>
                 <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -915,7 +944,7 @@ function Dashboard() {
                         </button>
                         <button
                           type="button"
-                          onClick={exportAudit}
+                          onClick={() => void exportAudit()}
                           className="rounded-lg border border-border px-3 py-1.5 text-xs"
                         >
                           Export CSV
@@ -1030,6 +1059,11 @@ function Dashboard() {
                       </button>
                     </div>
                     <div className="mt-3 space-y-2">
+                      {liveMissions.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Δεν υπάρχουν missions ή δεν έχει συνδεθεί ακόμη το live stream.
+                        </p>
+                      )}
                       {liveMissions.map((mission) => (
                         <div
                           key={mission.id}
@@ -1144,57 +1178,6 @@ function Dashboard() {
                     </div>
                   </div>
                 )}
-                <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_250px]">
-                  <div className="rounded-2xl border border-border/70 bg-card/50 p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Zap className="size-3.5 text-primary" />
-                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                          Mission pulse
-                        </span>
-                      </div>
-                      <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-0.5 font-mono text-[9px] text-ok">
-                        LIVE
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex -space-x-1">
-                        {["bg-primary", "bg-ok", "bg-warn", "bg-signal"].map((color, index) => (
-                          <span
-                            key={index}
-                            className={`size-2.5 rounded-full border-2 border-card ${color} ${index === 0 ? "animate-pulse" : ""}`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Objective graph is stable{" "}
-                        <span className="text-foreground">· 3 nodes active</span>
-                      </p>
-                    </div>
-                    <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/8">
-                      <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-primary via-violet to-signal" />
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-border/70 bg-card/50 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Clock3 className="size-3.5 text-muted-foreground" />
-                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                        Recent signal
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {activityFeed.map((event) => (
-                        <div key={event.time} className="flex gap-2 text-[10px]">
-                          <span className="w-7 shrink-0 font-mono text-muted-foreground/60">
-                            {event.time}
-                          </span>
-                          <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-ok" />
-                          <span className="text-muted-foreground">{event.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
                 <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
                     { icon: Sparkles, label: "Ask brain", prompt: "Τι μπορείς να κάνεις;" },
@@ -1218,9 +1201,9 @@ function Dashboard() {
                   ))}
                 </div>
                 <div className="flex flex-col gap-3">
-                  {messages.map((m, i) => (
+                  {messages.map((m) => (
                     <div
-                      key={i}
+                      key={m.id}
                       className={`whitespace-pre-wrap rounded-2xl border border-border p-4 text-sm leading-relaxed ${
                         m.role === "user" ? "self-end bg-violet/15" : "bg-card/80"
                       }`}
@@ -1493,7 +1476,7 @@ function Dashboard() {
                 )}
                 {systemStatusState === "error" && (
                   <p className="mb-3 text-xs text-warn">
-                    Δεν ήταν δυνατή η σύνδεση. Έλεγ��ε το token και δοκίμασε Ανανέωση.
+                    Δεν ήταν δυνατή η σύνδεση. Έλεγξε το token και δοκίμασε Ανανέωση.
                   </p>
                 )}
                 {snapshotLabels.map((label) => {
@@ -1524,7 +1507,7 @@ function Dashboard() {
                     >
                       <span className="min-w-0 break-words text-muted-foreground">{label}</span>
                       <span
-                        className={`shrink-0 text-right ${label === "Health" && value === "ok" ? "text-ok" : "text-foreground"}`}
+                        className={`shrink-0 text-right ${label === "Health" && (value === "ok" || value === "online") ? "text-ok" : "text-foreground"}`}
                       >
                         {value}
                       </span>
@@ -1547,31 +1530,12 @@ function Dashboard() {
               </Card>
 
               <Card title="Missions">
-                {missions.map((m) => (
-                  <div
-                    key={m.title}
-                    className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm last:border-0"
-                  >
-                    <span>{m.title}</span>
-                    <span
-                      className={`font-mono text-xs ${
-                        m.status === "running"
-                          ? "text-primary"
-                          : m.status === "done"
-                            ? "text-ok"
-                            : "text-warn"
-                      }`}
-                    >
-                      {m.status}
-                    </span>
-                  </div>
-                ))}
+                <MissionList missions={liveMissions} />
               </Card>
 
               <Card title="Companion">
                 <p className="text-sm text-muted-foreground">
-                  Android companion: συνδεδεμένο · accessibility service ενεργό �� 4 ασφαλείς
-                  εντολές διαθέσιμες.
+                  Η κατάσταση του Android companion δεν έχει επαληθευτεί από το backend ακόμη.
                 </p>
               </Card>
             </div>
@@ -1579,10 +1543,10 @@ function Dashboard() {
             <div className="mt-4 rounded-2xl border border-violet/40 bg-violet/5 p-5">
               <h3 className="font-display text-base font-semibold">Τι θέλει να κάνει ο ΝΟΥΣ</h3>
               <p className="text-xs text-muted-foreground">
-                Αυτόνομες π��οτάσεις — έγκρινε ή απόρριψε
+                Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
               </p>
               <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-                Δεν υπάρχουν εκκρεμείς προτάσεις. Όλες οι προτάσεις του ΝΟΥΣ έχουν υλοποιηθεί.
+                Δεν υπάρχουν εκκρεμείς προτάσεις.
               </div>
             </div>
           </div>
@@ -1674,7 +1638,7 @@ function Dashboard() {
                           </p>
                         </div>
                         <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-1 font-mono text-[10px] text-ok">
-                          GUARD ARMED
+                          APPROVAL REQUIRED
                         </span>
                       </div>
                     </div>
@@ -1720,7 +1684,7 @@ function Dashboard() {
                             className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold transition-colors hover:border-primary/50 hover:bg-primary/5"
                           >
                             {providerAction === provider.name
-                              ? "Έτοιμο για authorization flow"
+                              ? "Δεν έχει ρυθμιστεί ακόμη σύνδεση"
                               : "Διαχείριση σύνδεσης"}
                           </button>
                         </div>
@@ -1741,9 +1705,11 @@ function Dashboard() {
                           type="button"
                           onClick={async () => {
                             try {
+                              setSentinelError(false);
                               setSentinel(await nousFetch<typeof sentinel>("/api/security-audit"));
                             } catch {
                               setSentinel(null);
+                              setSentinelError(true);
                             }
                           }}
                           className="rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold hover:bg-primary/10"
@@ -1751,6 +1717,11 @@ function Dashboard() {
                           Έλεγχος τώρα
                         </button>
                       </div>
+                      {sentinelError && (
+                        <p className="mt-3 text-xs text-rose-300">
+                          Ο έλεγχος ασφαλείας δεν είναι διαθέσιμος αυτή τη στιγμή.
+                        </p>
+                      )}
                       {sentinel && (
                         <div className="mt-4 grid gap-3 md:grid-cols-[auto_1fr]">
                           <div className="flex size-20 flex-col items-center justify-center rounded-full border-4 border-primary/40">
@@ -1802,29 +1773,12 @@ function Dashboard() {
                   </div>
                 )}
                 <div className="mt-5 space-y-2">
-                  {section === "missions" &&
-                    missions.map((mission) => (
-                      <div
-                        key={mission.title}
-                        className="flex items-center justify-between rounded-xl border border-border bg-background/50 p-3 text-sm"
-                      >
-                        <span>{mission.title}</span>
-                        <span className="font-mono text-xs text-primary">{mission.status}</span>
-                      </div>
-                    ))}
-                  {section === "memory" &&
-                    [
-                      "User goals: autonomous NOUS",
-                      "Decision: require approvals",
-                      "Last reflection: backend-aware answers",
-                    ].map((item) => (
-                      <div
-                        key={item}
-                        className="rounded-xl border border-border bg-background/50 p-3 font-mono text-xs text-muted-foreground"
-                      >
-                        {item}
-                      </div>
-                    ))}
+                  {section === "missions" && <MissionList missions={liveMissions} />}
+                  {section === "memory" && (
+                    <p className="rounded-xl border border-dashed border-border bg-background/50 p-3 text-xs text-muted-foreground">
+                      Η μνήμη δεν έχει συνδεθεί ακόμη με το backend.
+                    </p>
+                  )}
                 </div>
               </Card>
               <Card title="Agent guardrails">
@@ -1833,7 +1787,6 @@ function Dashboard() {
                     "Backend truth checks",
                     "Approval before side effects",
                     "Audit trail enabled",
-                    "Browser operator: ready",
                   ].map((item) => (
                     <div key={item} className="flex items-center gap-2">
                       <span className="size-2 rounded-full bg-ok" />
@@ -1883,14 +1836,52 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+function MissionList({
+  missions,
+}: {
+  missions: Array<{ id: string; title: string; status: string }>;
+}) {
+  if (missions.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Δεν υπάρχουν missions ή δεν έχει συνδεθεί ακόμη το live stream. Πάτησε «Missions» στο Chat.
+      </p>
+    );
+  }
+  return (
+    <>
+      {missions.map((m) => (
+        <div
+          key={m.id}
+          className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm last:border-0"
+        >
+          <span>{m.title}</span>
+          <span
+            className={`font-mono text-xs ${
+              m.status === "running"
+                ? "text-primary"
+                : m.status === "done"
+                  ? "text-ok"
+                  : "text-warn"
+            }`}
+          >
+            {m.status}
+          </span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function StatBar({ label, pct, color }: { label: string; pct: number; color: string }) {
+  const safePct = Math.min(100, Math.max(0, pct));
   return (
     <div className="flex items-center gap-2 py-1 font-mono text-[11px] text-muted-foreground">
       <span className="w-8">{label}</span>
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
-        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full ${color}`} style={{ width: `${safePct}%` }} />
       </div>
-      <span>{pct}%</span>
+      <span>{safePct}%</span>
     </div>
   );
 }
