@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getModelCallMetrics, modelCallTimeoutMs, withTimeout } from "../lib/ai-observability";
+import { getModelCallMetrics, modelCallTimeoutMs } from "../lib/ai-observability";
 import { getPersistentDailyBudget, recordPersistentModelCall } from "../lib/model-observability";
 import { research, type ResearchMode } from "../lib/research-broker";
 import { db } from "../lib/db";
@@ -11,55 +11,52 @@ const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικ
 Απάντα φυσικά και ανθρώπινα στα ελληνικά όταν ο χρήστης γράφει ελληνικά, χωρίς canned απαντήσεις ή άσχετες επαναλήψεις.
 Ξεχώριζε πάντα καθαρά ανάμεσα σε: (1) τι γνωρίζεις, (2) τι προτείνεις και (3) τι εκτέλεσες πραγματικά.
 Μην ισχυρίζεσαι ποτέ ότι έκανες backup, έγραψες κώδικα, άνοιξες browser, άλλαξες αρχεία ή έχεις πρόσβαση σε missions αν δεν υπάρχει διαθέσιμο και επιβεβαιωμένο εργαλείο.
-Όταν ο χρήστης ρωτά «τι μπορείς να κάνεις», απάντησε με συγκεκριμένα παραδείγματα και εξήγησε τα όρια: μπορείς να συζητήσεις, να αναλύσεις, να σχεδιάσεις και να γράψεις κώδικα μέσα από εγκεκριμένες αλλαγές· για web research και ενέργειες στον υπολογιστή χρειάζεται συνδεδεμένο NOUS backend με τα αντίστοιχα εργαλεία.
 Για αιτήματα που αφορούν κώδικα, πρότεινε μικρό, ασφαλές σχέδιο και ζήτησε έγκριση μόνο για ενέργειες που αλλάζουν αρχεία ή σύστημα.
-Αν δεν έχεις εργαλείο για να εκτελέσεις κάτι, μην απαντήσεις γενικά. Πες: «Μπορώ να το σχεδιάσω τώρα, αλλά δεν μπορώ να το εκτελέσω από αυτό το workspace επειδή λείπει το Χ» και δώσε ακριβώς το επόμενο βήμα.
 Κράτα τις απαντήσεις σύντομες αλλά χρήσιμες. Μην επινοείς δεδομένα, κατάσταση ή αποτελέσματα.`;
 
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-async function tryGeminiFallback(
-  message: string,
-  history: Array<{ role: "user" | "assistant"; text: string }>,
-  grounded = false,
-) {
+type ChatHistory = Array<{ role: "user" | "assistant"; text: string }>;
+
+type GeminiResult = {
+  answer: string;
+  model: string;
+  citations: Array<{ title: string; url: string; domain: string; sourceType: "google-grounded"; retrievedAt: string }>;
+};
+
+async function callGemini(message: string, history: ChatHistory, grounded = false): Promise<GeminiResult | null> {
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GCP_API_KEY"];
   if (!apiKey) return null;
 
   try {
-    const contents = [
-      ...history.map((item) => ({
-        role: item.role === "assistant" ? "model" : "user",
-        parts: [{ text: item.text }],
-      })),
-      { role: "user", parts: [{ text: message }] },
-    ];
     const response = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents,
+        contents: [
+          ...history.map((item) => ({
+            role: item.role === "assistant" ? "model" : "user",
+            parts: [{ text: item.text }],
+          })),
+          { role: "user", parts: [{ text: message }] },
+        ],
         generationConfig: { temperature: 0.3, maxOutputTokens: 1600 },
         ...(grounded ? { tools: [{ google_search: {} }] } : {}),
       }),
       signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
     });
     if (!response.ok) return null;
+
     const data = (await response.json()) as {
       candidates?: Array<{
         content?: { parts?: Array<{ text?: string }> };
-        groundingMetadata?: {
-          groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>;
-        };
+        groundingMetadata?: { groundingChunks?: Array<{ web?: { uri?: string; title?: string } }> };
       }>;
     };
     const candidate = data.candidates?.[0];
-    const answer = candidate?.content?.parts
-      ?.map((part) => part.text ?? "")
-      .join("")
-      .trim();
+    const answer = candidate?.content?.parts?.map((part) => part.text ?? "").join("").trim();
     const citations = (candidate?.groundingMetadata?.groundingChunks ?? [])
       .map((chunk) => chunk.web)
       .filter((web): web is { uri: string; title?: string } => Boolean(web?.uri))
@@ -70,6 +67,7 @@ async function tryGeminiFallback(
         sourceType: "google-grounded" as const,
         retrievedAt: new Date().toISOString(),
       }));
+
     return answer
       ? { answer, model: grounded ? "gemini-2.5-flash-grounded" : "gemini-2.5-flash", citations }
       : null;
@@ -79,7 +77,7 @@ async function tryGeminiFallback(
 }
 
 const requestWindows = new Map<string, number[]>();
-function allowRequest(userId: string) {
+function allowRequest(userId: string): boolean {
   const now = Date.now();
   const recent = (requestWindows.get(userId) ?? []).filter((time) => now - time < 60_000);
   if (recent.length >= 20) return false;
@@ -88,156 +86,72 @@ function allowRequest(userId: string) {
   return true;
 }
 
-function offlineAnswer(message: string) {
-  const text = message.toLocaleLowerCase("el-GR");
-  if (/(τι μπορείς|τι μπορεις|δυνατότητ|δυνατοτητ|can you)/.test(text)) {
-    return "Μπορώ να συζητήσω, να αναλύσω απαιτήσεις, να σχεδιάσω λύσεις και να γράψω κώδικα στο workspace. Για πραγματική αναζήτηση στο διαδίκτυο, browser actions, missions ή αλλαγές στον υπολογιστή χρειάζεται να είναι συνδεδεμένο το αντίστοιχο NOUS backend εργαλείο. Αυτή τη στιγμή το AI chat λειτουργεί, αλλά δεν θα παρουσι��σω τις backend ενέργειες ως διαθέσιμες.";
-  }
-  return `Μπορώ να σε βοηθήσω να το αναλύσουμε και να ετοιμάσουμε ασφαλές σχέδιο, αλλά το AI Gateway δεν απάντησε αυτή τη στιγμή. Δεν εκτέλεσα καμία εξωτερική ενέργεια. Δοκίμασε ξανά ή σύνδεσε το NOUS backend αν ζητάς browser, missions ή αλλαγές αρχείων.`;
-}
-
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       GET: async () => Response.json(getModelCallMetrics()),
       POST: async ({ request }) => {
+        let userId = "";
         let message = "";
         try {
           const body = (await request.json()) as {
             message?: string;
-            history?: Array<{ role: "user" | "assistant"; text: string }>;
+            history?: ChatHistory;
             researchMode?: ResearchMode;
             missionId?: string;
           };
           message = body.message?.trim() ?? "";
-          const userId = await requireAuthenticatedUserId(request);
-          if (!allowRequest(userId))
-            return Response.json({ error: "Too many requests" }, { status: 429 });
-          const missionId = body.missionId?.slice(0, 128);
-          if (!message) {
-            return Response.json({ error: "Το μήνυμα είναι κενό." }, { status: 400 });
-          }
+          userId = await requireAuthenticatedUserId(request);
+          if (!allowRequest(userId)) return Response.json({ ok: false, error: "Too many requests" }, { status: 429 });
+          if (!message) return Response.json({ ok: false, error: "Το μήνυμα είναι κενό." }, { status: 400 });
 
           const history = (body.history ?? []).slice(-10);
-          try {
-            await db.insert(nousMessages).values({
-              id: randomUUID(),
-              missionId: missionId ?? null,
-              userId,
-              role: "user",
-              content: message,
-              citations: [],
-            });
-          } catch (error) {
-            console.warn(
-              "[v0] message persistence unavailable",
-              error instanceof Error ? error.message : error,
-            );
-          }
+          await db.insert(nousMessages).values({
+            id: randomUUID(), missionId: body.missionId?.slice(0, 128) ?? null, userId,
+            role: "user", content: message, citations: [],
+          });
+
           const researchResult = await research(message, body.researchMode ?? "auto");
           const modelMessage = researchResult.context
-            ? `${message}\n\n[READ-ONLY RESEARCH CONTEXT — cite only these sources and do not claim actions were performed]\n${researchResult.context}`
+            ? `${message}\n\n[READ-ONLY RESEARCH CONTEXT — cite only these sources]\n${researchResult.context}`
             : message;
-          let budget;
-          try {
-            budget = await getPersistentDailyBudget(userId);
-          } catch (error) {
-            console.warn(
-              "[v0] persistent budget unavailable",
-              error instanceof Error ? error.message : error,
-            );
-            budget = {
-              allowed: true,
-              count: 0,
-              limit: Number(process.env["NOUS_AI_DAILY_CALL_LIMIT"] ?? 100),
-            };
-          }
+          const budget = await getPersistentDailyBudget(userId);
           if (!budget.allowed) {
-            return Response.json(
-              { ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." },
-              { status: 429 },
-            );
+            return Response.json({ ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." }, { status: 429 });
           }
 
-          const saveAssistant = async (answer: string, citations = researchResult.citations) => {
-            try {
-              await db.insert(nousMessages).values({
-                id: randomUUID(),
-                missionId: missionId ?? null,
-                userId,
-                role: "assistant",
-                content: answer,
-                citations,
-              });
-            } catch (error) {
-              console.warn(
-                "[v0] assistant persistence unavailable",
-                error instanceof Error ? error.message : error,
-              );
-            }
-          };
           const startedAt = new Date().toISOString();
           const started = performance.now();
-          if (researchResult.used || body.researchMode === "deep") {
-            const grounded = await tryGeminiFallback(modelMessage, history, true);
-            if (grounded) {
-              await saveAssistant(grounded.answer, grounded.citations);
-              return Response.json({
-                ok: true,
-                answer: grounded.answer,
-                source: "gemini-google-search-grounded",
-                model: grounded.model,
-                citations: grounded.citations,
-                researchUsed: true,
-                mode: "connected",
-              });
+          const gemini = await callGemini(modelMessage, history, researchResult.used || body.researchMode === "deep");
+          if (!gemini) throw new Error("Gemini did not respond");
+
+          await recordPersistentModelCall(
+            { startedAt, durationMs: Math.round(performance.now() - started), ok: true },
+            userId, "gemini-api", gemini.model,
+          );
+          await db.insert(nousMessages).values({
+            id: randomUUID(), missionId: body.missionId?.slice(0, 128) ?? null, userId,
+            role: "assistant", content: gemini.answer,
+            citations: researchResult.used ? gemini.citations : [],
+          });
+          return Response.json({
+            ok: true, answer: gemini.answer, source: "gemini-api", model: gemini.model,
+            citations: researchResult.used ? gemini.citations : researchResult.citations,
+            researchUsed: researchResult.used, mode: "connected",
+          });
+        } catch (error) {
+          if (userId) {
+            try {
+              await recordPersistentModelCall(
+                { startedAt: new Date().toISOString(), durationMs: 0, ok: false, error: error instanceof Error ? error.message : "unknown_error" },
+                userId, "gemini-api", "gemini-2.5-flash",
+              );
+            } catch {
+              // Metrics are best-effort when the model request fails.
             }
           }
-          try {
-            const gemini = await tryGeminiFallback(modelMessage, history);
-            if (!gemini) throw new Error("GEMINI_API_KEY is missing or Gemini did not respond");
-            await recordPersistentModelCall(
-              {
-                startedAt,
-                durationMs: Math.round(performance.now() - started),
-                ok: true,
-              },
-              userId,
-              "gemini-api",
-              gemini.model,
-            );
-            await saveAssistant(gemini.answer);
-            return Response.json({
-              ok: true,
-              answer: gemini.answer,
-              source: "gemini-api",
-              model: gemini.model,
-              citations: researchResult.citations,
-              researchUsed: researchResult.used,
-              mode: "connected",
-            });
-          } catch (error) {
-            await recordPersistentModelCall(
-              {
-                startedAt,
-                durationMs: Math.round(performance.now() - started),
-                ok: false,
-                error: error instanceof Error ? error.message : "unknown_error",
-              },
-              userId,
-              "gemini-api",
-              "gemini-2.5-flash",
-            );
-            throw error;
-          }
-        } catch (error) {
-          console.error("[v0] Chat request failed", error);
-          return Response.json({
-            ok: true,
-            answer: offlineAnswer(message ?? ""),
-            source: "offline-fallback",
-            mode: "degraded",
-          });
+          console.error("[nous] Chat request failed", error);
+          return Response.json({ ok: false, error: "AI service unavailable" }, { status: 503 });
         }
       },
     },
