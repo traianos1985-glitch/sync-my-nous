@@ -8,7 +8,7 @@ export interface AgentJournalEntry {
   hash?: string;
 }
 
-export function useAgentStream(streamUrl = "/api/agent/stream") {
+export function useAgentStream(streamUrl = "/api/missions/stream") {
   const [entries, setEntries] = useState<AgentJournalEntry[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [lastPing, setLastPing] = useState<number | null>(null);
@@ -22,10 +22,17 @@ export function useAgentStream(streamUrl = "/api/agent/stream") {
         setIsConnected(true);
       };
 
-      eventSource.addEventListener("agent_journal", (event: MessageEvent) => {
+      eventSource.addEventListener("missions", (event: MessageEvent) => {
         try {
-          const newEntries = JSON.parse(event.data) as AgentJournalEntry[];
-          setEntries((prev) => [...prev, ...newEntries].slice(-200));
+          const data = JSON.parse(event.data) as { missions?: Array<Record<string, unknown>> };
+          const newEntries: AgentJournalEntry[] = (data.missions ?? []).map((mission, index) => ({
+            id: Date.now() + index,
+            time: Date.now(),
+            event: "mission_update",
+            data: mission,
+          }));
+          if (newEntries.length)
+            setEntries((prev) => [...prev, ...newEntries].slice(-200));
         } catch (err) {
           console.error("Error parsing agent stream data", err);
         }

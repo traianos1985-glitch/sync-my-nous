@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { put } from "@vercel/blob";
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { db } from "../lib/db";
+import { db } from "lib/db";
 import {
   nousKnowledgeChunks,
   nousKnowledgeDocuments,
@@ -44,11 +44,25 @@ function hasExpectedFileSignature(bytes: Uint8Array, contentType: string) {
 function extractText(bytes: Uint8Array, contentType: string) {
   if (contentType.startsWith("text/")) return new TextDecoder().decode(bytes).slice(0, 200_000);
   if (contentType === "application/pdf") {
-    return new TextDecoder("latin1")
-      .decode(bytes)
-      .replace(/\\([^()]*)\\/g, "$1")
-      .replace(/[^\\x20-\\x7E\\n]+/g, " ")
-      .slice(0, 200_000);
+    const raw = new TextDecoder("latin1").decode(bytes);
+    const textStrings: string[] = [];
+    let inText = false;
+    let current = "";
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw.charCodeAt(i);
+      if (ch === 0x28) {
+        inText = true;
+        current = "";
+      } else if (ch === 0x29 && inText) {
+        if (current.trim()) textStrings.push(current);
+        inText = false;
+      } else if (inText) {
+        if (ch >= 0x20 && ch <= 0x7e) current += raw[i];
+        else if (ch === 0x0a || ch === 0x0d) current += "\n";
+        else current += " ";
+      }
+    }
+    return textStrings.join("\n").slice(0, 200_000);
   }
   return "Image uploaded. Vision extraction is queued for the NOUS knowledge worker.";
 }
@@ -146,7 +160,7 @@ export const Route = createFileRoute("/api/knowledge")({
             ok: true,
             document: {
               id,
-              name: (safe as { filename?: string }).filename ?? file.name,
+              name: file.name,
               contentType: file.type,
               status:
                 !scan.clean || file.type.startsWith("image/") ? "quarantined" : "extraction_review",
