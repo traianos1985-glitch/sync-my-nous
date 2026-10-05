@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 export interface SwarmAgentStep {
   role: "architect" | "researcher" | "coder" | "reviewer";
@@ -25,18 +25,18 @@ const roleColors: Record<string, string> = {
 };
 
 const roleIcons: Record<string, string> = {
-  architect: "🏛️ Architect",
-  researcher: "🔍 Researcher",
-  coder: "💻 Coder",
-  reviewer: "🛡️ Reviewer",
+  architect: "Architect",
+  researcher: "Researcher",
+  coder: "Coder",
+  reviewer: "Reviewer",
 };
 
-export const SwarmVisualizer: React.FC<SwarmVisualizerProps> = ({
+export const SwarmVisualizer = ({
   mission = "System Health & Maintenance Mission",
   steps = [],
   status = "completed",
   onRunMission,
-}) => {
+}: SwarmVisualizerProps) => {
   const [inputMission, setInputMission] = useState("");
 
   return (
@@ -44,7 +44,7 @@ export const SwarmVisualizer: React.FC<SwarmVisualizerProps> = ({
       <div className="flex items-center justify-between border-b border-border/40 pb-4">
         <div>
           <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-            <span>⚡ Multi-Agent Swarm Orchestrator</span>
+            <span>Multi-Agent Swarm Orchestrator</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
               {status}
             </span>

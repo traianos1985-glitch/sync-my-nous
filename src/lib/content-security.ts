@@ -1,4 +1,3 @@
-// Upload endpoints currently do not exist; keep these checks at the shared boundary before adding one.
 const blockedExtensions = new Set([
   ".exe",
   ".dll",
@@ -13,6 +12,8 @@ const blockedExtensions = new Set([
   ".ps1",
   ".sh",
 ]);
+
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 export function validateUploadMetadata(fileName: string, size: number, contentType: string) {
   const normalizedName = fileName.trim().toLowerCase();
@@ -30,7 +31,7 @@ export function validateUploadMetadata(fileName: string, size: number, contentTy
     return { ok: false as const, reason: "unsafe_filename" };
   if (blockedExtensions.has(extension))
     return { ok: false as const, reason: "executable_upload_blocked" };
-  if (!Number.isSafeInteger(size) || size <= 0 || size > 10 * 1024 * 1024)
+  if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_UPLOAD_BYTES)
     return { ok: false as const, reason: "file_size_rejected" };
   if (!/^[\w.+-]+\/[\w.+-]+$/.test(contentType))
     return { ok: false as const, reason: "invalid_content_type" };

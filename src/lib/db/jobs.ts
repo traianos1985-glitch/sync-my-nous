@@ -64,9 +64,9 @@ export async function retryJob(id: string, userId: string) {
 }
 
 export async function claimNextJob(userId: string) {
-  const [job] = await db
-    .update(nousJobs)
-    .set({ status: "running", startedAt: new Date(), updatedAt: new Date() })
+  const candidates = await db
+    .select({ id: nousJobs.id })
+    .from(nousJobs)
     .where(
       and(
         eq(nousJobs.userId, userId),
@@ -74,6 +74,16 @@ export async function claimNextJob(userId: string) {
         sql`${nousJobs.retryCount} < ${NOUS_LIMITS.maxJobRetries}`,
       ),
     )
+    .orderBy(nousJobs.createdAt)
+    .limit(1)
+    .for("update", { skipLocked: true });
+
+  if (!candidates.length) return undefined;
+
+  const [job] = await db
+    .update(nousJobs)
+    .set({ status: "running", startedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(nousJobs.id, candidates[0].id), eq(nousJobs.userId, userId)))
     .returning();
   return job;
 }

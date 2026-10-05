@@ -3,6 +3,9 @@ const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 120;
 const MAX_BODY_BYTES = 1_048_576;
 
+const CSP_DIRECTIVE =
+  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; font-src 'self' data: https:; form-action 'self'";
+
 export function rateLimitKey(request: Request, scope = "global") {
   return `${scope}:${getClientKey(request)}`;
 }
@@ -49,13 +52,15 @@ export function isRateLimited(request: Request) {
 }
 
 export function securityHeaders() {
+  const isProduction = process.env["NODE_ENV"] === "production";
   return {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
-    "Content-Security-Policy-Report-Only":
-      "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; font-src 'self' data: https:; form-action 'self'",
+    ...(isProduction
+      ? { "Content-Security-Policy": CSP_DIRECTIVE }
+      : { "Content-Security-Policy-Report-Only": CSP_DIRECTIVE }),
   };
 }
 
