@@ -14,9 +14,13 @@ export function runDefensiveSentinel(): {
   checkedAt: string;
 } {
   const headers = securityHeaders();
+  const csp =
+    headers["Content-Security-Policy"] ??
+    headers["Content-Security-Policy-Report-Only"] ??
+    "";
   const findings: SentinelFinding[] = [];
 
-  if (!headers["Content-Security-Policy-Report-Only"]?.includes("object-src 'none'")) {
+  if (!csp.includes("object-src 'none'")) {
     findings.push({
       id: "csp-objects",
       severity: "high",

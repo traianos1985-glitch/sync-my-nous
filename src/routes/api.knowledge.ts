@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { put } from "@vercel/blob";
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { db } from "lib/db";
+import { db } from "../lib/db";
 import {
   nousKnowledgeChunks,
   nousKnowledgeDocuments,
