@@ -6,6 +6,33 @@ const apiToken = import.meta.env["VITE_NOUS_API_TOKEN"];
 const tokenStorageKey = "nous-dashboard-token";
 const requestTimeoutMs = 35_000;
 
+// The dashboard uses /api/* names, but the Flask backend on Render exposes some
+// of them under different paths. Map them so the buttons reach real endpoints.
+const BACKEND_PATH_MAP: Record<string, string> = {
+  "/api/chat": "/chat",
+  "/api/health": "/health",
+};
+
+function resolvePath(path: string): string {
+  const [pathname, query] = path.split("?");
+  const mapped = BACKEND_PATH_MAP[pathname ?? ""] ?? pathname;
+  return query ? `${mapped}?${query}` : (mapped ?? path);
+}
+
+// Flask /chat reads `command` after its early-return handlers, so mirror `message` into it.
+function adaptBody(path: string, body: RequestInit["body"]): RequestInit["body"] {
+  if (resolvePath(path) !== "/chat" || typeof body !== "string") return body;
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    if (typeof parsed["message"] === "string" && !parsed["command"]) {
+      parsed["command"] = parsed["message"];
+    }
+    return JSON.stringify(parsed);
+  } catch {
+    return body;
+  }
+}
+
 function getStoredToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
   return window.sessionStorage.getItem(tokenStorageKey) || undefined;
@@ -58,8 +85,9 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
     options.signal.addEventListener("abort", () => controller.abort(), { once: true });
   let response: Response;
   try {
-    response = await fetch(`${apiBase}${path}`, {
+    response = await fetch(`${apiBase}${resolvePath(path)}`, {
       ...options,
+      body: adaptBody(path, options.body),
       headers,
       credentials: "include",
       signal: controller.signal,
@@ -116,8 +144,9 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
     options.signal.addEventListener("abort", () => controller.abort(), { once: true });
   let response: Response;
   try {
-    response = await fetch(`${apiBase}${path}`, {
+    response = await fetch(`${apiBase}${resolvePath(path)}`, {
       ...options,
+      body: adaptBody(path, options.body),
       headers,
       credentials: "include",
       signal: controller.signal,
