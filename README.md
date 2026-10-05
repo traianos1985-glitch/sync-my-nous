@@ -4,6 +4,12 @@
 Το frontend διατηρεί όλα τα υπάρχοντα routes και UI χαρακτηριστικά, ενώ το backend
 έχει ενσωματωθεί στο `nous-ai-os/` ως ανεξάρτητο Python/Flask workspace.
 
+## Κλειδιά (για agents και developers)
+
+- Το `GEMINI_API_KEY` είναι **ήδη αποθηκευμένο στο Render** (service `nous-ai-os`). Μην το ζητάς και μην το κάνεις commit.
+- Χρειάζεσαι **μόνο το NOUS token** για σύνδεση στο `https://nous-ai-os-api.onrender.com`.
+- Τοπικά, το Gemini key είναι προαιρετικό (fallback σε τοπικό Ollama).
+
 ## Nous AI OS backend
 
 ```sh
