@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getModelCallMetrics, modelCallTimeoutMs } from "../lib/ai-observability";
+import { geminiModelCandidates, shouldTryGeminiFallback } from "../lib/gemini-models";
 import { getPersistentDailyBudget, recordPersistentModelCall } from "../lib/model-observability";
 import { research, type ResearchMode } from "../lib/research-broker";
 import { db } from "../lib/db";
@@ -14,8 +15,7 @@ const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικ
 Για αιτήματα που αφορούν κώδικα, πρότεινε μικρό, ασφαλές σχέδιο και ζήτησε έγκριση μόνο για ενέργειες που αλλάζουν αρχεία ή σύστημα.
 Κράτα τις απαντήσεις σύντομες αλλά χρήσιμες. Μην επινοείς δεδομένα, κατάσταση ή αποτελέσματα.`;
 
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 type ChatHistory = Array<{ role: "user" | "assistant"; text: string }>;
 
@@ -39,54 +39,64 @@ async function callGemini(
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GCP_API_KEY"];
   if (!apiKey) return null;
 
-  try {
-    const response = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [
-          ...history.map((item) => ({
-            role: item.role === "assistant" ? "model" : "user",
-            parts: [{ text: item.text }],
-          })),
-          { role: "user", parts: [{ text: message }] },
-        ],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 1600 },
-        ...(grounded ? { tools: [{ google_search: {} }] } : {}),
-      }),
-      signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
-    });
-    if (!response.ok) return null;
+  const models = geminiModelCandidates();
+  for (const [index, model] of models.entries()) {
+    try {
+      const response = await fetch(
+        `${GEMINI_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [
+              ...history.map((item) => ({
+                role: item.role === "assistant" ? "model" : "user",
+                parts: [{ text: item.text }],
+              })),
+              { role: "user", parts: [{ text: message }] },
+            ],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 1600 },
+            ...(grounded ? { tools: [{ google_search: {} }] } : {}),
+          }),
+          signal: AbortSignal.timeout(Math.min(modelCallTimeoutMs(), 20_000)),
+        },
+      );
+      if (!response.ok) {
+        if (index < models.length - 1 && shouldTryGeminiFallback(response.status)) continue;
+        return null;
+      }
 
-    const data = (await response.json()) as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
-        groundingMetadata?: { groundingChunks?: Array<{ web?: { uri?: string; title?: string } }> };
-      }>;
-    };
-    const candidate = data.candidates?.[0];
-    const answer = candidate?.content?.parts
-      ?.map((part) => part.text ?? "")
-      .join("")
-      .trim();
-    const citations = (candidate?.groundingMetadata?.groundingChunks ?? [])
-      .map((chunk) => chunk.web)
-      .filter((web): web is { uri: string; title?: string } => Boolean(web?.uri))
-      .map((web) => ({
-        title: web.title ?? web.uri,
-        url: web.uri,
-        domain: new URL(web.uri).hostname,
-        sourceType: "google-grounded" as const,
-        retrievedAt: new Date().toISOString(),
-      }));
+      const data = (await response.json()) as {
+        candidates?: Array<{
+          content?: { parts?: Array<{ text?: string }> };
+          groundingMetadata?: {
+            groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>;
+          };
+        }>;
+      };
+      const candidate = data.candidates?.[0];
+      const answer = candidate?.content?.parts
+        ?.map((part) => part.text ?? "")
+        .join("")
+        .trim();
+      const citations = (candidate?.groundingMetadata?.groundingChunks ?? [])
+        .map((chunk) => chunk.web)
+        .filter((web): web is { uri: string; title?: string } => Boolean(web?.uri))
+        .map((web) => ({
+          title: web.title ?? web.uri,
+          url: web.uri,
+          domain: new URL(web.uri).hostname,
+          sourceType: "google-grounded" as const,
+          retrievedAt: new Date().toISOString(),
+        }));
 
-    return answer
-      ? { answer, model: grounded ? "gemini-2.5-flash-grounded" : "gemini-2.5-flash", citations }
-      : null;
-  } catch {
-    return null;
+      return answer ? { answer, model: grounded ? `${model}-grounded` : model, citations } : null;
+    } catch {
+      if (index === models.length - 1) return null;
+    }
   }
+  return null;
 }
 
 const requestWindows = new Map<string, number[]>();
@@ -186,14 +196,17 @@ export const Route = createFileRoute("/api/chat")({
                 },
                 userId,
                 "gemini-api",
-                "gemini-2.5-flash",
+                geminiModelCandidates()[0],
               );
             } catch {
               // Metrics are best-effort when the model request fails.
             }
           }
           console.error("[nous] Chat request failed", error);
-          return Response.json({ ok: false, error: "AI service unavailable" }, { status: 503 });
+          return Response.json(
+            { ok: false, error: "Το AI service δεν είναι διαθέσιμο αυτή τη στιγμή." },
+            { status: 503 },
+          );
         }
       },
     },

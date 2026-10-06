@@ -20,10 +20,11 @@ def process(command, context):
         result = chat_fallback(command, context)
 
     clean = ensure_output(result)
+    offline = isinstance(result, dict) and result.get("mode") == "offline"
 
     return {
         "input": command,
         "intent": intent,
         "output": clean,
-        "status": "ok"
+        "status": "error" if offline else "ok",
     }

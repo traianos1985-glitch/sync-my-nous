@@ -86,11 +86,10 @@ def restart_server():
         if "local_llm" in file:
 
             return '''
-def ask_llm(prompt):
+from executor.remote_llm import ask_remote_llm
 
-    return {
-        "mock_response": prompt
-    }
+def ask_llm(prompt):
+    return ask_remote_llm(prompt)
 '''
 
         if "command_parser" in file:

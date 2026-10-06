@@ -2,10 +2,11 @@
 import json, time, requests
 from pathlib import Path
 
-MESSINIA_LAT = 37.07
-MESSINIA_LON = 22.10
-CACHE_FILE   = Path("data/weather_cache.json")
-CACHE_TTL    = 1800  # 30 minutes
+DEFAULT_LOCATION = "Μεσσηνία"
+DEFAULT_LAT = 37.07
+DEFAULT_LON = 22.10
+CACHE_FILE = Path("data/weather_cache.json")
+CACHE_TTL = 1800
 
 WMO_CODES = {
     0: "☀️ Αίθριος", 1: "🌤️ Κυρίως αίθριος", 2: "⛅ Μερικώς συννεφιά",
@@ -16,43 +17,79 @@ WMO_CODES = {
     95: "⛈️ Καταιγίδα", 99: "⛈️ Ισχυρή καταιγίδα",
 }
 
-def get_weather(force_refresh: bool = False) -> dict:
-    if not force_refresh and CACHE_FILE.exists():
-        try:
-            cached = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-            if time.time() - cached.get("fetched_at", 0) < CACHE_TTL:
-                return cached
-        except Exception:
-            pass
+def _load_cache() -> dict:
+    try:
+        cached = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+        if isinstance(cached.get("locations"), dict):
+            return cached
+        if cached.get("ok"):
+            return {"locations": {DEFAULT_LOCATION.casefold(): cached}}
+    except (OSError, ValueError, AttributeError):
+        pass
+    return {"locations": {}}
+
+
+def _resolve_location(location: str) -> dict | None:
+    response = requests.get(
+        "https://geocoding-api.open-meteo.com/v1/search",
+        params={"name": location, "count": 1, "language": "el", "format": "json"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    results = response.json().get("results", [])
+    if not results:
+        return None
+    place = results[0]
+    labels = [place.get("name"), place.get("admin1"), place.get("country")]
+    display = ", ".join(dict.fromkeys(label for label in labels if label))
+    return {"latitude": place["latitude"], "longitude": place["longitude"], "display": display}
+
+
+def get_weather(force_refresh: bool = False, location: str | None = None) -> dict:
+    requested_location = (location or DEFAULT_LOCATION).strip()
+    cache_key = requested_location.casefold()
+    cache = _load_cache()
+    cached = cache["locations"].get(cache_key)
+    if not force_refresh and cached and time.time() - cached.get("fetched_at", 0) < CACHE_TTL:
+        return cached
 
     try:
-        r = requests.get(
+        if location:
+            place = _resolve_location(requested_location)
+            if not place:
+                return {"ok": False, "error": "location_not_found"}
+            latitude, longitude, display_location = place["latitude"], place["longitude"], place["display"]
+        else:
+            latitude, longitude, display_location = DEFAULT_LAT, DEFAULT_LON, "Μεσσηνία, Ελλάδα"
+
+        response = requests.get(
             "https://api.open-meteo.com/v1/forecast",
             params={
-                "latitude": MESSINIA_LAT,
-                "longitude": MESSINIA_LON,
+                "latitude": latitude,
+                "longitude": longitude,
                 "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,precipitation",
                 "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code",
-                "timezone": "Europe/Athens",
+                "timezone": "auto",
                 "forecast_days": 3,
             },
             timeout=10,
         )
-        data = r.json()
+        response.raise_for_status()
+        data = response.json()
         current = data.get("current", {})
-        daily   = data.get("daily", {})
-        wcode   = current.get("weather_code", 0)
+        daily = data.get("daily", {})
+        wcode = current.get("weather_code", 0)
 
         result = {
             "ok": True,
             "fetched_at": time.time(),
-            "location": "Μεσσηνία, Ελλάδα",
+            "location": display_location,
             "current": {
-                "temp":        current.get("temperature_2m"),
-                "humidity":    current.get("relative_humidity_2m"),
-                "wind_kmh":    current.get("wind_speed_10m"),
-                "rain_mm":     current.get("precipitation"),
-                "code":        wcode,
+                "temp": current.get("temperature_2m"),
+                "humidity": current.get("relative_humidity_2m"),
+                "wind_kmh": current.get("wind_speed_10m"),
+                "rain_mm": current.get("precipitation"),
+                "code": wcode,
                 "description": WMO_CODES.get(wcode, "Άγνωστος"),
             },
             "forecast": [],
@@ -62,18 +99,19 @@ def get_weather(force_refresh: bool = False) -> dict:
         for i in range(min(3, len(daily.get("time", [])))):
             dcode = (daily.get("weather_code") or [0])[i]
             result["forecast"].append({
-                "date":        (daily.get("time") or [""])[i],
-                "max":         (daily.get("temperature_2m_max") or [None])[i],
-                "min":         (daily.get("temperature_2m_min") or [None])[i],
-                "rain":        (daily.get("precipitation_sum") or [0])[i],
+                "date": (daily.get("time") or [""])[i],
+                "max": (daily.get("temperature_2m_max") or [None])[i],
+                "min": (daily.get("temperature_2m_min") or [None])[i],
+                "rain": (daily.get("precipitation_sum") or [0])[i],
                 "description": WMO_CODES.get(dcode, "—"),
             })
 
-        CACHE_FILE.parent.mkdir(exist_ok=True)
-        CACHE_FILE.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+        cache["locations"][cache_key] = result
+        CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        CACHE_FILE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
         return result
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": "weather_unavailable"}
 
 
 def _field_recommendation(current: dict) -> str:

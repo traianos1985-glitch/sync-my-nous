@@ -162,8 +162,8 @@ def approve_and_write(plan_id: str) -> dict[str, Any]:
     plan = next((p for p in q if p.get("plan_id") == plan_id), None)
     if not plan:
         return {"ok": False, "error": "Το plan δεν βρέθηκε"}
-    if plan.get("status") == "approved":
-        return {"ok": False, "error": "Έχει ήδη εγκριθεί"}
+    if plan.get("status") != "pending_approval":
+        return {"ok": False, "error": "plan_not_pending"}
 
     APPS_DIR.mkdir(parents=True, exist_ok=True)
     written = []
@@ -216,6 +216,8 @@ def reject_plan(plan_id: str) -> dict:
     q = load_queue()
     for i, p in enumerate(q):
         if p.get("plan_id") == plan_id:
+            if p.get("status") != "pending_approval":
+                return {"ok": False, "error": "plan_not_pending"}
             q[i]["status"] = "rejected"
             q[i]["rejected_at"] = now_iso()
             save_queue(q)
