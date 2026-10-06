@@ -158,6 +158,11 @@ app.register_blueprint(system_bp)
 from executor.blueprints.agent_ops_bp import agent_ops_bp
 app.register_blueprint(agent_ops_bp)
 
+# Dashboard API (status, knowledge, evaluation, feedback, audit, jobs,
+# approvals, tools/execute, security-audit) — όσα καλεί το web dashboard.
+from executor.dashboard_api import dashboard_api_bp
+app.register_blueprint(dashboard_api_bp)
+
 
 # Fail-closed auth για ΟΛΑ τα endpoints (δες executor/auth_guard.py)
 install_auth_guard(app)
@@ -1593,8 +1598,9 @@ def remote_self_diagnosis_ai_analyze():
 
 @app.route("/remote/dashboard-action-audit")
 def remote_dashboard_action_audit():
-    from executor.security import TOKEN
-    return jsonify(dashboard_action_audit(app, TOKEN))
+    # το παλιό `from executor.security import TOKEN` έδινε ImportError -> 500
+    from executor.security import admin_token
+    return jsonify(dashboard_action_audit(app, admin_token()))
 
 @app.route("/remote/mission-planner/status")
 def remote_mission_planner_status():

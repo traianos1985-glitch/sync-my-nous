@@ -28,6 +28,15 @@ def allow_anonymous():
     return os.environ.get("NOUS_ALLOW_ANONYMOUS", "").strip().lower() in TRUTHY
 
 
+def admin_token() -> str:
+    """Το configured NOUS_TOKEN.
+
+    Χρησιμοποιείται από internal endpoints που πρέπει να καλέσουν άλλα
+    protected endpoints ως admin (π.χ. το dashboard action audit).
+    """
+    return _env_token()
+
+
 def _header_token(request):
     token = request.headers.get("X-NOUS-TOKEN", "")
     if not token:

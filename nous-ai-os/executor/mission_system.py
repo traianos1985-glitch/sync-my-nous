@@ -153,6 +153,24 @@ def approve_task(mission_id, task_id):
     return {"ok": False, "error": "task_not_found"}
 
 
+def reject_task(mission_id, task_id):
+    """Απόρριψη ενός task που περιμένει έγκριση από το dashboard."""
+    items = _load()
+    m = _find_mission(items, mission_id)
+    if not m:
+        return {"ok": False, "error": "mission_not_found"}
+
+    for t in m.get("tasks", []):
+        if str(t.get("id")) == str(task_id):
+            t["approved"] = False
+            t["status"] = "rejected"
+            m["updated"] = time.time()
+            _save(items)
+            return {"ok": True, "mission": m, "task": t}
+
+    return {"ok": False, "error": "task_not_found"}
+
+
 def run_next_mission_task(mission_id):
     items = _load()
     m = _find_mission(items, mission_id)
