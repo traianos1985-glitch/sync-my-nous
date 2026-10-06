@@ -35,7 +35,10 @@ def dashboard_action_audit(app, token=""):
 
     for a in ACTIONS:
         headers = {}
-        if a.get("auth") and token:
+        # Το fail-closed guard απαιτεί token σε ΟΛΑ τα endpoints (όχι μόνο σε
+        # όσα έχουν auth=True), αλλιώς τα περισσότερα actions αποτυγχάνουν με
+        # 401 και το audit αναφέρει ψεύτικα σφάλματα.
+        if token:
             headers["X-NOUS-Token"] = token
             headers["Authorization"] = "Bearer " + token
 
