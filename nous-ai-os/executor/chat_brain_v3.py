@@ -685,7 +685,13 @@ def fallback_answer(message: str) -> str:
     )
 
 
-def answer_chat(message: str, conversation_id: str | None = None) -> dict[str, Any] | None:
+def answer_chat(
+    message: str,
+    conversation_id: str | None = None,
+    research_mode: str = "auto",
+) -> dict[str, Any] | None:
+    research_mode = (research_mode or "auto").lower()
+    allow_web = research_mode != "off"
     if is_explicit_command(message):
         return None
 
@@ -743,13 +749,13 @@ def answer_chat(message: str, conversation_id: str | None = None) -> dict[str, A
             answer = memory
             mode = "cross_conversation_memory"
 
-    if answer is None and has_deep_research_intent(message):
+    if answer is None and allow_web and (research_mode == "deep" or has_deep_research_intent(message)):
         research = deep_research(message, max_results=5)
         answer = research.get("answer") or "Δεν μπόρεσα να ολοκληρώσω τη βαθιά έρευνα."
         sources = [{"document": s.get("url")} for s in research.get("sources", [])]
         mode = "deep_research"
 
-    if answer is None and has_internet_intent(message):
+    if answer is None and allow_web and has_internet_intent(message):
         web = answer_from_web(message)
         answer = summarize_search_results(web)
         sources = [{"document": r.get("url")} for r in web.get("results", [])[:3]]

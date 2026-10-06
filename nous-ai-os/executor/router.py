@@ -358,7 +358,13 @@ def chat():
             or data.get("command")
             or ""
         )
-        clean_chat = chatgpt_style_response(str(msg))
+        conversation_id = data.get("conversation_id") or data.get("conversationId")
+        research_mode = data.get("research_mode") or data.get("researchMode") or "auto"
+        clean_chat = chatgpt_style_response(
+            str(msg),
+            conversation_id=str(conversation_id) if conversation_id else None,
+            research_mode=str(research_mode),
+        )
         if clean_chat is not None:
             return jsonify(clean_chat)
     except Exception:
