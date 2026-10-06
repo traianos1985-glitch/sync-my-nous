@@ -94,7 +94,9 @@ export const Route = createFileRoute("/api/knowledge")({
             { error: "Upload rate limit exceeded" },
             { status: 429, headers: { "Retry-After": "60" } },
           );
-        const form = await request.formData();
+        const form = await request.formData().catch(() => null);
+        if (!form)
+          return Response.json({ error: "multipart/form-data body required" }, { status: 400 });
         const file = form.get("file");
         if (!(file instanceof File))
           return Response.json({ error: "file is required" }, { status: 400 });

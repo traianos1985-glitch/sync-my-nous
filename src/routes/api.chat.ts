@@ -22,10 +22,20 @@ type ChatHistory = Array<{ role: "user" | "assistant"; text: string }>;
 type GeminiResult = {
   answer: string;
   model: string;
-  citations: Array<{ title: string; url: string; domain: string; sourceType: "google-grounded"; retrievedAt: string }>;
+  citations: Array<{
+    title: string;
+    url: string;
+    domain: string;
+    sourceType: "google-grounded";
+    retrievedAt: string;
+  }>;
 };
 
-async function callGemini(message: string, history: ChatHistory, grounded = false): Promise<GeminiResult | null> {
+async function callGemini(
+  message: string,
+  history: ChatHistory,
+  grounded = false,
+): Promise<GeminiResult | null> {
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GCP_API_KEY"];
   if (!apiKey) return null;
 
@@ -56,7 +66,10 @@ async function callGemini(message: string, history: ChatHistory, grounded = fals
       }>;
     };
     const candidate = data.candidates?.[0];
-    const answer = candidate?.content?.parts?.map((part) => part.text ?? "").join("").trim();
+    const answer = candidate?.content?.parts
+      ?.map((part) => part.text ?? "")
+      .join("")
+      .trim();
     const citations = (candidate?.groundingMetadata?.groundingChunks ?? [])
       .map((chunk) => chunk.web)
       .filter((web): web is { uri: string; title?: string } => Boolean(web?.uri))
@@ -102,13 +115,19 @@ export const Route = createFileRoute("/api/chat")({
           };
           message = body.message?.trim() ?? "";
           userId = await requireAuthenticatedUserId(request);
-          if (!allowRequest(userId)) return Response.json({ ok: false, error: "Too many requests" }, { status: 429 });
-          if (!message) return Response.json({ ok: false, error: "Το μήνυμα είναι κενό." }, { status: 400 });
+          if (!allowRequest(userId))
+            return Response.json({ ok: false, error: "Too many requests" }, { status: 429 });
+          if (!message)
+            return Response.json({ ok: false, error: "Το μήνυμα είναι κενό." }, { status: 400 });
 
           const history = (body.history ?? []).slice(-10);
           await db.insert(nousMessages).values({
-            id: randomUUID(), missionId: body.missionId?.slice(0, 128) ?? null, userId,
-            role: "user", content: message, citations: [],
+            id: randomUUID(),
+            missionId: body.missionId?.slice(0, 128) ?? null,
+            userId,
+            role: "user",
+            content: message,
+            citations: [],
           });
 
           const researchResult = await research(message, body.researchMode ?? "auto");
@@ -117,34 +136,57 @@ export const Route = createFileRoute("/api/chat")({
             : message;
           const budget = await getPersistentDailyBudget(userId);
           if (!budget.allowed) {
-            return Response.json({ ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." }, { status: 429 });
+            return Response.json(
+              { ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." },
+              { status: 429 },
+            );
           }
 
           const startedAt = new Date().toISOString();
           const started = performance.now();
-          const gemini = await callGemini(modelMessage, history, researchResult.used || body.researchMode === "deep");
+          const gemini = await callGemini(
+            modelMessage,
+            history,
+            researchResult.used || body.researchMode === "deep",
+          );
           if (!gemini) throw new Error("Gemini did not respond");
 
           await recordPersistentModelCall(
             { startedAt, durationMs: Math.round(performance.now() - started), ok: true },
-            userId, "gemini-api", gemini.model,
+            userId,
+            "gemini-api",
+            gemini.model,
           );
           await db.insert(nousMessages).values({
-            id: randomUUID(), missionId: body.missionId?.slice(0, 128) ?? null, userId,
-            role: "assistant", content: gemini.answer,
+            id: randomUUID(),
+            missionId: body.missionId?.slice(0, 128) ?? null,
+            userId,
+            role: "assistant",
+            content: gemini.answer,
             citations: researchResult.used ? gemini.citations : [],
           });
           return Response.json({
-            ok: true, answer: gemini.answer, source: "gemini-api", model: gemini.model,
+            ok: true,
+            answer: gemini.answer,
+            source: "gemini-api",
+            model: gemini.model,
             citations: researchResult.used ? gemini.citations : researchResult.citations,
-            researchUsed: researchResult.used, mode: "connected",
+            researchUsed: researchResult.used,
+            mode: "connected",
           });
         } catch (error) {
           if (userId) {
             try {
               await recordPersistentModelCall(
-                { startedAt: new Date().toISOString(), durationMs: 0, ok: false, error: error instanceof Error ? error.message : "unknown_error" },
-                userId, "gemini-api", "gemini-2.5-flash",
+                {
+                  startedAt: new Date().toISOString(),
+                  durationMs: 0,
+                  ok: false,
+                  error: error instanceof Error ? error.message : "unknown_error",
+                },
+                userId,
+                "gemini-api",
+                "gemini-2.5-flash",
               );
             } catch {
               // Metrics are best-effort when the model request fails.
