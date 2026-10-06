@@ -61,7 +61,11 @@ def dashboard_action_audit(app, token=""):
     συγχρόνισμα με αυστηρό συνολικό budget κάτω από αυτό το όριο, και ό,τι δεν
     προλαβαίνει σημειώνεται ρητά ως timeout/budget_exhausted — δεν κρύβεται.
     """
-    action_timeout = 12.0
+    # 25s ανά action: στο Render 6 παράλληλα requests σε μικρό instance
+    # κάνουν τα βαριά actions (status/brain/scheduler) να ξεπερνούν τα 12s
+    # τεχνητά. Χειρότερη περίπτωση 3 κύματα × 25s = 75s < 90s budget < 120s
+    # του gunicorn, άρα το endpoint δεν σκοτώνεται ποτέ.
+    action_timeout = 25.0
     budget = 90.0
     started = time.time()
     deadline = started + budget
