@@ -9,6 +9,7 @@ import math
 import os
 import re
 import time
+import zlib
 from typing import Any, Dict, List, Optional, Tuple
 
 DB_PATH = "data/nous_storage.db"
@@ -42,6 +43,10 @@ init_vector_db()
 def _tokenize(text: str) -> List[str]:
     return [w.lower() for w in re.findall(r"\w+", text, flags=re.UNICODE) if len(w) > 1]
 
+def _stable_hash(value: str) -> int:
+    # Built-in hash() is salted per process, so stored embeddings would not match later queries.
+    return zlib.crc32(value.encode("utf-8"))
+
 def generate_embedding(text: str, dim: int = EMBEDDING_DIM) -> List[float]:
     """Generates a normalized semantic vector using feature hashing with n-grams."""
     tokens = _tokenize(text)
@@ -56,8 +61,8 @@ def generate_embedding(text: str, dim: int = EMBEDDING_DIM) -> List[float]:
 
     for gram in ngrams:
         # Multi-hash to reduce collision bias
-        h1 = hash(gram) % dim
-        h2 = hash(gram[::-1]) % dim
+        h1 = _stable_hash(gram) % dim
+        h2 = _stable_hash(gram[::-1]) % dim
         weight = 1.0 if "_" not in gram else 1.5
         vec[h1] += weight
         vec[h2] += weight * 0.5
