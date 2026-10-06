@@ -35,7 +35,10 @@ def agent_stream():
 def missions_stream():
     """Server-Sent Events stream for autonomous missions progress."""
     def generate():
-        from executor.auto_mission_scheduler import list_missions
+        # list_missions lives in executor.mission_system (auto_mission_scheduler
+        # does not export it) — importing it from the wrong module raised an
+        # ImportError on the first chunk and turned the whole SSE stream into a 500.
+        from executor.mission_system import list_missions
         for _ in range(30):
             try:
                 missions = list_missions()
