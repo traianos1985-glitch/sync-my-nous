@@ -41,9 +41,10 @@ export const Route = createFileRoute("/api/health")({
           database,
           nousApi,
           aiGateway: nousApi === "ok" ? "render" : "unavailable",
-          localGeminiKey: process.env["GEMINI_API_KEY"] || process.env["GCP_API_KEY"]
-            ? "configured"
-            : "not-needed",
+          localGeminiKey:
+            process.env["GEMINI_API_KEY"] || process.env["GCP_API_KEY"]
+              ? "configured"
+              : "not-needed",
           research: "available",
         } as const;
 

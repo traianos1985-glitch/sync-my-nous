@@ -7,10 +7,10 @@ from executor.battery_guard import battery_guard
 
 def battery_allows_run(min_level=25):
     info = battery_guard()
-    level = int(info.get("level", 100))
+    level = info.get("level")
     plugged = str(info.get("plugged", "")).upper()
 
-    if level < int(min_level) and plugged == "UNPLUGGED":
+    if isinstance(level, (int, float)) and level < int(min_level) and plugged == "UNPLUGGED":
         return False, info
 
     return True, info

@@ -41,7 +41,8 @@ export const Route = createFileRoute("/api/chat/stream")({
         if (!message) return Response.json({ error: "Το μήνυμα είναι κενό." }, { status: 400 });
 
         const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GCP_API_KEY"];
-        if (!apiKey) return Response.json({ ok: false, error: "AI service unavailable" }, { status: 503 });
+        if (!apiKey)
+          return Response.json({ ok: false, error: "AI service unavailable" }, { status: 503 });
 
         const contents = [
           ...(body.history ?? []).slice(-10).map((item) => ({
@@ -79,7 +80,9 @@ export const Route = createFileRoute("/api/chat/stream")({
             let buffer = "";
             let answer = "";
             const send = (event: string, data: unknown) => {
-              controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+              controller.enqueue(
+                encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+              );
             };
 
             send("start", { ok: true });

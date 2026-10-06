@@ -33,7 +33,9 @@ def choose_master_priority():
     pending = [x for x in queue if x.get("status") == "pending"]
     failed = [x for x in queue if x.get("status") == "failed"]
 
-    if int(battery.get("level", 100)) < 25 and str(battery.get("plugged", "")).upper() == "UNPLUGGED":
+    level = battery.get("level") if isinstance(battery, dict) else None
+    plugged = battery.get("plugged", "") if isinstance(battery, dict) else ""
+    if isinstance(level, (int, float)) and level < 25 and str(plugged).upper() == "UNPLUGGED":
         return {
             "role": "guardian",
             "action": "pause",
