@@ -96,11 +96,12 @@ def approve_upgrade_plan(plan_id):
     items = _load()
     for p in items:
         if str(p.get("id")) == str(plan_id):
+            if p.get("status") != "pending":
+                return {"ok": False, "error": "plan_not_pending", "plan": p}
             p["status"] = "implementing"
             p["approved"] = time.time()
             p["execution_log"] = ["⏳ Εγκρίθηκε — ξεκινά η αυτόματη υλοποίηση…"]
             _save(items)
-            # Run actual implementation in background
             t = threading.Thread(target=_execute_upgrade_plan, args=(dict(p),), daemon=True)
             t.start()
             return {"ok": True, "plan": p}
@@ -203,6 +204,8 @@ def reject_upgrade_plan(plan_id, reason="User rejected upgrade plan"):
     items = _load()
     for p in items:
         if str(p.get("id")) == str(plan_id):
+            if p.get("status") != "pending":
+                return {"ok": False, "error": "plan_not_pending", "plan": p}
             p["status"] = "rejected"
             p["rejected"] = time.time()
             p["reject_reason"] = reason

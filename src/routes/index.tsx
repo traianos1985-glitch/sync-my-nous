@@ -219,6 +219,80 @@ function Index() {
         </div>
       </section>
 
+      <section className="border-y border-border bg-card/40">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="max-w-3xl">
+            <span className="font-mono text-xs uppercase tracking-wider text-primary">
+              Ευρήματα και διορθώσεις
+            </span>
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Αξιοπιστία chat και Gemini
+            </h2>
+            <p className="mt-4 leading-relaxed text-muted-foreground">
+              Η πρώτη διερεύνηση έδειξε ότι η εξάντληση quota μπορούσε να μοιάζει με κανονική
+              απάντηση. Οι παρακάτω αλλαγές στοχεύουν σε ειλικρινή αποτελέσματα και ασφαλείς
+              ενέργειες.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2">
+            <article className="bg-card p-6">
+              <span className="font-mono text-xs uppercase tracking-wider text-alert">Εύρημα</span>
+              <h3 className="mt-3 font-display text-lg font-semibold">Όριο Gemini</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Το `/api/gemini-check` επέστρεψε 429 για το `gemini-2.5-flash`. Η αναφορά έδειξε
+                όριο 20 αιτημάτων/ημέρα στο δωρεάν πλάνο· 1–3 κλήσεις ανά μήνυμα μπορούν να το
+                εξαντλήσουν γρήγορα.
+              </p>
+            </article>
+            <article className="bg-card p-6">
+              <span className="font-mono text-xs uppercase tracking-wider text-primary">
+                Διόρθωση
+              </span>
+              <h3 className="mt-3 font-display text-lg font-semibold">
+                Fallback χωρίς ψεύτικες απαντήσεις
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Το μοντέλο ρυθμίζεται από `GEMINI_MODEL` και `GEMINI_FALLBACK_MODELS`· η προεπιλογή
+                δοκιμάζει και το `gemini-2.5-flash-lite`. Αν δεν απαντήσει κανένα, το chat δείχνει
+                σφάλμα αντί για canned κείμενο ή echo της ερώτησης.
+              </p>
+            </article>
+            <article className="bg-card p-6">
+              <span className="font-mono text-xs uppercase tracking-wider text-primary">
+                Ενέργειες
+              </span>
+              <h3 className="mt-3 font-display text-lg font-semibold">
+                Επιβεβαίωση από πραγματικά αποτελέσματα
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Στόχοι, backup, καιρός για την πόλη που ζητήθηκε, υπολογισμοί και κατάσταση
+                συστήματος βασίζονται στα δεδομένα και στα αποτελέσματα των αντίστοιχων εργαλείων.
+              </p>
+            </article>
+            <article className="bg-card p-6">
+              <span className="font-mono text-xs uppercase tracking-wider text-primary">
+                Έλεγχος
+              </span>
+              <h3 className="mt-3 font-display text-lg font-semibold">
+                Έγκριση πριν από αλλαγές ή εκτέλεση
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Οι αναβαθμίσεις παραμένουν προτάσεις μέχρι να εγκριθούν ρητά. Οι εντολές και οι
+                εκκινήσεις εφαρμογών περιμένουν επίσης έγκριση· αόριστες φράσεις δεν ξεκινούν
+                ενέργειες.
+              </p>
+            </article>
+          </div>
+
+          <p className="mt-6 max-w-4xl text-sm leading-relaxed text-muted-foreground">
+            Η εναλλαγή μοντέλου δεν αυξάνει το quota ούτε εγγυάται διαθεσιμότητα. Το billing του
+            Google AI Studio είναι ξεχωριστή ρύθμιση λογαριασμού και δεν ενεργοποιήθηκε από αυτές
+            τις αλλαγές.
+          </p>
+        </div>
+      </section>
+
       {/* Capabilities */}
       <section className="mx-auto max-w-6xl px-6 py-24">
         <div className="flex items-end justify-between gap-6">

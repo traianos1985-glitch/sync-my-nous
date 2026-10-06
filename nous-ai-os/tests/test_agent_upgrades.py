@@ -26,7 +26,9 @@ def test_vector_memory():
     stats = get_vector_stats()
     assert stats["total_vectors"] >= 2
 
-def test_react_agent():
+def test_react_agent(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
     tools = GLOBAL_TOOL_REGISTRY.list_tools()
     tool_names = [t["name"] for t in tools]
     assert "bash" in tool_names
@@ -34,9 +36,10 @@ def test_react_agent():
     assert "git_status" in tool_names
 
     res = run_react_task("Check git status and summarize")
-    assert res["status"] == "completed"
+    assert res["status"] == "pending_approval"
     assert len(res["steps"]) > 0
-    assert "reflection" in res
+    assert "pending explicit operator approval" in res["reflection"]
+    assert '"approval_required": true' in res["steps"][0]["observation"]
 
 def test_swarm_orchestrator():
     res = run_swarm("Refactor router and run test suite")

@@ -1,5 +1,5 @@
+from executor.remote_llm import ask_remote_llm
+
+
 def ask_llm(prompt):
-    return {
-        "response": f"[MOCK LLM] {prompt}",
-        "success": True
-    }
+    return ask_remote_llm(prompt)

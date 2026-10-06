@@ -45,34 +45,26 @@ def _load(path: Path, default):
 
 
 def _system_status_answer() -> str:
-    missions_data = _load(DATA / "missions.json", [])
-    goals_data = _load(DATA / "goals_v2.json", {})
-    brain_data = _load(DATA / "brain_state.json", {})
+    try:
+        from executor.goal_system import goal_status
+        from executor.mission_system import mission_status, pending_approvals
+        from executor.operator_approval import list_approvals
 
-    total_missions = len(missions_data) if isinstance(missions_data, list) else 0
-    active = sum(1 for m in missions_data if isinstance(m, dict) and m.get("status") in ("active", "running")) if isinstance(missions_data, list) else 0
-    done = sum(1 for m in missions_data if isinstance(m, dict) and m.get("status") == "done") if isinstance(missions_data, list) else 0
-    blocked = sum(1 for m in missions_data if isinstance(m, dict) and m.get("status") == "blocked") if isinstance(missions_data, list) else 0
+        goals = goal_status()
+        missions = mission_status()
+        mission_approvals = pending_approvals()
+        operator_approvals = list_approvals(status="pending")
+        approval_count = mission_approvals["count"] + len(operator_approvals)
+    except Exception:
+        return "Δεν μπόρεσα να διαβάσω την τρέχουσα κατάσταση του συστήματος."
 
-    goals_list = goals_data.get("goals", []) if isinstance(goals_data, dict) else []
-    total_goals = len(goals_list)
-
-    brain_level = brain_data.get("level", "—") if isinstance(brain_data, dict) else "—"
-
-    lines = ["**Κατάσταση NOUS AI OS** ✅", ""]
-    lines.append("• Σύστημα: **online**")
-    lines.append(f"• Επίπεδο εγκεφάλου: **{brain_level}**")
-    lines.append(f"• Αποστολές: **{total_missions}** συνολικά — {active} ενεργές, {done} ολοκληρωμένες, {blocked} blocked")
-    lines.append(f"• Στόχοι: **{total_goals}** καταγεγραμμένοι")
-
-    if total_goals > 0 and isinstance(goals_list, list):
-        for g in goals_list[:3]:
-            title = g.get("title") or g.get("goal") or str(g) if isinstance(g, dict) else str(g)
-            lines.append(f"  — {title}")
-
-    lines.append("")
-    lines.append("Πες μου τι θέλεις να κάνουμε ή ρώτησέ με οτιδήποτε.")
-    return "\n".join(lines)
+    return "\n".join([
+        "**Κατάσταση NOUS AI OS**",
+        "",
+        f"• Αποστολές: {missions['total']} συνολικά — {missions['active']} ενεργές, {missions['done']} ολοκληρωμένες, {missions['blocked']} μπλοκαρισμένες",
+        f"• Στόχοι: {goals['total']} συνολικά — {goals['active']} ενεργοί",
+        f"• Εκκρεμείς εγκρίσεις: {approval_count}",
+    ])
 
 
 def _missions_answer() -> str:
@@ -93,16 +85,14 @@ def _missions_answer() -> str:
 
 
 def _goals_answer() -> str:
-    goals_data = _load(DATA / "goals_v2.json", {})
-    goals_list = goals_data.get("goals", []) if isinstance(goals_data, dict) else []
-    if not goals_list:
-        return "Δεν υπάρχουν καταγεγραμμένοι στόχοι ακόμα. Γράψε: στόχος <τι θέλεις να πετύχεις>"
+    from executor.goal_system import list_goals
 
-    lines = [f"**Στόχοι** ({len(goals_list)} συνολικά):", ""]
-    for g in goals_list[:8]:
-        title = g.get("title") or g.get("goal") or str(g) if isinstance(g, dict) else str(g)
-        lines.append(f"🎯 {title}")
+    goals = list_goals()
+    if not goals:
+        return "Δεν υπάρχουν καταγεγραμμένοι στόχοι ακόμα. Μπορείς να δημιουργήσεις έναν γράφοντας «Δημιούργησε στόχο: …»."
 
+    lines = [f"**Στόχοι** ({len(goals)} συνολικά):", ""]
+    lines.extend(f"🎯 {goal.get('title', 'Χωρίς τίτλο')}" for goal in goals[:8])
     return "\n".join(lines)
 
 def natural_chat_answer(message: str) -> dict[str, Any] | None:
@@ -130,6 +120,57 @@ def natural_chat_answer(message: str) -> dict[str, Any] | None:
             "• **Κατάσταση** — πες «κατάσταση» για live εικόνα συστήματος"
         )
         return pack(answer, "capabilities")
+
+    goal_match = re.match(
+        r"^(?:δημιούργησε|δημιουργησε|βάλε|βαλε|πρόσθεσε|προσθεσε|create)\s+(?:(?:έναν?|a)\s+)?(?:στόχο|στοχο|goal)\s*[:\-]?\s*(.+)$",
+        message,
+        re.IGNORECASE,
+    )
+    if goal_match:
+        title = goal_match.group(1).strip().rstrip(";?!.·")
+        if not title:
+            return pack("Γράψε τον τίτλο του στόχου μετά το «Δημιούργησε στόχο:».", "goal_error", ok=False)
+        try:
+            from executor.goal_system import create_goal
+            goal = create_goal(title)
+        except Exception:
+            return pack("Δεν μπόρεσα να αποθηκεύσω τον στόχο.", "goal_error", ok=False)
+        if not isinstance(goal, dict) or not goal.get("id"):
+            return pack("Δεν μπόρεσα να επιβεβαιώσω την αποθήκευση του στόχου.", "goal_error", ok=False)
+        return pack(f"Καταχωρίστηκε ο στόχος «{goal['title']}».", "goal_created", executed=True, goal_id=str(goal["id"]))
+
+    if re.match(
+        r"^(?:κάνε|κανε|δημιούργησε|δημιουργησε|πάρε|παρε|create|make)\s+(?:(?:ένα|a|an)\s+)?(?:backup|αντίγραφο ασφαλείας)\b",
+        m,
+    ):
+        try:
+            from executor.cloud_brain_backup import create_brain_backup
+            backup = create_brain_backup()
+        except Exception:
+            return pack("Δεν μπόρεσα να δημιουργήσω backup.", "backup_error", ok=False)
+        if not backup.get("ok") or not backup.get("backup"):
+            return pack("Η δημιουργία backup απέτυχε.", "backup_error", ok=False)
+        return pack(f"Δημιουργήθηκε backup: `{backup['backup']}`.", "backup_created", executed=True, backup=backup["backup"])
+
+    weather_match = re.match(
+        r"^(?:τι\s+καιρό(?:\s+(?:κάνει|έχει))?|(?:ο\s+)?καιρός|καιρό|πρόγνωση(?:\s+καιρού)?|weather|forecast)\b\s*(.*)$",
+        m,
+        re.IGNORECASE,
+    )
+    if weather_match:
+        location = re.sub(r"^(?:στην?|στον?|στο|σε|για|in|at|for)\s+", "", weather_match.group(1)).strip(" :,-;?!.")
+        location = re.sub(r"^(?:σήμερα|αύριο|σημερα|αυριο|today|tomorrow)\s+", "", location).strip()
+        try:
+            from executor.weather_engine import get_weather
+            weather = get_weather(location=location or None)
+        except Exception:
+            return pack("Δεν μπόρεσα να ανακτήσω τον καιρό αυτή τη στιγμή.", "weather_error", ok=False)
+        if not weather.get("ok"):
+            message = f"Δεν βρήκα την τοποθεσία «{location}»." if weather.get("error") == "location_not_found" else "Δεν μπόρεσα να ανακτήσω τον καιρό αυτή τη στιγμή."
+            return pack(message, "weather_error", ok=False)
+        current = weather["current"]
+        answer = f"Καιρός για **{weather['location']}**: {current['description']}, {current['temp']}°C, υγρασία {current['humidity']}%, άνεμος {current['wind_kmh']} km/h."
+        return pack(answer, "weather", executed=True, location=weather["location"])
 
     # --- Χαιρετισμοί ---
     if any(x in m for x in ["τι κάνεις", "τι κανεις", "πως είσαι", "πώς είσαι", "πως εισαι"]):
@@ -187,20 +228,10 @@ def natural_chat_answer(message: str) -> dict[str, Any] | None:
                 return pack(answer, "mission_guide")
 
     # --- Autonomous App Builder ---
-    app_build_triggers = [
-        "φτιάξε εφαρμογή", "φτιαξε εφαρμογη", "φτιάξε app", "φτιαξε app",
-        "δημιούργησε εφαρμογή", "δημιουργησε εφαρμογη", "δημιούργησε app", "δημιουργησε app",
-        "χτίσε εφαρμογή", "χτισε εφαρμογη", "χτίσε app", "χτισε app",
-        "κάνε εφαρμογή", "κανε εφαρμογη",
-        "build app", "build an app", "create app", "make app",
-        "φτιάξε web app", "φτιαξε web app",
-        "φτιάξε flask", "φτιαξε flask",
-        "φτιάξε api", "φτιαξε api",
-        "φτιάξε εργαλείο", "φτιαξε εργαλειο",
-        "φτιάξε bot", "φτιαξε bot",
-        "αυτόνομος builder", "autonomous app",
-    ]
-    if any(x in m for x in app_build_triggers):
+    if re.match(
+        r"^(?:φτιάξε|φτιαξε|δημιούργησε|δημιουργησε|χτίσε|χτισε|κάνε|κανε|build|create|make)\s+(?:μου\s+|a\s+|an\s+)?(?:μία?\s+|ένα\s+)?(?:web\s+)?(?:app|εφαρμογή|εφαρμογη)\b",
+        m,
+    ):
         try:
             from executor.app_builder import plan_app
             result = plan_app(message)
@@ -304,10 +335,10 @@ def natural_chat_answer(message: str) -> dict[str, Any] | None:
 
     return None
 
-def pack(answer: str, mode: str) -> dict[str, Any]:
+def pack(answer: str, mode: str, **extra) -> dict[str, Any]:
     return {
-        "ok": True,
-        "executed": False,
+        "ok": extra.pop("ok", True),
+        "executed": extra.pop("executed", False),
         "source": "natural_chat_orchestrator",
         "mode": mode,
         "answer": answer,
@@ -315,4 +346,5 @@ def pack(answer: str, mode: str) -> dict[str, Any]:
         "text": answer,
         "human_answer": answer,
         "sources": [],
+        **extra,
     }

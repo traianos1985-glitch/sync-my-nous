@@ -4957,6 +4957,12 @@ async function appRunToggle(appName, runCmd){
       body: JSON.stringify({app: appName, run_command: runCmd})
     });
     const d = await r.json();
+    if(d.approval_required){
+      if(btn){ btn.textContent="⏳ Έγκριση σε αναμονή"; btn.disabled=false; }
+      if(log) log.textContent = "Η εκκίνηση δεν έγινε. Έλεγξε τις Πρωτοβουλίες και έγκρινε την εκτέλεση.";
+      await loadNousInitiatives();
+      return;
+    }
     // Show repair badge if auto-repair happened
     if(d.repaired && d.repair_msg){
       const card = document.getElementById("appCard_"+appName);

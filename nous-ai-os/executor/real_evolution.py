@@ -2,7 +2,7 @@ import os
 import time
 import ast
 
-from executor.local_llm import ask_llm
+from executor.llm_core import ask
 from executor.plugin_loader import load_plugins
 
 
@@ -61,9 +61,10 @@ STRICT RULES:
 - return dict
 """
 
-        result = ask_llm(prompt)
-
-        return self.clean_code(result)
+        result = ask(prompt)
+        if result.get("mode") == "offline":
+            return ""
+        return self.clean_code(result.get("response", ""))
 
     def save_plugin(self, name, code):
 

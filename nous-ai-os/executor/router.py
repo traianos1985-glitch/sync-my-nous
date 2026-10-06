@@ -102,7 +102,16 @@ from executor.operator_capability_manager import operator_capabilities as operat
 from executor.real_action_gate import real_actions_status, run_real_action
 from executor.android_operator import android_operator_status, tap as android_tap, swipe as android_swipe, keyevent as android_keyevent
 from executor.browser_operator import browser_operator_status, open_url as operator_open_url, prepare_click, prepare_fill_form, prepare_login
-from executor.operator_approval import list_approvals, approve, reject
+from executor.operator_approval import (
+    list_approvals,
+    get_approval,
+    request_approval,
+    approve,
+    reject,
+    claim_approved_approval,
+    finish_approval,
+)
+from executor.command_tools import run_command
 from executor.git_workflow import git_workflow_status, git_safe_checkpoint
 from executor.web_deploy_manager import deploy_status, register_local_deploy
 from executor.android_actions_v2 import android_actions_status, run_android_action
@@ -217,10 +226,7 @@ def remote_agent_approve_route(proposal_id):
     return jsonify(approve_agent_proposal(proposal_id))
 
 def _chat_intent_route(msg: str):
-    """Detect app-build / upgrade intents in chat and route them automatically.
-    Returns a response dict if intent matched, None otherwise.
-    """
-    import threading as _th
+    """Route narrowly worded chat intents that have a real backend action."""
     import re as _re
 
     if not msg or len(msg.strip()) < 4:
@@ -228,64 +234,43 @@ def _chat_intent_route(msg: str):
 
     m = msg.lower().strip()
 
-    # ── Detect: "φτιάξε / δημιούργησε / φτιάξε μου / κάνε / make / build / create" + app/εφαρμογή
-    _APP_VERBS = r"(φτιάξε|φτιάξε μου|δημιούργησε|κάνε|φτιαχτεί|make|build|create|σχεδίασε)"
-    _APP_NOUNS = r"(app|εφαρμογή|application|webapp|web app|πρόγραμμα|tool|εργαλείο)"
-    if _re.search(_APP_VERBS, m) and _re.search(_APP_NOUNS, m):
-        def _build():
-            try:
-                result = plan_app(msg)
-                plan_id = result.get("plan_id")
-                if plan_id and result.get("ok") is not False:
-                    approve_and_write(plan_id)
-            except Exception:
-                pass
-        _th.Thread(target=_build, daemon=True).start()
-        app_hint = msg[:80].strip()
+    upgrade_request = _re.match(
+        r"^(?:please\s+)?(?:αναβάθμισε|αναβαθμισε|βελτίωσε|βελτιωσε|κάνε αναβάθμιση|κανε αναβαθμιση|upgrade|update)\s+(?:τον\s+)?(?:νους|nous|εαυτό σου|yourself)\b",
+        m,
+    )
+    if upgrade_request:
+        try:
+            result = propose_upgrade_plan()
+        except Exception:
+            result = {"ok": False}
+        plan = result.get("plan") if isinstance(result, dict) else None
+        if result.get("ok") and isinstance(plan, dict) and plan.get("id"):
+            pending = plan.get("status") == "pending"
+            return {
+                "ok": True,
+                "source": "chat_intent_upgrade",
+                "answer": (
+                    "Δημιουργήθηκε πρόταση αναβάθμισης και παραμένει σε αναμονή. Δεν ξεκίνησε καμία αλλαγή. Έλεγξέ την και ενέκρινέ την από τις Πρωτοβουλίες."
+                    if pending else f"Υπάρχει πρόσφατη πρόταση αναβάθμισης με κατάσταση «{plan.get('status', 'άγνωστη')}». Δεν ξεκίνησε νέα αλλαγή."
+                ),
+                "response": "Η πρόταση αναβάθμισης περιμένει έγκριση." if pending else "Δεν ξεκίνησε νέα αναβάθμιση.",
+                "text": "Η πρόταση αναβάθμισης περιμένει έγκριση." if pending else "Δεν ξεκίνησε νέα αναβάθμιση.",
+                "executed": False,
+                "intent": "upgrade_nous",
+                "plan_id": str(plan["id"]),
+                "nav_hint": "initiatives",
+            }
         return {
-            "ok": True,
-            "source": "chat_intent_app_builder",
-            "answer": (
-                f"🚀 **Ξεκίνησε η κατασκευή!**\n\n"
-                f"Ο ΝΟΥΣ δουλεύει στην εφαρμογή: *{app_hint}*\n\n"
-                f"➡️ Πήγαινε στο **App Builder** → tab «Builds» για να δεις την πρόοδο και να την τρέξεις όταν είναι έτοιμη.\n\n"
-                f"⏱️ Συνήθως χρειάζεται 10–30 δευτερόλεπτα."
-            ),
-            "response": "App build ξεκίνησε — δες App Builder → Builds.",
-            "text": "App build ξεκίνησε — δες App Builder → Builds.",
-            "executed": True,
-            "intent": "build_app",
-            "nav_hint": "app_builder",
+            "ok": False,
+            "source": "chat_intent_upgrade",
+            "answer": "Δεν μπόρεσα να δημιουργήσω πρόταση αναβάθμισης.",
+            "error": "upgrade_proposal_failed",
+            "executed": False,
         }
 
-    # ── Detect: "αναβάθμισε / upgrade / βελτίωσε + τον εαυτό / τον ΝΟΥΣ / σου"
-    _UPG_VERBS = r"(αναβάθμισε|αναβάθμιση|upgrade|βελτίωσε|βελτίωση|improve|update)"
-    _UPG_TARGET = r"(εαυτό|νους|nous|σου|σε|yourself|yourself)"
-    if _re.search(_UPG_VERBS, m) and (_re.search(_UPG_TARGET, m) or "αναβάθμιση" in m or "upgrade" in m):
-        def _upgrade():
-            try:
-                result = propose_upgrade_plan()
-                plan_id = str(result.get("plan", {}).get("id", ""))
-                if plan_id and not result.get("deduped"):
-                    approve_upgrade_plan(plan_id)
-            except Exception:
-                pass
-        _th.Thread(target=_upgrade, daemon=True).start()
-        return {
-            "ok": True,
-            "source": "chat_intent_upgrade",
-            "answer": (
-                "🔧 **Ξεκίνησε η ανα��άθμιση NOUS!**\n\n"
-                "Ο ΝΟΥΣ αναλύει και γράφει τον νέο κώδικα αυτόματα.\n\n"
-                "➡️ Πήγαινε στο **App Builder** → «Πρωτοβουλίες» για να παρακολουθείς την εκτέλεση.\n\n"
-                "⏱️ Διαρκεί 30–60 δευτερόλεπτα."
-            ),
-            "response": "Upgrade NOUS ξεκίνησε.",
-            "text": "Upgrade NOUS ξεκίνησε.",
-            "executed": True,
-            "intent": "upgrade_nous",
-            "nav_hint": "initiatives",
-        }
+    _APP_REQUEST = r"^(?:φτιάξε|φτιαξε|δημιούργησε|δημιουργησε|χτίσε|χτισε|κάνε|κανε|build|create|make)\s+(?:μου\s+|a\s+|an\s+)?(?:μία?\s+|ένα\s+)?(?:web\s+)?(?:app|εφαρμογή|εφαρμογη|application)\b"
+    if _re.match(_APP_REQUEST, m):
+        return None
 
     # ── Browser operator: safe web research/read actions from natural language
     _BROWSER_SEARCH = r"(ψάξε|αναζήτησε|αναζήτησε στο διαδίκτυο|search|find online|βρες στο web)"
@@ -334,6 +319,8 @@ def _chat_intent_route(msg: str):
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    if not check_token(request):
+        return jsonify({"error": "unauthorized"}), 401
 
     # ── INTENT ROUTING (πριν από όλα τα early returns) ───────────────────────
     try:
@@ -424,8 +411,6 @@ def chat():
     except Exception:
         pass
 
-    if not check_token(request):
-        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json()
     cmd = data.get("command", "")
 
@@ -1121,6 +1106,46 @@ def remote_nous_initiatives():
     except Exception:
         pass
 
+    # ── Shell commands ────────────────────────────────────────────────────────
+    try:
+        for approval in list_approvals(status="pending"):
+            if approval.get("action") == "command_execution":
+                command = approval.get("payload", {}).get("command", "")
+                items.append({
+                    "id": str(approval["id"]),
+                    "type": "command",
+                    "priority": "high",
+                    "icon": "⌨️",
+                    "title": "Έγκριση εντολής",
+                    "description": command,
+                    "risk": "high",
+                    "created": approval.get("created", 0),
+                    "source": "operator_approval",
+                    "approve_route": "/remote/operator/approve-command",
+                    "reject_route": "/remote/operator/reject",
+                    "approve_payload": {"id": approval["id"]},
+                    "reject_payload": {"id": approval["id"]},
+                })
+            elif approval.get("action") == "app_run":
+                payload = approval.get("payload", {})
+                items.append({
+                    "id": str(approval["id"]),
+                    "type": "command",
+                    "priority": "high",
+                    "icon": "▶️",
+                    "title": f"Έγκριση εκτέλεσης εφαρμογής: {payload.get('app', '')}",
+                    "description": f"{payload.get('run_command', '')} · μπορεί να γίνει αυτόματη επιδιόρθωση πριν την εκκίνηση",
+                    "risk": "high",
+                    "created": approval.get("created", 0),
+                    "source": "operator_approval",
+                    "approve_route": "/remote/operator/approve-app-run",
+                    "reject_route": "/remote/operator/reject",
+                    "approve_payload": {"id": approval["id"]},
+                    "reject_payload": {"id": approval["id"]},
+                })
+    except Exception:
+        pass
+
     # ── Upgrade plans ─────────────────────────────────────────────────────────
     try:
         for p in list_upgrade_plans():
@@ -1229,7 +1254,10 @@ def remote_nous_drive_reject():
 # ── NOUS Capabilities: Weather ─────────────────────────────────────────────────
 @app.route("/nous/weather")
 def nous_weather():
-    return jsonify(get_weather(request.args.get("refresh","") == "1"))
+    return jsonify(get_weather(
+        request.args.get("refresh", "") == "1",
+        location=request.args.get("location"),
+    ))
 
 @app.route("/nous/weather/status")
 def nous_weather_status():
@@ -1307,23 +1335,42 @@ def nous_cron_toggle():
 
 @app.route("/remote/nous-initiatives/act", methods=["POST"])
 def remote_nous_initiatives_act():
-    """Unified approve/reject for any initiative type."""
+    """Unified approve/reject for allowlisted initiative actions."""
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
-    action  = data.get("action")   # "approve" | "reject"
-    route   = data.get("route")
+    action = data.get("action")
+    route = data.get("route")
     payload = data.get("payload", {})
-    if not route or action not in ("approve","reject"):
-        return jsonify({"ok": False, "error": "action and route required"})
-    # Internal dispatch — call the route function directly via the app
-    with app.test_request_context(route, method="POST",
-                                  json=payload,
-                                  headers={"X-NOUS-Token": request.headers.get("X-NOUS-Token",""),
-                                           "Authorization": request.headers.get("Authorization","")}):
+    allowed_routes = {
+        ("approve", "/remote/nous-drive/approve"),
+        ("reject", "/remote/nous-drive/reject"),
+        ("approve", "/remote/upgrade-planner/approve"),
+        ("reject", "/remote/upgrade-planner/reject"),
+        ("approve", "/remote/mission-planner/approve"),
+        ("reject", "/remote/mission-planner/reject"),
+        ("approve", "/remote/autonomous-repair/approve"),
+        ("reject", "/remote/autonomous-repair/reject"),
+        ("approve", "/remote/operator/approve-command"),
+        ("approve", "/remote/operator/approve-app-run"),
+        ("reject", "/remote/operator/reject"),
+    }
+    if (action, route) not in allowed_routes or not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "invalid_initiative_action"}), 400
+    with app.test_request_context(
+        route,
+        method="POST",
+        json=payload,
+        headers={
+            "X-NOUS-Token": request.headers.get("X-NOUS-Token", ""),
+            "Authorization": request.headers.get("Authorization", ""),
+        },
+    ):
         try:
             resp = app.full_dispatch_request()
             import json as _j
             body = _j.loads(resp.get_data(as_text=True))
-            return jsonify({"ok": True, "result": body})
+            return jsonify({"ok": resp.status_code < 400 and body.get("ok", True), "result": body}), resp.status_code
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)})
 
@@ -2243,6 +2290,50 @@ def remote_operator_approvals_route():
     return jsonify(list_approvals())
 
 
+@app.route("/remote/operator/approve-command", methods=["POST"])
+def remote_operator_approve_command_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    approval_id = data.get("id")
+    approval = get_approval(approval_id)
+    if not approval or approval.get("action") != "command_execution":
+        return jsonify({"ok": False, "error": "command_approval_not_found"}), 404
+    if not approve(approval_id):
+        return jsonify({"ok": False, "error": "command_approval_not_pending"}), 409
+    result = run_command(approval.get("payload", {}).get("command", ""), approval_id)
+    return jsonify(result), (200 if result.get("ok") else 409)
+
+
+@app.route("/remote/operator/approve-app-run", methods=["POST"])
+def remote_operator_approve_app_run_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    approval_id = data.get("id")
+    approval = get_approval(approval_id)
+    if not approval or approval.get("action") != "app_run":
+        return jsonify({"ok": False, "error": "app_run_approval_not_found"}), 404
+    if not approve(approval_id):
+        return jsonify({"ok": False, "error": "app_run_approval_not_pending"}), 409
+    with app.test_request_context(
+        "/remote/app-builder/run-app",
+        method="POST",
+        json={"app": approval.get("payload", {}).get("app"), "approval_id": approval_id},
+        headers={
+            "X-NOUS-Token": request.headers.get("X-NOUS-Token", ""),
+            "Authorization": request.headers.get("Authorization", ""),
+        },
+    ):
+        try:
+            response = app.full_dispatch_request()
+            import json as _json
+            return jsonify(_json.loads(response.get_data(as_text=True))), response.status_code
+        except Exception as exc:
+            finish_approval(approval_id, "failed", {"error": str(exc)})
+            return jsonify({"ok": False, "error": "app_start_failed"}), 500
+
+
 @app.route("/remote/operator/approve", methods=["POST"])
 def remote_operator_approve_route():
     if not check_admin_token(request):
@@ -2926,6 +3017,8 @@ def app_builder_list_route():
 
 @app.route("/remote/app-builder/plan", methods=["POST"])
 def app_builder_plan_route():
+    if not check_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     description = data.get("description", "").strip()
     if not description:
@@ -2935,6 +3028,8 @@ def app_builder_plan_route():
 
 @app.route("/remote/app-builder/approve", methods=["POST"])
 def app_builder_approve_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     plan_id = data.get("plan_id", "").strip()
     if not plan_id:
@@ -2944,6 +3039,8 @@ def app_builder_approve_route():
 
 @app.route("/remote/app-builder/reject", methods=["POST"])
 def app_builder_reject_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     plan_id = data.get("plan_id", "").strip()
     if not plan_id:
@@ -3099,10 +3196,33 @@ def app_builder_run_app_route():
     global _running_apps
 
     data = request.get_json(silent=True) or {}
-    app_name = data.get("app", "").strip()
-    run_cmd = data.get("run_command", "").strip()
-    if not app_name:
-        return jsonify({"ok": False, "error": "app name required"})
+    app_name = str(data.get("app", "")).strip()
+    approval_id = data.get("approval_id")
+    if not app_name or _P(app_name).name != app_name:
+        return jsonify({"ok": False, "error": "valid app name required"}), 400
+
+    app_dir = _P("apps") / app_name
+    if not app_dir.exists() or not app_dir.is_dir():
+        return jsonify({"ok": False, "error": f"apps/{app_name} not found"}), 404
+
+    run_cmd = _detect_run_command(app_dir)
+    approval_payload = {"app": app_name, "run_command": run_cmd}
+    if not approval_id:
+        approval = request_approval(
+            "app_run",
+            approval_payload,
+            "Starting an app subprocess requires explicit approval",
+        )
+        return jsonify({
+            "ok": False,
+            "approval_required": True,
+            "approval_id": str(approval["id"]),
+            "app": app_name,
+            "run_command": run_cmd,
+        }), 202
+
+    if not claim_approved_approval(approval_id, "app_run", approval_payload):
+        return jsonify({"ok": False, "error": "valid_approval_required"}), 409
 
     # Kill previous instance if running
     if app_name in _running_apps:
@@ -3111,13 +3231,6 @@ def app_builder_run_app_route():
         except Exception:
             pass
         del _running_apps[app_name]
-
-    app_dir = _P("apps") / app_name
-    if not app_dir.exists():
-        return jsonify({"ok": False, "error": f"apps/{app_name} not found"})
-
-    if not run_cmd:
-        run_cmd = _detect_run_command(app_dir)
 
     repair_msg = ""
 
@@ -3157,7 +3270,7 @@ def app_builder_run_app_route():
         elif repair_msg:
             output_text = repair_msg + "\n\n" + output_text
 
-        return jsonify({
+        result = {
             "ok": True,
             "pid": proc.pid,
             "app": app_name,
@@ -3166,9 +3279,12 @@ def app_builder_run_app_route():
             "output": output_text,
             "repaired": bool(repair_msg),
             "repair_msg": repair_msg,
-        })
+        }
+        finish_approval(approval_id, "completed", result)
+        return jsonify(result)
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)})
+        finish_approval(approval_id, "failed", {"error": str(e)})
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/remote/app-builder/app-log")

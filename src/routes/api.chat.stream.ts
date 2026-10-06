@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
+import { geminiModelCandidates, shouldTryGeminiFallback } from "../lib/gemini-models";
 import { db } from "../lib/db";
 import { nousMessages } from "../lib/db/schema";
 import { randomUUID } from "node:crypto";
 
-const GEMINI_STREAM_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικρινής και πρακτικός προσωπικός agent.
 Απάντα φυσικά και ανθρώπινα στα ελληνικά όταν ο χρήστης γράφει ελληνικά.
@@ -52,24 +52,43 @@ export const Route = createFileRoute("/api/chat/stream")({
           { role: "user", parts: [{ text: message }] },
         ];
 
-        let response: Response;
-        try {
-          response = await fetch(`${GEMINI_STREAM_URL}?alt=sse&key=${encodeURIComponent(apiKey)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-              contents,
-              generationConfig: { temperature: 0.3, maxOutputTokens: 1600 },
-            }),
-            signal: AbortSignal.timeout(30_000),
-          });
-        } catch {
-          return Response.json({ ok: false, error: "AI service unavailable" }, { status: 503 });
+        let response: Response | null = null;
+        const models = geminiModelCandidates();
+        for (const [index, model] of models.entries()) {
+          try {
+            response = await fetch(
+              `${GEMINI_API_BASE}/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+                body: JSON.stringify({
+                  systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                  contents,
+                  generationConfig: { temperature: 0.3, maxOutputTokens: 1600 },
+                }),
+                signal: AbortSignal.timeout(30_000),
+              },
+            );
+            if (response.ok && response.body) break;
+            if (index < models.length - 1 && shouldTryGeminiFallback(response.status)) continue;
+            return Response.json(
+              { ok: false, error: "Το AI service δεν είναι διαθέσιμο αυτή τη στιγμή." },
+              { status: 503 },
+            );
+          } catch {
+            if (index === models.length - 1)
+              return Response.json(
+                { ok: false, error: "Το AI service δεν είναι διαθέσιμο αυτή τη στιγμή." },
+                { status: 503 },
+              );
+          }
         }
 
-        if (!response.ok || !response.body) {
-          return Response.json({ ok: false, error: "AI service unavailable" }, { status: 503 });
+        if (!response?.ok || !response.body) {
+          return Response.json(
+            { ok: false, error: "Το AI service δεν είναι διαθέσιμο αυτή τη στιγμή." },
+            { status: 503 },
+          );
         }
 
         const encoder = new TextEncoder();

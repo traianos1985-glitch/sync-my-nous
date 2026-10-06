@@ -120,12 +120,15 @@ def run_agent(message: str, conversation_id: str | None = None, extra_context: s
     # Γύρος 1 — LLM αποφασίζει
     try:
         r1 = ask_with_turns(turns, system=system)
-        response1 = (r1.get("response", "") if isinstance(r1, dict) else "").strip()
+        if not isinstance(r1, dict) or not r1.get("success"):
+            error = r1.get("error", "llm_unavailable") if isinstance(r1, dict) else "llm_unavailable"
+            return {"ok": False, "error": error, "mode": "llm_unavailable"}
+        response1 = str(r1.get("response", "")).strip()
     except Exception:
-        return {"ok": False, "answer": "Σφάλμα επικοινωνίας με το LLM.", "mode": "agent_error"}
+        return {"ok": False, "error": "llm_unavailable", "mode": "llm_unavailable"}
 
     if not response1:
-        return {"ok": False, "answer": "Δεν πήρα απάντηση.", "mode": "agent_error"}
+        return {"ok": False, "error": "llm_empty_response", "mode": "llm_unavailable"}
 
     tool_call = _parse_tool_call(response1)
 
@@ -147,10 +150,14 @@ def run_agent(message: str, conversation_id: str | None = None, extra_context: s
         })
         try:
             r2 = ask_with_turns(turns2, system=system)
-            response2 = (r2.get("response", "") if isinstance(r2, dict) else "").strip()
-            final = response2 if response2 else response1
+            if not isinstance(r2, dict) or not r2.get("success"):
+                error = r2.get("error", "llm_unavailable") if isinstance(r2, dict) else "llm_unavailable"
+                return {"ok": False, "error": error, "mode": "llm_unavailable"}
+            final = str(r2.get("response", "")).strip()
         except Exception:
-            final = response1
+            return {"ok": False, "error": "llm_unavailable", "mode": "llm_unavailable"}
+        if not final:
+            return {"ok": False, "error": "llm_empty_response", "mode": "llm_unavailable"}
     else:
         final = response1
 

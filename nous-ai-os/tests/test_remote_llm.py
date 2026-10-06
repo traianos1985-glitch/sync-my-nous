@@ -1,4 +1,5 @@
 import os
+import os
 from unittest.mock import patch
 
 import pytest
@@ -28,6 +29,65 @@ def test_simple_chat_uses_gemini_and_prefers_current_key_name():
     assert post.call_args.kwargs["params"] == {"key": "current-key"}
     assert post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"] == "hello"
     ollama.assert_not_called()
+
+
+def test_configured_fallback_model_is_used_after_quota_exhaustion():
+    class QuotaResponse:
+        ok = False
+        status_code = 429
+
+        def json(self):
+            return {"error": {"message": "quota exceeded"}}
+
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "GEMINI_API_KEY": "current-key",
+                "GEMINI_MODEL": "gemini-primary",
+                "GEMINI_FALLBACK_MODELS": "gemini-fallback",
+            },
+            clear=True,
+        ),
+        patch.object(remote_llm.requests, "post", side_effect=[QuotaResponse(), FakeResponse()]) as post,
+        patch.object(remote_llm, "ask_ollama") as ollama,
+    ):
+        result = remote_llm.ask_remote_llm("hello")
+
+    assert result["success"] is True
+    assert result["model"] == "gemini-fallback"
+    assert post.call_count == 2
+    assert post.call_args_list[0].args[0].endswith("/gemini-primary:generateContent")
+    assert post.call_args_list[1].args[0].endswith("/gemini-fallback:generateContent")
+    ollama.assert_not_called()
+
+
+def test_all_configured_models_unavailable_returns_failure_without_fake_answer():
+    class QuotaResponse:
+        ok = False
+        status_code = 429
+
+        def json(self):
+            return {"error": {"message": "quota exceeded"}}
+
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "GEMINI_API_KEY": "current-key",
+                "GEMINI_MODEL": "gemini-primary",
+                "GEMINI_FALLBACK_MODELS": "gemini-fallback",
+            },
+            clear=True,
+        ),
+        patch.object(remote_llm.requests, "post", side_effect=[QuotaResponse(), QuotaResponse()]),
+        patch.object(remote_llm, "ask_ollama", return_value={"ok": False}),
+    ):
+        result = remote_llm.ask_remote_llm("hello")
+
+    assert result["success"] is False
+    assert result["model"] == "gemini-fallback"
+    assert "hello" not in result.get("response", "")
 
 
 def test_multiturn_chat_sends_assistant_history_to_gemini():

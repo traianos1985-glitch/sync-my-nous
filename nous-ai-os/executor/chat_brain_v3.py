@@ -237,7 +237,7 @@ def calculator_answer(message: str) -> str:
     expr = expr.replace("υπολόγισε", "").replace("υπολογισε", "")
     expr = expr.replace("πόσο κάνει", "").replace("ποσο κανει", "")
     expr = expr.replace(",", ".")
-    expr = expr.strip()
+    expr = expr.strip().rstrip("?;!·…")
 
     tree = ast.parse(expr, mode="eval")
     result = safe_eval(tree)
@@ -451,7 +451,7 @@ def try_llm_answer(message: str, conversation_id: str | None = None) -> str | No
     except Exception:
         return None
 
-    if isinstance(result, dict):
+    if isinstance(result, dict) and result.get("success"):
         candidate = result.get("response", "")
         if candidate and isinstance(candidate, str) and candidate.strip():
             if looks_corrupted_answer(candidate):
@@ -678,13 +678,6 @@ def should_skip_knowledge_and_web(message: str) -> bool:
     return False
 
 
-def fallback_answer(message: str) -> str:
-    return (
-        "Σε ακούω. Μπορώ να απαντήσω σε απλή συζήτηση, να ψάξω στα μαθημένα έγγραφα, "
-        "να κάνω internet search όταν μου το ζητήσεις, ή να δημιουργήσω αποστολή μόνο με /plan ή /run."
-    )
-
-
 def answer_chat(
     message: str,
     conversation_id: str | None = None,
@@ -790,8 +783,7 @@ def answer_chat(
     if answer is None:
         answer = casual_answer(message)
 
-    # Agent loop — LLM αποφασίζει ο ίδιος αν θέλει tools ή απαντά απευθείας.
-    # Αντικαθιστά την τυφλή web search για γενικές ερωτήσεις.
+    llm_unavailable = False
     if answer is None:
         try:
             from executor.agent_loop import run_agent
@@ -802,17 +794,28 @@ def answer_chat(
                 tool_used = agent_result.get("tool_used")
                 if tool_used:
                     sources = [{"document": f"tool:{tool_used}"}]
+            elif agent_result.get("mode") == "llm_unavailable":
+                llm_unavailable = True
         except Exception:
             pass
 
-    # Fallback: απλό LLM call αν το agent loop απέτυχε
-    if answer is None:
+    if answer is None and not llm_unavailable:
         answer = try_llm_answer(message, conversation_id=conversation_id)
         if answer:
             mode = "llm_chat"
 
     if answer is None:
-        answer = fallback_answer(message)
+        return {
+            "ok": False,
+            "executed": False,
+            "source": "chat_brain_v3",
+            "mode": "degraded",
+            "error": "llm_unavailable",
+            "answer": "Δεν είναι διαθέσιμο αυτή τη στιγμή κανένα AI μοντέλο για να απαντήσω. Δεν εκτελέστηκε καμία ενέργεια. Δοκίμασε ξανά αργότερα.",
+            "response": "Δεν είναι διαθέσιμο αυτή τη στιγμή κανένα AI μοντέλο για να απαντήσω. Δεν εκτελέστηκε καμία ενέργεια. Δοκίμασε ξανά αργότερα.",
+            "text": "Δεν είναι διαθέσιμο αυτή τη στιγμή κανένα AI μοντέλο για να απαντήσω. Δεν εκτελέστηκε καμία ενέργεια. Δοκίμασε ξανά αργότερα.",
+            "human_answer": "Δεν είναι διαθέσιμο αυτή τη στιγμή κανένα AI μοντέλο για να απαντήσω. Δεν εκτελέστηκε καμία ενέργεια. Δοκίμασε ξανά αργότερα.",
+        }
 
     if looks_corrupted_answer(answer):
         answer = safe_llm_fallback()

@@ -4,10 +4,38 @@ Provides a structured Thought -> Action -> Observation -> Reflection loop with a
 extensible dynamic tool registry.
 """
 import os
-import subprocess
 import json
 import time
 from typing import Any, Callable, Dict, List, Optional
+
+from executor.command_tools import run_command
+
+
+def _run_approved_command(cmd: str) -> str:
+    return json.dumps(run_command(cmd), ensure_ascii=False)
+
+
+def _approval_pending(observation: str) -> bool:
+    try:
+        return bool(json.loads(observation).get("approval_required"))
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
+def _command_failed(observation: str) -> bool:
+    try:
+        result = json.loads(observation)
+        return (result.get("ok") is False or "error" in result) and not result.get("approval_required")
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
+PENDING_MESSAGE = "Command execution is pending explicit operator approval."
+FAILED_MESSAGE = "The requested command did not complete."
+COMPLETED_MESSAGE = "Read-only inspection completed."
+TOOL_DESCRIPTION = "Requests explicit operator approval before running an allowlisted command."
+GIT_DESCRIPTION = "Requests explicit operator approval before checking git status."
+
 
 class ToolRegistry:
     def __init__(self):
@@ -37,22 +65,7 @@ class ToolRegistry:
 
     def _register_default_tools(self):
         def bash_tool(cmd: str) -> str:
-            blocked = ["rm -rf /", "mkfs", ":(){ :|:& };:", "dd if="]
-            if any(b in cmd for b in blocked):
-                return "[ERROR]: Command blocked by safety policy."
-            try:
-                res = subprocess.run(
-                    cmd, shell=True, capture_output=True, text=True, timeout=15
-                )
-                out = res.stdout.strip()
-                err = res.stderr.strip()
-                if err:
-                    return f"[OUTPUT]:\n{out}\n[STDERR]:\n{err}" if out else f"[STDERR]:\n{err}"
-                return out or "[SUCCESS - No output]"
-            except subprocess.TimeoutExpired:
-                return "[ERROR]: Command timed out after 15 seconds."
-            except Exception as e:
-                return f"[ERROR]: {str(e)}"
+            return _run_approved_command(cmd)
 
         def read_file_tool(path: str) -> str:
             try:
@@ -81,17 +94,13 @@ class ToolRegistry:
                 return f"[ERROR]: {str(e)}"
 
         def git_status_tool() -> str:
-            try:
-                res = subprocess.run("git status --short", shell=True, capture_output=True, text=True, timeout=5)
-                return res.stdout.strip() or "Working tree clean."
-            except Exception as e:
-                return f"[ERROR]: {str(e)}"
+            return _run_approved_command("git status --short")
 
-        self.register("bash", bash_tool, "Runs a bash command securely with a 15s timeout.", {"cmd": "string"})
+        self.register("bash", bash_tool, TOOL_DESCRIPTION, {"cmd": "string"})
         self.register("read_file", read_file_tool, "Reads up to 8KB of a file path.", {"path": "string"})
         self.register("write_file", write_file_tool, "Writes text to a specified file path.", {"path": "string", "content": "string"})
         self.register("list_dir", list_dir_tool, "Lists files and folders inside a directory.", {"path": "string"})
-        self.register("git_status", git_status_tool, "Shows git working directory status.", {})
+        self.register("git_status", git_status_tool, GIT_DESCRIPTION, {})
 
 GLOBAL_TOOL_REGISTRY = ToolRegistry()
 
@@ -132,11 +141,20 @@ class ReActAgent:
             step = self.execute_step("Checking current working directory.", "list_dir", {"path": "."})
             steps.append(step)
 
-        reflection = f"Completed {len(steps)} actions towards goal: '{task}'. Environment validated."
-        
+        observations = [step["observation"] for step in steps]
+        if any(_approval_pending(observation) for observation in observations):
+            status = "pending_approval"
+            reflection = PENDING_MESSAGE
+        elif any(_command_failed(observation) for observation in observations):
+            status = "failed"
+            reflection = FAILED_MESSAGE
+        else:
+            status = "completed"
+            reflection = COMPLETED_MESSAGE
+
         return {
             "task": task,
-            "status": "completed",
+            "status": status,
             "steps": steps,
             "reflection": reflection,
             "finished_at": time.time()
