@@ -1,5 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { ChatMarkdown } from "@/components/nous/chat-markdown";
+import { sectionConfigs } from "@/components/nous/section-configs";
+import { SectionPanel } from "@/components/nous/section-panel";
+import { stripMarkdown } from "@/lib/strip-markdown";
 import {
   Activity,
   ArrowUpRight,
@@ -17,6 +21,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Sparkles,
+  Square,
   X,
   UploadCloud,
 } from "lucide-react";
@@ -25,6 +30,7 @@ import {
   clearNousToken,
   getNousToken,
   hasConfiguredNousApi,
+  hasStoredNousToken,
   nousFetch,
   nousStream,
   setNousToken,
@@ -73,33 +79,17 @@ const capabilities = [
   "scheduler",
 ];
 
-const initiatives: Array<{ title: string; why: string }> = [];
-
-const commandSignals = [
-  { label: "Brain", value: "Ready", detail: "context indexed", tone: "text-ok", icon: Sparkles },
-  {
-    label: "Missions",
-    value: "—",
-    detail: "άνοιξε για live",
-    tone: "text-primary",
-    icon: Activity,
-  },
-  { label: "Memory", value: "—", detail: "δεν έχει μετρηθεί", tone: "text-signal", icon: ScanLine },
-  {
-    label: "Evaluation",
-    value: "—",
-    detail: "response quality",
-    tone: "text-violet-300",
-    icon: Activity,
-  },
-  {
-    label: "Guard",
-    value: "Approvals",
-    detail: "άνοιξε την ουρά",
-    tone: "text-warn",
-    icon: ShieldCheck,
-  },
-];
+type Initiative = {
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  priority?: string;
+  approve_route?: string;
+  approve_payload?: Record<string, unknown>;
+  reject_route?: string;
+  reject_payload?: Record<string, unknown>;
+};
 
 type Citation = {
   title: string;
@@ -110,7 +100,7 @@ type Citation = {
 };
 
 type SpeechRecognitionEventLike = Event & {
-  results: { [index: number]: { [index: number]: { transcript: string } } };
+  results: { length: number; [index: number]: { [index: number]: { transcript: string } } };
 };
 type SpeechRecognitionLike = {
   lang: string;
@@ -137,7 +127,49 @@ type ChatMessage = {
   text: string;
   citations?: Citation[];
   feedback?: "positive" | "negative";
+  error?: boolean;
+  retryText?: string;
 };
+
+const chatStorageKey = "nous-chat-v1";
+
+function loadStoredChat(): { messages: ChatMessage[]; conversationId: string | null } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(chatStorageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { messages?: ChatMessage[]; conversationId?: string | null };
+    if (!Array.isArray(parsed.messages) || parsed.messages.length === 0) return null;
+    return { messages: parsed.messages, conversationId: parsed.conversationId ?? null };
+  } catch {
+    return null;
+  }
+}
+
+function sourcesToCitations(sources: unknown): Citation[] {
+  if (!Array.isArray(sources)) return [];
+  const citations: Citation[] = [];
+  for (const source of sources) {
+    const raw =
+      typeof source === "string"
+        ? source
+        : source && typeof source === "object"
+          ? ((source as { url?: string; document?: string }).url ??
+            (source as { document?: string }).document)
+          : undefined;
+    if (!raw || !/^https?:\/\//.test(raw)) continue;
+    try {
+      const url = new URL(raw);
+      const title = (source as { title?: string }).title ?? url.hostname;
+      if (!citations.some((citation) => citation.url === url.href)) {
+        citations.push({ title, url: url.href, domain: url.hostname.replace(/^www\./, "") });
+      }
+    } catch {
+      continue;
+    }
+  }
+  return citations;
+}
 
 const initialChat: ChatMessage[] = [
   {
@@ -146,36 +178,6 @@ const initialChat: ChatMessage[] = [
     text: "Καλώς ήρθες. Είμαι ο NOUS. Μπορώ να συζητήσω φυσικά, να αναλύσω στόχους, να προτείνω βήματα και —όταν είναι συνδεδεμένο το backend— να εκτελέσω εγκεκριμένες ενέργειες. Δεν θα παρουσιάσω ποτέ μια πρόταση ως ολοκληρωμένη ενέργεια χωρίς επιβεβαίωση.",
   },
 ];
-
-function answerLocally(input: string) {
-  const text = input.toLocaleLowerCase("el-GR");
-
-  if (
-    /(τι μπορείς|τι μπορεις|τι πραγματικ|τι πραγματικ|δυνατότητ|δυνατοτητ|help|βοήθεια|βοηθεια)/.test(
-      text,
-    )
-  ) {
-    return "Μπορώ να διαχειριστώ τοπικά το workspace: να εμφανίσω τα missions, να εξηγήσω την κατάσταση του συστήματος, να ξεκινήσω ή να προγραμματίσω backup και να σε οδηγήσω στις ενότητες Chat, Missions, Memory και System. Δεν προσποιούμαι ότι εκτέλεσα εξωτερική ενέργεια χωρίς συνδεδεμένο backend.";
-  }
-
-  if (/(mission|αποστολ|τρέχ|τρεχ)/.test(text)) {
-    return "Δεν υπάρχει σύνδεση με το backend, οπότε δεν μπορώ να δω τα πραγματικά missions. Άνοιξε την ενότητα Missions όταν το backend είναι συνδεδεμένο για την πραγματική κατάσταση κάθε αποστολής.";
-  }
-
-  if (/(backup|αντίγραφο|αντιγραφο)/.test(text)) {
-    return "Μπορώ να προετοιμάσω backup μόνο όταν είναι διαθέσιμος ο τοπικός NOUS backend. Αυτή τη στιγμή δεν θα ισχυριστώ ότι δημιουργήθηκε αρχείο: το UI λειτουργεί offline και εμφανίζει την κατάσταση χωρίς να εκτελεί filesystem ενέργειες.";
-  }
-
-  if (/(health|υγεία|υγεια|κατάσταση|κατασταση|status)/.test(text)) {
-    return "Κατάσταση UI: online. Αυτός ο browser workspace λειτουργεί τοπικά, αλλά δεν υπάρχει ενεργή σύνδεση με τον Flask/NOUS backend. Για πραγματικά missions, μνήμη και backup χρειάζεται να τρέχει το backend service.";
-  }
-
-  if (/(chat|συνομιλ|workspace|πού|που|βρω)/.test(text)) {
-    return "Είσαι ήδη στο Chat workspace. Από το μενού μπορείς να ανοίξεις Home, Missions, Memory και System. Σε κινητό, πάτησε το κουμπί του μενού επάνω αριστερά.";
-  }
-
-  return `Κατάλαβα το αίτημα: «${input.trim()}». Μπορώ να απαντήσω για τοπική κατάσταση, missions, backup και τις ενότητες του workspace. Για ενέργειες στον πραγματικό υπολογιστή χρειάζεται συνδεδεμένος NOUS backend.`;
-}
 
 type SystemStatus = {
   status: string;
@@ -202,14 +204,61 @@ function Dashboard() {
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState("el-GR");
   const [pushToTalk, setPushToTalk] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [chatLoaded, setChatLoaded] = useState(false);
+  const [thinkingSlow, setThinkingSlow] = useState(false);
+  const [initiatives, setInitiatives] = useState<Initiative[]>([]);
+  const [initiativesState, setInitiativesState] = useState<"idle" | "loading" | "error">("idle");
+  const [companionStatus, setCompanionStatus] = useState<{
+    available?: boolean;
+    commands?: string[];
+  } | null>(null);
+  const [githubStatus, setGithubStatus] = useState<string>("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const chatAbortRef = useRef<AbortController | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const stored = loadStoredChat();
+    if (stored) {
+      setMessages(stored.messages);
+      setConversationId(stored.conversationId);
+    }
+    setChatLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!chatLoaded) return;
+    try {
+      window.localStorage.setItem(chatStorageKey, JSON.stringify({ messages, conversationId }));
+    } catch {
+      // Storage full or disabled: chat still works for this page view.
+    }
+  }, [messages, conversationId, chatLoaded]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, isThinking, section]);
+
+  useEffect(() => {
+    if (!isThinking) {
+      setThinkingSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setThinkingSlow(true), 8000);
+    return () => window.clearTimeout(timer);
+  }, [isThinking]);
 
   useEffect(() => {
     void loadSystemStatus();
+    void loadEvaluationMetrics();
+    void loadKnowledgeDocuments();
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     setVoiceSupported(Boolean(Recognition && "speechSynthesis" in window));
     return () => {
       recognitionRef.current?.stop();
+      chatAbortRef.current?.abort();
       window.speechSynthesis?.cancel();
     };
   }, []);
@@ -217,33 +266,48 @@ function Dashboard() {
   const speak = (text: string) => {
     if (!voiceEnabled || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const spoken = stripMarkdown(text);
+    if (!spoken) return;
+    const utterance = new SpeechSynthesisUtterance(spoken);
     utterance.lang = voiceLanguage;
     utterance.rate = 1;
     window.speechSynthesis.speak(utterance);
   };
 
-  const toggleListening = () => {
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  };
+
+  const startListening = () => {
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
-    if (!Recognition) return;
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
+    if (!Recognition || isListening) return;
+    window.speechSynthesis?.cancel();
+    const autoSend = pushToTalk;
     const recognition = new Recognition();
     recognition.lang = voiceLanguage;
-    recognition.continuous = false;
+    recognition.continuous = autoSend;
     recognition.interimResults = false;
     recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript ?? "";
-      setDraft((current) => `${current} ${transcript}`.trim());
+      const transcript = Array.from({ length: event.results.length }, (_, index) =>
+        String(event.results[index]?.[0]?.transcript ?? ""),
+      )
+        .join(" ")
+        .trim();
+      if (!transcript) return;
+      if (autoSend) void send(transcript);
+      else setDraft((current) => `${current} ${transcript}`.trim());
     };
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => setIsListening(false);
     recognitionRef.current = recognition;
     setIsListening(true);
     recognition.start();
+  };
+
+  const toggleListening = () => {
+    if (isListening) stopListening();
+    else startListening();
   };
   const [researchMode, setResearchMode] = useState<"auto" | "off" | "deep">("auto");
   const [connectionMode, setConnectionMode] = useState<"connected" | "degraded" | null>(null);
@@ -255,6 +319,7 @@ function Dashboard() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [tokenDraft, setTokenDraft] = useState("");
   const [hasToken, setHasToken] = useState(() => Boolean(getNousToken()));
+  const [hasSessionToken, setHasSessionToken] = useState(() => hasStoredNousToken());
   const [geminiTestState, setGeminiTestState] = useState<"idle" | "testing" | "ok" | "error">(
     "idle",
   );
@@ -283,7 +348,6 @@ function Dashboard() {
   >([]);
   const [auditStatus, setAuditStatus] = useState<"idle" | "loading" | "error">("idle");
   const [auditFilter, setAuditFilter] = useState("");
-  const [providerAction, setProviderAction] = useState<string | null>(null);
   const [sentinelError, setSentinelError] = useState(false);
   const [knowledgeDocuments, setKnowledgeDocuments] = useState<
     Array<{
@@ -568,64 +632,229 @@ function Dashboard() {
     setApprovals((items) => items.filter((item) => item.id !== id));
   };
 
-  const send = async () => {
-    const text = draft.trim();
+  const send = async (textOverride?: string, options: { retry?: boolean } = {}) => {
+    const text = (textOverride ?? draft).trim();
     if (!text || isThinking) return;
-    const history = messages.slice(-10);
-    const userMessageId = crypto.randomUUID();
-    setMessages((m) => [...m, { id: userMessageId, role: "user", text }]);
-    setDraft("");
+    const history = messages
+      .filter((message) => message.id !== "welcome" && !message.error)
+      .slice(-10)
+      .map(({ role, text: content }) => ({ role, content }));
+    if (!options.retry) {
+      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text }]);
+    } else {
+      setMessages((m) => m.filter((message) => !(message.error && message.retryText === text)));
+    }
+    if (textOverride === undefined) setDraft("");
     setIsThinking(true);
+    const controller = new AbortController();
+    chatAbortRef.current = controller;
 
     try {
+      if (!getNousToken() && hasConfiguredNousApi()) {
+        throw new Error(
+          "Δεν έχει οριστεί NOUS token. Άνοιξε Settings και αποθήκευσε το token για να μιλήσεις με τον NOUS.",
+        );
+      }
       const data = await nousFetch<{
         answer?: string;
         human_answer?: string;
         response?: string;
+        text?: string;
         error?: string;
-        mode?: "connected" | "degraded";
-        researchUsed?: boolean;
-        citations?: Array<{ title: string; url: string; domain: string }>;
+        mode?: string;
+        conversation_id?: string | number;
+        sources?: unknown;
+        citations?: Citation[];
       }>("/api/chat", {
         method: "POST",
-        body: JSON.stringify({ message: text, history, researchMode }),
+        body: JSON.stringify({
+          message: text,
+          history,
+          researchMode,
+          research_mode: researchMode,
+          conversation_id: conversationId ?? undefined,
+        }),
+        signal: controller.signal,
+        timeoutMs: 120_000,
       });
-      const answer = data.human_answer ?? data.answer ?? data.response;
-      if (!answer) throw new Error(data.error ?? "Chat unavailable");
-      setConnectionMode(data.mode ?? "connected");
-      const suffix =
-        data.mode === "degraded"
-          ? "\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]"
-          : data.researchUsed && data.citations?.length
-            ? `\n\n[Πηγές: ${data.citations.map((citation) => citation.domain).join(", ")}]`
-            : "";
+      const answer = data.human_answer ?? data.answer ?? data.response ?? data.text;
+      if (!answer) throw new Error(data.error ?? "Ο NOUS επέστρεψε κενή απάντηση.");
+      setConnectionMode(data.mode === "degraded" ? "degraded" : "connected");
+      if (data.conversation_id !== undefined && data.conversation_id !== null) {
+        setConversationId(String(data.conversation_id));
+      }
+      const citations = data.citations?.length ? data.citations : sourcesToCitations(data.sources);
       setMessages((m) => [
         ...m,
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          text: `${answer}${suffix}`,
-          citations: data.researchUsed ? data.citations : undefined,
+          text: answer,
+          citations: citations.length ? citations : undefined,
         },
       ]);
       speak(answer);
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setMessages((m) => [
+          ...m,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            text: "Η απάντηση διακόπηκε.",
+            error: true,
+            retryText: text,
+          },
+        ]);
+        return;
+      }
       console.error("[nous] Chat request failed", error);
-      const localAnswer = answerLocally(text);
       setConnectionMode("degraded");
       setMessages((m) => [
         ...m,
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          text: `${localAnswer}\n\n[Περιορισμένη λειτουργία: δεν εκτελέστηκε εξωτερική ενέργεια.]`,
+          text: `Δεν πήρα απάντηση από τον NOUS: ${error instanceof Error ? error.message : "άγνωστο σφάλμα"}`,
+          error: true,
+          retryText: text,
         },
       ]);
-      speak(localAnswer);
     } finally {
+      chatAbortRef.current = null;
       setIsThinking(false);
     }
   };
+
+  const stopChat = () => chatAbortRef.current?.abort();
+
+  const clearChat = () => {
+    chatAbortRef.current?.abort();
+    window.speechSynthesis?.cancel();
+    setMessages(initialChat);
+    setConversationId(null);
+    setConnectionMode(null);
+  };
+
+  const loadInitiatives = async () => {
+    setInitiativesState("loading");
+    try {
+      const data = await nousFetch<{ initiatives?: Initiative[] }>("/remote/nous-initiatives");
+      setInitiatives(data.initiatives ?? []);
+      setInitiativesState("idle");
+    } catch {
+      setInitiativesState("error");
+    }
+  };
+
+  const resolveInitiative = async (initiative: Initiative, action: "approve" | "reject") => {
+    const route = action === "approve" ? initiative.approve_route : initiative.reject_route;
+    const payload = action === "approve" ? initiative.approve_payload : initiative.reject_payload;
+    if (!route) return;
+    try {
+      await nousFetch("/remote/nous-initiatives/act", {
+        method: "POST",
+        body: JSON.stringify({ action, route, payload: payload ?? {} }),
+        timeoutMs: 90_000,
+      });
+    } catch {
+      setInitiativesState("error");
+      return;
+    }
+    await loadInitiatives();
+  };
+
+  const loadCompanionStatus = async () => {
+    try {
+      setCompanionStatus(
+        await nousFetch<{ available?: boolean; commands?: string[] }>("/remote/companion/status"),
+      );
+    } catch {
+      setCompanionStatus(null);
+    }
+  };
+
+  const checkGithubStatus = async () => {
+    setGithubStatus("Έλεγχος…");
+    try {
+      const data = await nousFetch<{ git?: { ok?: boolean; stdout?: string; stderr?: string } }>(
+        "/remote/git/status",
+      );
+      setGithubStatus(
+        data.git?.ok
+          ? `Git OK${data.git.stdout ? ` · ${data.git.stdout.split("\n")[0]}` : ""}`
+          : `Git μη διαθέσιμο στο backend: ${data.git?.stderr?.trim() || "άγνωστο σφάλμα"}`,
+      );
+    } catch (error) {
+      setGithubStatus(error instanceof Error ? error.message : "Αποτυχία ελέγχου git");
+    }
+  };
+
+  const commandSignals = [
+    {
+      label: "Brain",
+      value: systemStatus?.status === "online" ? "Online" : (systemStatus?.status ?? "—"),
+      detail: "άνοιξε Brain & Memory",
+      tone: "text-ok",
+      icon: Sparkles,
+    },
+    {
+      label: "Missions",
+      value: liveStatus === "connected" ? String(liveMissions.length) : "Live",
+      detail: liveStatus === "connected" ? "live stream ενεργό" : "σύνδεση live stream",
+      tone: "text-primary",
+      icon: Activity,
+    },
+    {
+      label: "Memory",
+      value: String(knowledgeDocuments.length),
+      detail: "έγγραφα στο knowledge vault",
+      tone: "text-signal",
+      icon: ScanLine,
+    },
+    {
+      label: "Evaluation",
+      value:
+        evaluationMetrics?.satisfactionRate !== null &&
+        evaluationMetrics?.satisfactionRate !== undefined
+          ? `${Math.round(evaluationMetrics.satisfactionRate * (evaluationMetrics.satisfactionRate <= 1 ? 100 : 1))}%`
+          : "—",
+      detail: `${evaluationMetrics?.total ?? 0} αξιολογήσεις`,
+      tone: "text-violet-300",
+      icon: Activity,
+    },
+    {
+      label: "Guard",
+      value: approvals.length ? String(approvals.length) : "Approvals",
+      detail: "ουρά εγκρίσεων",
+      tone: "text-warn",
+      icon: ShieldCheck,
+    },
+    {
+      label: "Jobs",
+      value: jobHistory.length ? String(jobHistory.length) : "Jobs",
+      detail: "ιστορικό εργασιών",
+      tone: "text-primary",
+      icon: Activity,
+    },
+    {
+      label: "Audit",
+      value: auditEvents.length ? String(auditEvents.length) : "Log",
+      detail: "audit 30 ημερών",
+      tone: "text-signal",
+      icon: ShieldAlert,
+    },
+    {
+      label: "System",
+      value:
+        systemStatus?.metrics?.cpu_percent !== undefined
+          ? `${Math.round(systemStatus.metrics.cpu_percent)}%`
+          : "—",
+      detail: "CPU / RAM / overview",
+      tone: "text-ok",
+      icon: ScanLine,
+    },
+  ];
 
   const submitFeedback = async (messageId: string, rating: "positive" | "negative") => {
     setMessages((current) =>
@@ -646,7 +875,100 @@ function Dashboard() {
   const go = (id: string) => {
     setSection(id);
     setMenuOpen(false);
+    if (id === "home") {
+      void loadSystemStatus();
+      void loadInitiatives();
+      void loadCompanionStatus();
+      void connectMissionStream();
+    }
+    if (id === "missions") void connectMissionStream();
+    if (id === "documents") void loadKnowledgeDocuments();
   };
+
+  const tokenForm = (
+    <form
+      className="mb-3 flex flex-col gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!tokenDraft.trim()) return;
+        try {
+          setNousToken(tokenDraft);
+          setTokenDraft("");
+          setHasToken(true);
+          setHasSessionToken(true);
+          setGeminiTestState("idle");
+          setGeminiTestMessage("");
+          void loadSystemStatus();
+        } catch (error) {
+          setGeminiTestState("error");
+          setGeminiTestMessage(error instanceof Error ? error.message : "Μη έγκυρο NOUS token.");
+        }
+      }}
+    >
+      <label htmlFor="nous-token" className="text-xs text-muted-foreground">
+        NOUS API token{" "}
+        {hasToken ? (
+          <span className="text-primary">
+            {hasSessionToken
+              ? "· αποθηκευμένο σε αυτόν τον browser"
+              : "· ρυθμισμένο από το περιβάλλον"}
+          </span>
+        ) : (
+          <span className="text-warn">· δεν έχει οριστεί</span>
+        )}
+      </label>
+      <div className="flex min-w-0 flex-wrap gap-2">
+        <input
+          id="nous-token"
+          type="password"
+          autoComplete="off"
+          value={tokenDraft}
+          onChange={(event) => setTokenDraft(event.target.value)}
+          placeholder={hasToken ? "Νέο token για αντικατάσταση" : "Επικόλλησε το token"}
+          className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet sm:w-auto sm:flex-1"
+        />
+        <button
+          type="submit"
+          disabled={!tokenDraft.trim()}
+          className="shrink-0 rounded-lg bg-violet px-3 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          Αποθήκευση
+        </button>
+        {hasSessionToken && (
+          <button
+            type="button"
+            onClick={() => {
+              clearNousToken();
+              setHasToken(Boolean(getNousToken()));
+              setHasSessionToken(false);
+              setGeminiTestState("idle");
+              setGeminiTestMessage("");
+              void loadSystemStatus();
+            }}
+            className="shrink-0 rounded-lg border border-border px-3 text-sm text-muted-foreground"
+          >
+            Αφαίρεση
+          </button>
+        )}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Το token είναι password field και μένει μόνο στο session του browser.
+      </p>
+      <button
+        type="button"
+        onClick={() => void testGeminiConnection()}
+        disabled={!hasToken || geminiTestState === "testing"}
+        className="self-start rounded-lg border border-primary/40 px-3 py-2 text-xs font-semibold text-primary disabled:opacity-50"
+      >
+        {geminiTestState === "testing" ? "Έλεγχος Gemini…" : "Έλεγχος επικοινωνίας με Gemini"}
+      </button>
+      {geminiTestMessage && (
+        <p className={`text-xs ${geminiTestState === "ok" ? "text-ok" : "text-warn"}`}>
+          {geminiTestMessage}
+        </p>
+      )}
+    </form>
+  );
 
   return (
     <div className="flex h-dvh min-h-0 w-full min-w-0 max-w-full overflow-hidden bg-background font-sans text-foreground">
@@ -808,7 +1130,9 @@ function Dashboard() {
                       type="button"
                       onClick={() => {
                         const focus = label.toLowerCase();
-                        setActiveFocus(focus);
+                        if (focus === "brain") return go("brain");
+                        if (focus === "memory") return go("documents");
+                        setActiveFocus((current) => (current === focus ? "chat" : focus));
                         if (focus === "guard") void loadApprovals();
                         if (focus === "system") void loadSystemStatus();
                         if (focus === "missions") void connectMissionStream();
@@ -1197,8 +1521,9 @@ function Dashboard() {
                     <button
                       key={label}
                       type="button"
-                      onClick={() => setDraft(prompt)}
-                      className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8"
+                      onClick={() => void send(prompt)}
+                      disabled={isThinking}
+                      className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Icon className="size-3.5 text-primary transition-transform group-hover:scale-110" />
                       <span>{label}</span>
@@ -1209,12 +1534,26 @@ function Dashboard() {
                   {messages.map((m) => (
                     <div
                       key={m.id}
-                      className={`whitespace-pre-wrap rounded-2xl border border-border p-4 text-sm leading-relaxed ${
-                        m.role === "user" ? "self-end bg-violet/15" : "bg-card/80"
+                      className={`min-w-0 max-w-full rounded-2xl border p-4 text-sm leading-relaxed ${
+                        m.role === "user"
+                          ? "self-end whitespace-pre-wrap border-border bg-violet/15"
+                          : m.error
+                            ? "border-rose-400/40 bg-rose-400/5 text-rose-100"
+                            : "border-border bg-card/80"
                       }`}
                     >
-                      {m.text}
-                      {m.role === "assistant" && m.id !== "welcome" && (
+                      {m.role === "user" ? m.text : <ChatMarkdown text={m.text} />}
+                      {m.error && m.retryText && (
+                        <button
+                          type="button"
+                          onClick={() => void send(m.retryText, { retry: true })}
+                          disabled={isThinking}
+                          className="mt-3 inline-flex items-center gap-1 rounded-lg border border-rose-400/40 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-400/10 disabled:opacity-50"
+                        >
+                          <RotateCcw className="size-3" /> Ξαναδοκίμασε
+                        </button>
+                      )}
+                      {m.role === "assistant" && m.id !== "welcome" && !m.error && (
                         <div className="mt-3 flex items-center gap-1 border-t border-border/60 pt-2">
                           <span className="mr-2 text-[10px] text-muted-foreground">
                             Αξιολόγηση απάντησης
@@ -1256,6 +1595,20 @@ function Dashboard() {
                       )}
                     </div>
                   ))}
+                  {isThinking && (
+                    <div
+                      role="status"
+                      className="flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground"
+                    >
+                      <Loader2 className="size-4 animate-spin text-primary" />
+                      {thinkingSlow
+                        ? "Ακόμη δουλεύω… Αν το Render ξυπνά από cold start, μπορεί να πάρει έως ένα λεπτό."
+                        : researchMode === "deep"
+                          ? "Αναζήτηση → σύνθεση…"
+                          : "Ο ΝΟΥΣ σκέφτεται…"}
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
                 </div>
               </div>
             </div>
@@ -1278,7 +1631,8 @@ function Dashboard() {
                       onChange={(event) =>
                         setResearchMode(event.target.value as "auto" | "off" | "deep")
                       }
-                      className="bg-transparent text-[10px] outline-none"
+                      disabled={isThinking}
+                      className="bg-transparent text-[10px] outline-none disabled:opacity-50"
                     >
                       <option value="auto">Research: Auto</option>
                       <option value="deep">Research: Deep</option>
@@ -1288,8 +1642,8 @@ function Dashboard() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setMessages(initialChat)}
-                  disabled={isThinking || messages.length <= 1}
+                  onClick={clearChat}
+                  disabled={messages.length <= 1 && !conversationId}
                   className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Καθαρισμός συνομιλίας"
                 >
@@ -1312,7 +1666,11 @@ function Dashboard() {
                   <input
                     type="checkbox"
                     checked={pushToTalk}
-                    onChange={(event) => setPushToTalk(event.target.checked)}
+                    onChange={(event) => {
+                      stopListening();
+                      setPushToTalk(event.target.checked);
+                    }}
+                    disabled={!voiceSupported}
                   />
                   Push-to-talk
                 </label>
@@ -1320,19 +1678,31 @@ function Dashboard() {
               <div className="mx-auto flex min-w-0 max-w-3xl gap-2">
                 <button
                   type="button"
-                  onClick={toggleListening}
-                  disabled={!voiceSupported}
-                  aria-label={isListening ? "Σταμάτησε την ακρόαση" : "Μίλησε στον ΝΟΥΣ"}
+                  onClick={pushToTalk ? undefined : toggleListening}
+                  onPointerDown={pushToTalk ? startListening : undefined}
+                  onPointerUp={pushToTalk ? stopListening : undefined}
+                  onPointerLeave={pushToTalk && isListening ? stopListening : undefined}
+                  disabled={!voiceSupported || isThinking}
+                  aria-label={
+                    pushToTalk
+                      ? "Κράτα πατημένο για να μιλήσεις"
+                      : isListening
+                        ? "Σταμάτησε την ακρόαση"
+                        : "Μίλησε στον ΝΟΥΣ"
+                  }
                   title={
                     !voiceSupported
                       ? "Η φωνητική εισαγωγή δεν υποστηρίζεται σε αυτόν τον browser"
-                      : undefined
+                      : pushToTalk
+                        ? "Κράτα πατημένο, μίλα και άφησε για αποστολή"
+                        : undefined
                   }
                   className={`inline-flex size-11 shrink-0 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isListening ? "border-rose-400/60 bg-rose-400/15 text-rose-300" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"}`}
                 >
                   {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                 </button>
                 <textarea
+                  ref={chatInputRef}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
@@ -1366,20 +1736,28 @@ function Dashboard() {
                 >
                   {voiceEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void send()}
-                  disabled={isThinking || !draft.trim()}
-                  className="inline-flex items-center gap-2 rounded-xl bg-violet px-4 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={isThinking ? "Ο ΝΟΥΣ σκέφτεται" : "Στείλε μήνυμα"}
-                >
-                  {isThinking ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
+                {isThinking ? (
+                  <button
+                    type="button"
+                    onClick={stopChat}
+                    className="inline-flex items-center gap-2 rounded-xl border border-rose-400/50 bg-rose-400/10 px-4 text-sm font-semibold text-rose-200"
+                    aria-label="Διακοπή απάντησης"
+                  >
+                    <Square className="size-4" />
+                    <span className="hidden sm:inline">Διακοπή</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void send()}
+                    disabled={!draft.trim()}
+                    className="inline-flex items-center gap-2 rounded-xl bg-violet px-4 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Στείλε μήνυμα"
+                  >
                     <Send className="size-4" />
-                  )}
-                  <span className="hidden sm:inline">{isThinking ? "Σκέψη…" : "Στείλε"}</span>
-                </button>
+                    <span className="hidden sm:inline">Στείλε</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1394,86 +1772,7 @@ function Dashboard() {
 
             <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
               <Card title="System Snapshot">
-                <form
-                  className="mb-3 flex flex-col gap-2"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!tokenDraft.trim()) return;
-                    try {
-                      setNousToken(tokenDraft);
-                      setTokenDraft("");
-                      setHasToken(true);
-                      setGeminiTestState("idle");
-                      setGeminiTestMessage("");
-                      void loadSystemStatus();
-                    } catch (error) {
-                      setGeminiTestState("error");
-                      setGeminiTestMessage(
-                        error instanceof Error ? error.message : "Μη έγκυρο NOUS token.",
-                      );
-                    }
-                  }}
-                >
-                  <label htmlFor="nous-token" className="text-xs text-muted-foreground">
-                    NOUS API token{" "}
-                    {hasToken ? (
-                      <span className="text-primary">· αποθηκευμένο σε αυτόν τον browser</span>
-                    ) : (
-                      <span className="text-warn">· δεν έχει οριστεί</span>
-                    )}
-                  </label>
-                  <div className="flex min-w-0 flex-wrap gap-2">
-                    <input
-                      id="nous-token"
-                      type="password"
-                      autoComplete="off"
-                      value={tokenDraft}
-                      onChange={(event) => setTokenDraft(event.target.value)}
-                      placeholder={hasToken ? "Νέο token για αντικατάσταση" : "Επικόλλησε το token"}
-                      className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet sm:w-auto sm:flex-1"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!tokenDraft.trim()}
-                      className="shrink-0 rounded-lg bg-violet px-3 text-sm font-semibold text-white disabled:opacity-50"
-                    >
-                      Αποθήκευση
-                    </button>
-                    {hasToken && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearNousToken();
-                          setHasToken(Boolean(getNousToken()));
-                          setGeminiTestState("idle");
-                          setGeminiTestMessage("");
-                          void loadSystemStatus();
-                        }}
-                        className="shrink-0 rounded-lg border border-border px-3 text-sm text-muted-foreground"
-                      >
-                        Αφαίρεση
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Το token είναι password field και μένει μόνο στο session του browser.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void testGeminiConnection()}
-                    disabled={!hasToken || geminiTestState === "testing"}
-                    className="self-start rounded-lg border border-primary/40 px-3 py-2 text-xs font-semibold text-primary disabled:opacity-50"
-                  >
-                    {geminiTestState === "testing"
-                      ? "Έλεγχος Gemini…"
-                      : "Έλεγχος επικοινωνίας με Gemini"}
-                  </button>
-                  {geminiTestMessage && (
-                    <p className={`text-xs ${geminiTestState === "ok" ? "text-ok" : "text-warn"}`}>
-                      {geminiTestMessage}
-                    </p>
-                  )}
-                </form>
+                {tokenForm}
                 {systemStatusState === "loading" && (
                   <p className="mb-3 text-xs text-muted-foreground">
                     Σύνδεση με NOUS API… Το Render μπορεί να ξυπνά από cold start.
@@ -1539,9 +1838,32 @@ function Dashboard() {
               </Card>
 
               <Card title="Companion">
-                <p className="text-sm text-muted-foreground">
-                  Η κατάσταση του Android companion δεν έχει επαληθευτεί από το backend ακόμη.
-                </p>
+                {companionStatus ? (
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      Διαθέσιμο:{" "}
+                      <span className={companionStatus.available ? "text-ok" : "text-warn"}>
+                        {companionStatus.available ? "ναι" : "όχι"}
+                      </span>
+                    </p>
+                    {companionStatus.commands?.length ? (
+                      <p className="text-xs text-muted-foreground">
+                        Εντολές: {companionStatus.commands.join(", ")}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Δεν ήταν δυνατή η ανάγνωση της κατάστασης του companion.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void loadCompanionStatus()}
+                  className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs hover:border-primary"
+                >
+                  Ανανέωση
+                </button>
               </Card>
             </div>
 
@@ -1550,9 +1872,66 @@ function Dashboard() {
               <p className="text-xs text-muted-foreground">
                 Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
               </p>
-              <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-                Δεν υπάρχουν εκκρεμείς προτάσεις.
-              </div>
+              {initiativesState === "error" && (
+                <p className="mt-3 text-xs text-warn">
+                  Δεν ήταν δυνατή η φόρτωση ή εκτέλεση των προτάσεων.
+                </p>
+              )}
+              {initiatives.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                  {initiativesState === "loading"
+                    ? "Φόρτωση…"
+                    : "Δεν υπάρχουν εκκρεμείς προτάσεις."}
+                </div>
+              ) : (
+                <div className="mt-4 space-y-2">
+                  {initiatives.map((initiative) => (
+                    <div
+                      key={initiative.id}
+                      className="rounded-xl border border-border bg-card/60 p-3 text-sm"
+                    >
+                      <p className="font-semibold">
+                        {initiative.icon} {initiative.title}
+                        {initiative.priority && (
+                          <span className="ml-2 font-mono text-[10px] uppercase text-warn">
+                            {initiative.priority}
+                          </span>
+                        )}
+                      </p>
+                      {initiative.description && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {initiative.description}
+                        </p>
+                      )}
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={!initiative.approve_route}
+                          onClick={() => void resolveInitiative(initiative, "approve")}
+                          className="rounded-lg bg-ok/15 px-3 py-1.5 text-xs font-semibold text-ok disabled:opacity-40"
+                        >
+                          Έγκριση
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!initiative.reject_route}
+                          onClick={() => void resolveInitiative(initiative, "reject")}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs disabled:opacity-40"
+                        >
+                          Απόρριψη
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => void loadInitiatives()}
+                className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs hover:border-primary"
+              >
+                Ανανέωση προτάσεων
+              </button>
             </div>
           </div>
         ) : (
@@ -1562,12 +1941,16 @@ function Dashboard() {
                 <p className="text-sm text-muted-foreground">
                   {section === "missions"
                     ? "Οι αποστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
-                    : section === "memory"
-                      ? "Η μνήμη του agent κρατά στόχους, αποφάσεις και συμπεράσματα με σαφή προέλευση."
-                      : section === "system"
-                        ? "Ο ΝΟΥΣ λειτουργεί με ασφαλή όρια: δεν ισχυρίζεται ότι έκανε κάτι αν δεν υπάρχει αποτέλεσμα από backend."
-                        : `Η ενότητα ${navLabel(section)} είναι έτοιμη για σύνδεση με το NOUS API.`}
+                    : section === "documents"
+                      ? "Ανέβασε έγγραφα στο knowledge vault ώστε ο NOUS να τα χρησιμοποιεί στο chat."
+                      : section === "control"
+                        ? "Συνδέσεις providers και defensive έλεγχοι του NOUS."
+                        : section === "settings"
+                          ? "Ρυθμίσεις σύνδεσης του dashboard με το NOUS backend."
+                          : `Ζωντανή κατάσταση και ενέργειες της ενότητας ${navLabel(section)} από το NOUS backend.`}
                 </p>
+                {section === "settings" && <div className="mt-5">{tokenForm}</div>}
+                {sectionConfigs[section] && <SectionPanel section={section} />}
                 {section === "documents" && (
                   <div className="mt-5 space-y-4">
                     <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-8 text-center transition-colors hover:bg-primary/10">
@@ -1647,19 +2030,13 @@ function Dashboard() {
                         </span>
                       </div>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-3">
+                    <div className="grid gap-3 md:grid-cols-2">
                       {[
                         {
                           name: "Google Gemini",
-                          detail: "Per-user OAuth · model reasoning",
+                          detail: "Server-side API key στο Render · model reasoning",
                           tone: "text-signal",
                           scope: "Μόνο εγκεκριμένες κλήσεις",
-                        },
-                        {
-                          name: "ChatGPT / OpenAI",
-                          detail: "Gateway provider · shared runtime",
-                          tone: "text-ok",
-                          scope: "Tokens server-side",
                         },
                         {
                           name: "GitHub",
@@ -1675,7 +2052,7 @@ function Dashboard() {
                           <div className="flex items-center justify-between gap-2">
                             <span className={`size-2 rounded-full bg-current ${provider.tone}`} />
                             <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
-                              AVAILABLE
+                              {provider.name === "GitHub" ? "GIT STATUS" : "SERVER-SIDE"}
                             </span>
                           </div>
                           <p className="mt-4 font-semibold">{provider.name}</p>
@@ -1685,13 +2062,27 @@ function Dashboard() {
                           </p>
                           <button
                             type="button"
-                            onClick={() => setProviderAction(provider.name)}
-                            className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold transition-colors hover:border-primary/50 hover:bg-primary/5"
+                            onClick={() =>
+                              void (provider.name === "GitHub"
+                                ? checkGithubStatus()
+                                : testGeminiConnection())
+                            }
+                            disabled={provider.name !== "GitHub" && geminiTestState === "testing"}
+                            className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-50"
                           >
-                            {providerAction === provider.name
-                              ? "Δεν έχει ρυθμιστεί ακόμη σύνδεση"
-                              : "Διαχείριση σύνδεσης"}
+                            {provider.name === "GitHub"
+                              ? "Έλεγχος git στο backend"
+                              : geminiTestState === "testing"
+                                ? "Έλεγχος Gemini…"
+                                : "Έλεγχος σύνδεσης Gemini"}
                           </button>
+                          {(provider.name === "GitHub" ? githubStatus : geminiTestMessage) && (
+                            <p
+                              className={`mt-2 text-[11px] ${provider.name !== "GitHub" && geminiTestState === "ok" ? "text-ok" : "text-muted-foreground"}`}
+                            >
+                              {provider.name === "GitHub" ? githubStatus : geminiTestMessage}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1779,11 +2170,6 @@ function Dashboard() {
                 )}
                 <div className="mt-5 space-y-2">
                   {section === "missions" && <MissionList missions={liveMissions} />}
-                  {section === "memory" && (
-                    <p className="rounded-xl border border-dashed border-border bg-background/50 p-3 text-xs text-muted-foreground">
-                      Η μνήμη δεν έχει συνδεθεί ακόμη με το backend.
-                    </p>
-                  )}
                 </div>
               </Card>
               <Card title="Agent guardrails">
@@ -1848,9 +2234,7 @@ function MissionList({
 }) {
   if (missions.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Δεν υπάρχουν missions ή δεν έχει συνδεθεί ακόμη το live stream. Πάτησε «Missions» στο Chat.
-      </p>
+      <p className="text-sm text-muted-foreground">Δεν υπάρχουν ενεργά missions στο live stream.</p>
     );
   }
   return (
