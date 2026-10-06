@@ -48,10 +48,19 @@ _AUTO_ACTIONS = {
     "generate_morning_brief", "generate_evening_summary",
     "create_mission_for_goal", "cleanup_disk", "cleanup_caches",
     "suggest_field_expedition", "expand_knowledge_base", "analyze_repeated_lesson",
-    "github_sync", "implement_capability",
+    "github_sync", "implement_capability", "restore_data_files",
 }
 _DEV_ACTIONS = {
-    "restore_data_files", "optimize_memory",
+    "optimize_memory",
+}
+
+# Inside data/ so backups live on the persistent Render disk (/app/data).
+BACKUP_DIR = Path("data/backups")
+# Critical files are created lazily by their modules; these are their empty defaults.
+CRITICAL_DATA_FILES = {
+    "data/brain_state.json": {},
+    "data/api_tokens.json": [],
+    "data/decision_memory.json": [],
 }
 
 # Known gap → (file that marks it done, human-readable name, extra_setup_fn)
@@ -289,11 +298,7 @@ def _check_survival() -> dict:
         log.append(f"[survival] mem check failed: {e}")
 
     # 1c. Data file integrity
-    critical_files = [
-        "data/brain_state.json", "data/api_tokens.json",
-        "data/decision_memory.json",
-    ]
-    missing = [f for f in critical_files if not Path(f).exists()]
+    missing = [f for f in CRITICAL_DATA_FILES if not Path(f).exists()]
     if missing:
         proposals.append(_proposal(
             kind="survival", priority="high", icon="🚨",
@@ -305,9 +310,9 @@ def _check_survival() -> dict:
         log.append(f"[survival] MISSING files: {missing}")
 
     # 1d. Backup freshness
-    backup_dir = Path("backups")
+    backup_dir = BACKUP_DIR
     if backup_dir.exists():
-        backups = sorted(backup_dir.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+        backups = sorted(backup_dir.glob("nous_data_*"), key=lambda f: f.stat().st_mtime, reverse=True)
         if backups:
             age_hours = (now - backups[0].stat().st_mtime) / 3600
             if age_hours > 48:
@@ -323,7 +328,7 @@ def _check_survival() -> dict:
         proposals.append(_proposal(
             kind="survival", priority="medium", icon="💾",
             title="Δεν υπάρχουν backups",
-            description="Ο φάκελος backups/ δεν υπάρχει. Αν χαλάσει κάτι, θα χαθούν όλα τα δεδομένα του ΝΟΥΣ.",
+            description="Ο φάκελος data/backups/ δεν υπάρχει. Αν χαλάσει κάτι, θα χαθούν όλα τα δεδομένα του ΝΟΥΣ.",
             action="create_backup",
             fingerprint="survival_no_backup",
         ))
@@ -587,6 +592,25 @@ def _check_curiosity() -> dict:
 
 # ── Proposal Execution (tracked, runs in background thread) ──────────────────
 
+def restore_missing_data_files() -> dict:
+    """Restore missing critical files from the latest backup, else create empty defaults."""
+    backups = sorted(BACKUP_DIR.glob("nous_data_*"), key=lambda f: f.stat().st_mtime, reverse=True)
+    restored = {}
+    for name, default in CRITICAL_DATA_FILES.items():
+        target = Path(name)
+        if target.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        backup_copy = next((b / target.name for b in backups if (b / target.name).exists()), None)
+        if backup_copy:
+            shutil.copy2(backup_copy, target)
+            restored[name] = str(backup_copy)
+        else:
+            target.write_text(json.dumps(default), encoding="utf-8")
+            restored[name] = "κενό αρχείο"
+    return restored
+
+
 def _execute_proposal_tracked(proposal: dict):
     """Execute an auto-executable action, writing status back to disk as it progresses."""
     pid   = str(proposal["id"])
@@ -601,17 +625,29 @@ def _execute_proposal_tracked(proposal: dict):
     try:
         # ── create_backup ─────────────────────────────────────────────────────
         if action == "create_backup":
-            _append("📁 Δημιουργία φακέλου backups/…")
-            backup_dir = Path("backups")
-            backup_dir.mkdir(exist_ok=True)
+            _append(f"📁 Δημιουργία φακέλου {BACKUP_DIR}/…")
+            backup_dir = BACKUP_DIR
+            backup_dir.mkdir(parents=True, exist_ok=True)
             ts = time.strftime("%Y%m%d_%H%M%S")
             backup_path = backup_dir / f"nous_data_{ts}"
             _append(f"📋 Αντιγραφή data/ → {backup_path}…")
-            shutil.copytree("data", str(backup_path))
+            shutil.copytree("data", str(backup_path), ignore=shutil.ignore_patterns("backups"))
             size_mb = sum(f.stat().st_size for f in backup_path.rglob("*")) / 1024 / 1024
             _append(f"✅ Backup ολοκληρώθηκε! {size_mb:.1f}MB αποθηκεύτηκαν στο {backup_path}")
             _update_proposal(pid, {"status": "done",
                                     "execution_result": f"Backup: {backup_path} ({size_mb:.1f}MB)",
+                                    "execution_completed": time.time(),
+                                    "execution_log": list(log)})
+
+        # ── restore_data_files ────────────────────────────────────────────────
+        elif action == "restore_data_files":
+            result = restore_missing_data_files()
+            for name, source in result.items():
+                _append(f"✅ {name} ← {source}")
+            if not result:
+                _append("ℹ️ Δεν λείπει κανένα κρίσιμο αρχείο.")
+            _update_proposal(pid, {"status": "done",
+                                    "execution_result": f"Επαναφέρθηκαν {len(result)} αρχεία",
                                     "execution_completed": time.time(),
                                     "execution_log": list(log)})
 

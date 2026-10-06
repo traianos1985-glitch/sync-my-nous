@@ -4,9 +4,9 @@ from urllib.parse import quote_plus, urlparse, parse_qs, unquote
 
 HEADERS = {"User-Agent": "Mozilla/5.0 NOUS-AI-OS"}
 
-def web_search(query):
+def _ddg_search(query):
     url = "https://duckduckgo.com/html/?q=" + quote_plus(query)
-    r = requests.get(url, headers=HEADERS, timeout=15)
+    r = requests.get(url, headers=HEADERS, timeout=(4, 12))
     soup = BeautifulSoup(r.text, "html.parser")
 
     results = []
@@ -19,7 +19,23 @@ def web_search(query):
         if href and href.startswith("//"):
             href = "https:" + href
         results.append({"title": title, "url": href})
+    return results
 
+
+def web_search(query):
+    try:
+        results = _ddg_search(query)
+    except requests.RequestException:
+        results = []
+    if not results:
+        # DuckDuckGo blocks/times out from some hosts (e.g. Render); fall back to Wikipedia & co.
+        from executor.internet_search_engine import search_web
+
+        fallback = search_web(query).get("results", [])
+        results = [
+            {"title": x.get("title", ""), "url": x.get("url", ""), "snippet": x.get("snippet", "")}
+            for x in fallback
+        ]
     return {"query": query, "results": results}
 
 def fetch_page(url):
