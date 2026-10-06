@@ -42,6 +42,10 @@ export function hasConfiguredNousApi(): boolean {
   return Boolean(apiBase);
 }
 
+export function hasStoredNousToken(): boolean {
+  return Boolean(getStoredToken());
+}
+
 export function getNousToken(): string | undefined {
   const token = getStoredToken() ?? apiToken;
   return token?.trim() || undefined;

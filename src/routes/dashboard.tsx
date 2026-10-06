@@ -30,6 +30,7 @@ import {
   clearNousToken,
   getNousToken,
   hasConfiguredNousApi,
+  hasStoredNousToken,
   nousFetch,
   nousStream,
   setNousToken,
@@ -318,6 +319,7 @@ function Dashboard() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [tokenDraft, setTokenDraft] = useState("");
   const [hasToken, setHasToken] = useState(() => Boolean(getNousToken()));
+  const [hasSessionToken, setHasSessionToken] = useState(() => hasStoredNousToken());
   const [geminiTestState, setGeminiTestState] = useState<"idle" | "testing" | "ok" | "error">(
     "idle",
   );
@@ -893,6 +895,7 @@ function Dashboard() {
           setNousToken(tokenDraft);
           setTokenDraft("");
           setHasToken(true);
+          setHasSessionToken(true);
           setGeminiTestState("idle");
           setGeminiTestMessage("");
           void loadSystemStatus();
@@ -905,7 +908,11 @@ function Dashboard() {
       <label htmlFor="nous-token" className="text-xs text-muted-foreground">
         NOUS API token{" "}
         {hasToken ? (
-          <span className="text-primary">· αποθηκευμένο σε αυτόν τον browser</span>
+          <span className="text-primary">
+            {hasSessionToken
+              ? "· αποθηκευμένο σε αυτόν τον browser"
+              : "· ρυθμισμένο από το περιβάλλον"}
+          </span>
         ) : (
           <span className="text-warn">· δεν έχει οριστεί</span>
         )}
@@ -927,12 +934,13 @@ function Dashboard() {
         >
           Αποθήκευση
         </button>
-        {hasToken && (
+        {hasSessionToken && (
           <button
             type="button"
             onClick={() => {
               clearNousToken();
               setHasToken(Boolean(getNousToken()));
+              setHasSessionToken(false);
               setGeminiTestState("idle");
               setGeminiTestMessage("");
               void loadSystemStatus();
