@@ -54,23 +54,31 @@ def check_app_factory():
 
 
 def reality_status():
+    internet = check_internet()
+    browser_read = check_browser_read()
+    android = check_android()
+    git = check_git()
+    code = check_code()
+    app_factory = check_app_factory()
+    checks = {
+        "internet_search": internet.get("real"),
+        "browser_read": browser_read.get("real"),
+        "android_intents": android.get("real_intents"),
+        "git_status": git.get("real"),
+        "code_compile": code.get("real"),
+        "app_factory": app_factory.get("real"),
+    }
     return {
         "time": time.time(),
-        "internet": check_internet(),
-        "browser_read": check_browser_read(),
-        "android": check_android(),
-        "git": check_git(),
-        "code": check_code(),
-        "app_factory": check_app_factory(),
+        "internet": internet,
+        "browser_read": browser_read,
+        "android": android,
+        "git": git,
+        "code": code,
+        "app_factory": app_factory,
         "summary": {
-            "real_now": [
-                "internet_search",
-                "browser_read",
-                "android_intents",
-                "git_status",
-                "code_compile",
-                "app_factory",
-            ],
+            "real_now": [name for name, ok in checks.items() if ok],
+            "unavailable_now": [name for name, ok in checks.items() if not ok],
             "blocked_or_partial": [
                 "android_tap_swipe_without_INJECT_EVENTS",
                 "real_login_without_browser_driver",

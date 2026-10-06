@@ -40,7 +40,7 @@ def _ddg_instant(query: str) -> list[dict]:
         import requests
         url = "https://api.duckduckgo.com/"
         params = {"q": query, "format": "json", "no_redirect": 1, "no_html": 1, "skip_disambig": 1}
-        r = requests.get(url, params=params, timeout=12, headers={"User-Agent": "NOUS-AI-OS/1.0"})
+        r = requests.get(url, params=params, timeout=(4, 12), headers={"User-Agent": "NOUS-AI-OS/1.0"})
         data = r.json()
         results = []
         abstract = clean(data.get("AbstractText", ""))
@@ -113,7 +113,7 @@ def _ddg_html(query: str, limit: int = 5) -> list[dict]:
         ]
         for agent in agents:
             url = "https://duckduckgo.com/html/?q=" + quote_plus(query)
-            r = requests.get(url, timeout=15, headers={
+            r = requests.get(url, timeout=(4, 15), headers={
                 "User-Agent": agent,
                 "Accept": "text/html,application/xhtml+xml",
                 "Accept-Language": "el,en-US;q=0.9",

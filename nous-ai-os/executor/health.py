@@ -20,7 +20,7 @@ def status():
 
 def backup():
     ts = int(time.time())
-    dst = f"backups/nous_backup_{ts}"
+    dst = f"data/backups/nous_code_{ts}"
     os.makedirs(dst, exist_ok=True)
     for f in FILES:
         if os.path.exists(f):
