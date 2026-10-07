@@ -640,7 +640,7 @@ function Dashboard() {
     const history = messages
       .filter((message) => message.id !== "welcome" && !message.error)
       .slice(-10)
-      .map(({ role, text: content }) => ({ role, content }));
+      .map(({ role, text }) => ({ role, text }));
     if (!options.retry) {
       setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text }]);
     } else {
@@ -672,6 +672,8 @@ function Dashboard() {
         body: JSON.stringify({
           message: text,
           history,
+          activeFocus,
+          active_focus: activeFocus,
           researchMode,
           research_mode: researchMode,
           conversation_id: conversationId ?? undefined,
@@ -919,7 +921,7 @@ function Dashboard() {
           <span className="text-primary">
             {hasSessionToken
               ? "· αποθηκευμένο σε αυτόν τον browser"
-              : "· ρυθμισμένο από το περιβάλλον"}
+              : "· ρυθμισμένο α��ό το περιβάλλον"}
           </span>
         ) : (
           <span className="text-warn">· δεν έχει οριστεί</span>
@@ -1247,7 +1249,7 @@ function Dashboard() {
                       </>
                     ) : (
                       <p className="mt-4 text-xs text-muted-foreground">
-                        Πάτησε «Ανανέωση» για να φορτώσεις τα metrics.
+                        Πάτησε «Ανανέωση�� για να φορτώσεις τα metrics.
                       </p>
                     )}
                   </div>
