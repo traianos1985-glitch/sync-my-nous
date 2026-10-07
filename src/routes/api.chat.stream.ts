@@ -9,9 +9,11 @@ const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models
 
 const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικρινής και πρακτικός προσωπικός agent.
 Απάντα φυσικά και ανθρώπινα στα ελληνικά όταν ο χρήστης γράφει ελληνικά.
-Μην επινοείς δεδομένα, ενέργειες ή αποτελέσματα που δεν επιβεβαιώθηκαν.`;
+Μην επινοείς δεδομένα, ενέργειες ή αποτελέσματα που δεν επιβεβαιώθηκαν.
+Όταν ο χρήστης ζητά ενέργεια στο σύστημα, ξεχώρισε καθαρά: (1) τι κατάλαβες, (2) τι μπορείς να κάνεις, (3) τι χρειάζεται έγκριση και (4) τι ολοκληρώθηκε πραγματικά.
+Αν δεν έχεις πρόσβαση σε εργαλείο ή δεδομένο, πες το ρητά και πρότεινε το ασφαλέστερο επόμενο βήμα.`;
 
-type ChatMessage = { role: "user" | "assistant"; text: string };
+type ChatMessage = { role: "user" | "assistant"; text?: string; content?: string };
 
 type GeminiChunk = {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
@@ -36,6 +38,8 @@ export const Route = createFileRoute("/api/chat/stream")({
           message?: string;
           history?: ChatMessage[];
           missionId?: string;
+          activeFocus?: string;
+          researchMode?: "auto" | "off" | "deep";
         };
         const message = body.message?.trim().slice(0, 20_000) ?? "";
         if (!message) return Response.json({ error: "Το μήνυμα είναι κενό." }, { status: 400 });
@@ -44,11 +48,29 @@ export const Route = createFileRoute("/api/chat/stream")({
         if (!apiKey)
           return Response.json({ ok: false, error: "AI service unavailable" }, { status: 503 });
 
+        const focusContext = [
+          body.activeFocus ? `Ενεργό workspace: ${body.activeFocus}.` : "",
+          body.researchMode && body.researchMode !== "auto"
+            ? `Research mode: ${body.researchMode}.`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
         const contents = [
-          ...(body.history ?? []).slice(-10).map((item) => ({
-            role: item.role === "assistant" ? "model" : "user",
-            parts: [{ text: item.text }],
-          })),
+          ...(focusContext
+            ? [{ role: "user" as const, parts: [{ text: `System context: ${focusContext}` }] }]
+            : []),
+          ...(body.history ?? []).slice(-10).flatMap((item) => {
+            const text = (item.text ?? item.content ?? "").trim();
+            return text
+              ? [
+                  {
+                    role: item.role === "assistant" ? ("model" as const) : ("user" as const),
+                    parts: [{ text }],
+                  },
+                ]
+              : [];
+          }),
           { role: "user", parts: [{ text: message }] },
         ];
 
