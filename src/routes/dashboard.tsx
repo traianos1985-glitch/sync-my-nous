@@ -730,6 +730,12 @@ function Dashboard() {
 
   const stopChat = () => chatAbortRef.current?.abort();
 
+  const focusChatWithPrompt = (prompt: string) => {
+    setSection("chat");
+    setDraft(prompt);
+    window.requestAnimationFrame(() => chatInputRef.current?.focus());
+  };
+
   const clearChat = () => {
     chatAbortRef.current?.abort();
     window.speechSynthesis?.cancel();
@@ -1509,29 +1515,67 @@ function Dashboard() {
                     </div>
                   </div>
                 )}
-                <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[
-                    { icon: Sparkles, label: "Ask brain", prompt: "Τι μπορείς να κάνεις;" },
-                    { icon: Activity, label: "Missions", prompt: "Δείξε μου τα missions" },
-                    { icon: ArrowUpRight, label: "Browser", prompt: "Έλεγξε τον browser operator" },
-                    {
-                      icon: ShieldCheck,
-                      label: "System",
-                      prompt: "Ποια είναι η κατάσταση του συστήματος;",
-                    },
-                  ].map(({ icon: Icon, label, prompt }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => void send(prompt)}
-                      disabled={isThinking}
-                      className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Icon className="size-3.5 text-primary transition-transform group-hover:scale-110" />
-                      <span>{label}</span>
-                    </button>
-                  ))}
-                </div>
+                <section
+                  className="mb-5 rounded-2xl border border-primary/25 bg-primary/5 p-4"
+                  aria-labelledby="control-center-title"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">
+                        Unified control center
+                      </p>
+                      <h2 id="control-center-title" className="mt-1 text-sm font-semibold">
+                        Ένα chat για όλο το NOUS
+                      </h2>
+                      <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                        Ζήτησε έλεγχο, διάγνωση ή ενέργεια από εδώ. Ο agent θα χρησιμοποιήσει τα
+                        συνδεδεμένα εργαλεία και θα ζητήσει έγκριση πριν από εξωτερική αλλαγή.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-1 font-mono text-[10px] text-ok">
+                      approval-first
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      {
+                        icon: Sparkles,
+                        label: "Πλήρης έλεγχος",
+                        prompt:
+                          "Κάνε πλήρη έλεγχο του NOUS: υγεία, missions, jobs, μνήμη, approvals και διαθέσιμα εργαλεία. Δώσε μου προτεραιότητες και επόμενα βήματα.",
+                      },
+                      {
+                        icon: Activity,
+                        label: "Τρέχουσα εργασία",
+                        prompt:
+                          "Δείξε μου όλα τα ενεργά missions και jobs, τι έχει κολλήσει και ποια ενέργεια προτείνεις.",
+                      },
+                      {
+                        icon: ShieldAlert,
+                        label: "Διάγνωση",
+                        prompt:
+                          "Κάνε ασφαλή διάγνωση για προβλήματα στο backend, στις συνδέσεις και στα εργαλεία. Μην αλλάξεις τίποτα χωρίς έγκριση.",
+                      },
+                      {
+                        icon: ArrowUpRight,
+                        label: "Σχέδιο αναβάθμισης",
+                        prompt:
+                          "Ανάλυσε τι μπορεί να αναβαθμιστεί ουσιαστικά στο NOUS με βάση τις δυνατότητες και τα διαθέσιμα εργαλεία. Ταξινόμησε impact, ρίσκο και effort.",
+                      },
+                    ].map(({ icon: Icon, label, prompt }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => focusChatWithPrompt(prompt)}
+                        disabled={isThinking}
+                        className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Icon className="size-3.5 text-primary transition-transform group-hover:scale-110" />
+                        <span>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
                 <div className="flex flex-col gap-3">
                   {messages.map((m) => (
                     <div
