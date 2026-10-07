@@ -261,6 +261,8 @@ function Dashboard() {
       chatAbortRef.current?.abort();
       window.speechSynthesis?.cancel();
     };
+    // These loaders intentionally run once on dashboard mount; each loader owns its current API state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const speak = (text: string) => {
@@ -1390,7 +1392,7 @@ function Dashboard() {
                     <div className="mt-3 space-y-2">
                       {liveMissions.length === 0 && (
                         <p className="text-xs text-muted-foreground">
-                          Δεν υπάρχουν missions ή δεν έχει συνδεθεί ακόμη το live stream.
+                          Δεν υπάρχουν missions ή δεν έχε�� συνδεθεί ακόμη το live stream.
                         </p>
                       )}
                       {liveMissions.map((mission) => (
@@ -2161,7 +2163,7 @@ function Dashboard() {
                         <ShieldAlert className="size-4" /> Action policy
                       </div>
                       <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                        Read operations μπορούν να προταθούν αυτόματα. Commit, push, merge, delete
+                        Read operations μπ��ρούν να προταθούν αυτόματα. Commit, push, merge, delete
                         και external side effects δημιουργούν approval record, diff και audit event
                         πριν εκτελεστούν.
                       </p>
