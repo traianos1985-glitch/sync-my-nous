@@ -37,6 +37,19 @@ function adaptBody(path: string, body: RequestInit["body"]): RequestInit["body"]
     if (typeof parsed["message"] === "string" && !parsed["command"]) {
       parsed["command"] = parsed["message"];
     }
+    if (Array.isArray(parsed["history"])) {
+      parsed["history"] = parsed["history"].map((item) => {
+        if (!item || typeof item !== "object") return item;
+        const entry = item as Record<string, unknown>;
+        return {
+          ...entry,
+          text: typeof entry["text"] === "string" ? entry["text"] : entry["content"],
+        };
+      });
+    }
+    if (parsed["conversation_id"] && !parsed["conversationId"]) {
+      parsed["conversationId"] = parsed["conversation_id"];
+    }
     return JSON.stringify(parsed);
   } catch {
     return body;
