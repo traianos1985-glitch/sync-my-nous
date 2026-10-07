@@ -5,6 +5,16 @@ const apiBase = (import.meta.env["VITE_NOUS_API_URL"] || defaultApiBase).replace
 const apiToken = import.meta.env["VITE_NOUS_API_TOKEN"];
 const tokenStorageKey = "nous-dashboard-token";
 const requestTimeoutMs = 35_000;
+const retryableStatuses = new Set([502, 503, 504]);
+
+function shouldRetry(request: RequestInit, response: Response, attempt: number): boolean {
+  const method = (request.method ?? "GET").toUpperCase();
+  return attempt === 0 && method === "GET" && retryableStatuses.has(response.status);
+}
+
+async function waitForRenderRecovery(): Promise<void> {
+  await new Promise((resolve) => window.setTimeout(resolve, 1_200));
+}
 
 // The dashboard uses /api/* names, but the Flask backend on Render exposes some
 // of them under different paths. Map them so the buttons reach real endpoints.
@@ -91,15 +101,20 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
   if (options.signal)
     options.signal.addEventListener("abort", () => controller.abort(), { once: true });
   let response: Response;
+  const { token: _token, timeoutMs: _timeoutMs, ...requestInit } = options;
+  const request = {
+    ...requestInit,
+    body: adaptBody(path, options.body),
+    headers,
+    credentials: "include" as const,
+    signal: controller.signal,
+  };
   try {
-    const { token: _token, timeoutMs: _timeoutMs, ...requestInit } = options;
-    response = await fetch(`${apiBase}${resolvePath(path)}`, {
-      ...requestInit,
-      body: adaptBody(path, options.body),
-      headers,
-      credentials: "include",
-      signal: controller.signal,
-    });
+    response = await fetch(`${apiBase}${resolvePath(path)}`, request);
+    if (shouldRetry(request, response, 0)) {
+      await waitForRenderRecovery();
+      response = await fetch(`${apiBase}${resolvePath(path)}`, request);
+    }
   } catch (error) {
     if (options.signal?.aborted) throw new DOMException("Request aborted", "AbortError");
     if (controller.signal.aborted)
@@ -127,15 +142,20 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
   if (options.signal)
     options.signal.addEventListener("abort", () => controller.abort(), { once: true });
   let response: Response;
+  const { token: _token, timeoutMs: _timeoutMs, ...requestInit } = options;
+  const request = {
+    ...requestInit,
+    body: adaptBody(path, options.body),
+    headers,
+    credentials: "include" as const,
+    signal: controller.signal,
+  };
   try {
-    const { token: _token, timeoutMs: _timeoutMs, ...requestInit } = options;
-    response = await fetch(`${apiBase}${resolvePath(path)}`, {
-      ...requestInit,
-      body: adaptBody(path, options.body),
-      headers,
-      credentials: "include",
-      signal: controller.signal,
-    });
+    response = await fetch(`${apiBase}${resolvePath(path)}`, request);
+    if (shouldRetry(request, response, 0)) {
+      await waitForRenderRecovery();
+      response = await fetch(`${apiBase}${resolvePath(path)}`, request);
+    }
   } catch (error) {
     if (options.signal?.aborted) throw new DOMException("Request aborted", "AbortError");
     if (controller.signal.aborted)
@@ -145,8 +165,14 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
     window.clearTimeout(timeout);
   }
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error ?? `NOUS API request failed (${response.status})`);
+    const body = await response.json().catch(() => null);
+    const message =
+      body && typeof body === "object" && "error" in body && typeof body.error === "string"
+        ? body.error
+        : response.status === 503
+          ? "Το NOUS API κάνει επανεκκίνηση ή cold start στο Render. Δοκίμασε ξανά σε λίγο."
+          : `NOUS API request failed (${response.status})`;
+    throw new Error(message);
   }
   return response.json() as Promise<T>;
 }
