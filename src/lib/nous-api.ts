@@ -1,5 +1,17 @@
 export type NousApiOptions = RequestInit & { token?: string; timeoutMs?: number };
 
+export class NousApiError extends Error {
+  readonly status: number;
+  readonly details?: string;
+
+  constructor(status: number, message: string, details?: string) {
+    super(message);
+    this.name = "NousApiError";
+    this.status = status;
+    this.details = details;
+  }
+}
+
 const defaultApiBase = import.meta.env.DEV ? "/api/nous" : "https://nous-ai-os-api.onrender.com";
 const apiBase = (import.meta.env["VITE_NOUS_API_URL"] || defaultApiBase).replace(/\/$/, "");
 const apiToken = import.meta.env["VITE_NOUS_API_TOKEN"];
@@ -14,6 +26,23 @@ function shouldRetry(request: RequestInit, response: Response, attempt: number):
 
 async function waitForRenderRecovery(): Promise<void> {
   await new Promise((resolve) => window.setTimeout(resolve, 1_200));
+}
+
+async function createApiError(response: Response): Promise<NousApiError> {
+  const body = await response.json().catch(() => null);
+  const serverMessage =
+    body && typeof body === "object" && "error" in body && typeof body.error === "string"
+      ? body.error
+      : undefined;
+  const message =
+    response.status === 401 || response.status === 403
+      ? "Το NOUS token απορρίφθηκε. Έλεγξε ή αντικατάστησε το token στις ρυθμίσεις."
+      : response.status === 429
+        ? "Το Gemini ή το Render επέστρεψε quota limit. Περίμενε λίγο πριν ξαναδοκιμάσεις."
+        : response.status === 502 || response.status === 503 || response.status === 504
+          ? "Το Render κάνει cold start ή προσωρινή επανεκκίνηση. Δοκίμασε ξανά σε λίγο."
+          : (serverMessage ?? `NOUS API request failed (${response.status})`);
+  return new NousApiError(response.status, message, serverMessage);
 }
 
 // The dashboard uses /api/* names, but the Flask backend on Render exposes some
@@ -136,7 +165,7 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
   } finally {
     window.clearTimeout(timeout);
   }
-  if (!response.ok) throw new Error(`NOUS stream failed (${response.status})`);
+  if (!response.ok) throw await createApiError(response);
   return response;
 }
 
@@ -177,15 +206,6 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
   } finally {
     window.clearTimeout(timeout);
   }
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    const message =
-      body && typeof body === "object" && "error" in body && typeof body.error === "string"
-        ? body.error
-        : response.status === 503
-          ? "Το NOUS API κάνει επανεκκίνηση ή cold start στο Render. Δοκίμασε ξανά σε λίγο."
-          : `NOUS API request failed (${response.status})`;
-    throw new Error(message);
-  }
+  if (!response.ok) throw await createApiError(response);
   return response.json() as Promise<T>;
 }
