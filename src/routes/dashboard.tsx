@@ -665,7 +665,7 @@ function Dashboard() {
     try {
       if (!getNousToken() && hasConfiguredNousApi()) {
         throw new Error(
-          "Δεν έχει οριστεί NOUS token. Άνοιξε Settings και αποθήκευσε το token για να μιλήσεις με τον NOUS.",
+          "Δεν έχει οριστεί NOUS token. Άνοιξε Settings και αποθήκευσ�� το token για να μιλήσεις με τον NOUS.",
         );
       }
       const data = await nousFetch<{
@@ -1781,6 +1781,9 @@ function Dashboard() {
                   ref={chatInputRef}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
+                  aria-label="Μήνυμα προς τον NOUS"
+                  aria-describedby="chat-input-hint"
+
                   onKeyDown={(e) => {
                     if (
                       e.key === "Enter" &&

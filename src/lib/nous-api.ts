@@ -31,8 +31,16 @@ async function waitForRenderRecovery(): Promise<void> {
 async function createApiError(response: Response): Promise<NousApiError> {
   const body = await response.json().catch(() => null);
   const serverMessage =
-    body && typeof body === "object" && "error" in body && typeof body.error === "string"
-      ? body.error
+    body && typeof body === "object"
+      ? "error" in body && typeof body.error === "string"
+        ? body.error
+        : "message" in body && typeof body.message === "string"
+          ? body.message
+          : undefined
+      : undefined;
+  const detailMessage =
+    body && typeof body === "object" && "details" in body && typeof body.details === "string"
+      ? body.details
       : undefined;
   const message =
     response.status === 401 || response.status === 403
@@ -42,7 +50,7 @@ async function createApiError(response: Response): Promise<NousApiError> {
         : response.status === 502 || response.status === 503 || response.status === 504
           ? "Το Render κάνει cold start ή προσωρινή επανεκκίνηση. Δοκίμασε ξανά σε λίγο."
           : (serverMessage ?? `NOUS API request failed (${response.status})`);
-  return new NousApiError(response.status, message, serverMessage);
+  return new NousApiError(response.status, message, detailMessage ?? serverMessage);
 }
 
 // The dashboard uses /api/* names, but the Flask backend on Render exposes some
