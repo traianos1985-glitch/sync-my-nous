@@ -254,9 +254,11 @@ function Dashboard() {
     void loadSystemStatus();
     void loadEvaluationMetrics();
     void loadKnowledgeDocuments();
+    const statusTimer = window.setInterval(() => void loadSystemStatus(), 30_000);
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     setVoiceSupported(Boolean(Recognition && "speechSynthesis" in window));
     return () => {
+      window.clearInterval(statusTimer);
       recognitionRef.current?.stop();
       chatAbortRef.current?.abort();
       window.speechSynthesis?.cancel();
@@ -329,6 +331,8 @@ function Dashboard() {
   const [systemStatusState, setSystemStatusState] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+  const [systemStatusCheckedAt, setSystemStatusCheckedAt] = useState<string | null>(null);
+  const [systemStatusError, setSystemStatusError] = useState<string | null>(null);
   const [liveMissions, setLiveMissions] = useState<
     Array<{ id: string; title: string; status: string }>
   >([]);
@@ -524,6 +528,7 @@ function Dashboard() {
 
   const loadSystemStatus = async () => {
     setSystemStatusState("loading");
+    setSystemStatusError(null);
     try {
       const [statusResult, metricsResult, overviewResult] = await Promise.allSettled([
         nousFetch<SystemStatus>("/api/status"),
@@ -541,17 +546,23 @@ function Dashboard() {
           overview,
         });
         setSystemStatusState("ready");
+        setSystemStatusCheckedAt(new Date().toISOString());
         return;
       }
       throw new Error("NOUS system status unavailable");
-    } catch {
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Άγνωστο σφάλμα status";
       try {
         const health = await nousFetch<{ status: string }>("/api/health");
         setSystemStatus({ status: health.status === "healthy" ? "online" : "degraded" });
         setSystemStatusState("ready");
-      } catch {
+        setSystemStatusError(detail);
+        setSystemStatusCheckedAt(new Date().toISOString());
+      } catch (healthError) {
         setSystemStatus({ status: "unavailable" });
         setSystemStatusState("error");
+        setSystemStatusError(healthError instanceof Error ? healthError.message : detail);
+        setSystemStatusCheckedAt(new Date().toISOString());
       }
     }
   };
@@ -1086,10 +1097,27 @@ function Dashboard() {
             </button>
             <strong className="font-display text-sm">{navLabel(section)}</strong>
             <span
+              title={systemStatusError ?? undefined}
               className={`rounded-full border border-border px-2.5 py-0.5 font-mono text-xs ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
             >
               health: {systemStatus?.status ?? "checking"}
             </span>
+            <button
+              type="button"
+              onClick={() => void loadSystemStatus()}
+              disabled={systemStatusState === "loading"}
+              aria-label="Ανανέωση health status"
+              title={
+                systemStatusCheckedAt
+                  ? `Τελευταίος έλεγχος ${new Date(systemStatusCheckedAt).toLocaleTimeString("el-GR")}`
+                  : "Ανανέωση health status"
+              }
+              className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+            >
+              <RotateCcw
+                className={`size-3.5 ${systemStatusState === "loading" ? "animate-spin" : ""}`}
+              />
+            </button>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <span className="hidden rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground sm:block">
@@ -1812,7 +1840,7 @@ function Dashboard() {
         ) : section === "home" ? (
           <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
             <div className="min-w-0 max-w-full rounded-2xl border border-border bg-gradient-to-br from-violet/20 to-primary/10 p-5">
-              <h1 className="font-display text-2xl font-bold">Καλώς ήρθες στον ΝΟΥΣ</h1>
+              <h1 className="font-display text-2xl font-bold">Καλώς ήρθες στο�� ΝΟΥΣ</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 Agent chat + workspace + Android companion + deploy, σε μία οθόνη.
               </p>
