@@ -8,9 +8,12 @@ export default defineConfig({
       port: 5000,
       strictPort: true,
       allowedHosts: true,
+      optimizeDeps: {
+        exclude: ["lucide-react"],
+      },
       proxy: {
         "/api/nous": {
-          target: process.env["NOUS_API_URL"] || "http://127.0.0.1:8000",
+          target: process.env["NOUS_API_URL"] || "https://nous-ai-os-api.onrender.com",
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path.replace(/^\/api\/nous/, ""),
