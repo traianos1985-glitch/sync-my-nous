@@ -40,7 +40,9 @@ export function readApiError(payload: unknown): string | undefined {
 
 export const apiContractVersion = "v1";
 
-export function withApiContract<T extends Record<string, unknown>>(payload: T): T & { api_version: string } {
+export function withApiContract<T extends Record<string, unknown>>(
+  payload: T,
+): T & { api_version: string } {
   return { ...payload, api_version: apiContractVersion };
 }
 
@@ -109,11 +111,17 @@ export function isContractError(error: unknown): boolean {
 }
 
 export function formatContractError(error: unknown): string {
-  return isContractError(error) ? "Η απάντηση του backend δεν είναι συμβατή με το API v1." : error instanceof Error ? error.message : "Άγνωστο σφάλμα.";
+  return isContractError(error)
+    ? "Η απάντηση του backend δεν είναι συμβατή με το API v1."
+    : error instanceof Error
+      ? error.message
+      : "Άγνωστο σφάλμα.";
 }
 
 export function pickFirstString(...values: unknown[]): string | undefined {
-  return values.find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  return values.find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
+  );
 }
 
 export function hasOwn(value: unknown, key: string): boolean {
@@ -121,14 +129,19 @@ export function hasOwn(value: unknown, key: string): boolean {
 }
 
 export function omitSecrets(value: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(value).filter(([key]) => !/token|secret|password|api.?key/i.test(key)));
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => !/token|secret|password|api.?key/i.test(key)),
+  );
 }
 
 export function getCorrelationId(headers: Headers): string | undefined {
   return headers.get("x-correlation-id") ?? headers.get("x-request-id") ?? undefined;
 }
 
-export function withCorrelationId<T extends Record<string, unknown>>(payload: T, correlationId?: string): T & { correlation_id?: string } {
+export function withCorrelationId<T extends Record<string, unknown>>(
+  payload: T,
+  correlationId?: string,
+): T & { correlation_id?: string } {
   return correlationId ? { ...payload, correlation_id: correlationId } : payload;
 }
 
@@ -172,18 +185,29 @@ export function isRetryableContractError(error: unknown): boolean {
   return error instanceof Error && /timeout|cold start|temporarily/i.test(error.message);
 }
 
-export const diagnosticsKeys = ["provider", "model", "latency_ms", "fallback_model", "error_category", "correlation_id"] as const;
+export const diagnosticsKeys = [
+  "provider",
+  "model",
+  "latency_ms",
+  "fallback_model",
+  "error_category",
+  "correlation_id",
+] as const;
 
 export type DiagnosticsKey = (typeof diagnosticsKeys)[number];
 
 export function selectDiagnostics(payload: unknown): Partial<Record<DiagnosticsKey, unknown>> {
   const diagnostics = getSafeDiagnostics(payload);
   if (!diagnostics) return {};
-  return Object.fromEntries(diagnosticsKeys.filter((key) => key in diagnostics).map((key) => [key, diagnostics[key]]));
+  return Object.fromEntries(
+    diagnosticsKeys.filter((key) => key in diagnostics).map((key) => [key, diagnostics[key]]),
+  );
 }
 
 export function isSafeDiagnostics(payload: unknown): boolean {
-  return Object.keys(selectDiagnostics(payload)).every((key) => !/secret|token|password|key/i.test(key));
+  return Object.keys(selectDiagnostics(payload)).every(
+    (key) => !/secret|token|password|key/i.test(key),
+  );
 }
 
 export const contractStatusSchema = z.object({
@@ -207,10 +231,14 @@ export function normalizeError(error: unknown): string {
 }
 
 export function stableRequestId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
 }
 
-export function addRequestMetadata<T extends Record<string, unknown>>(payload: T): T & { request_id: string; api_version: string } {
+export function addRequestMetadata<T extends Record<string, unknown>>(
+  payload: T,
+): T & { request_id: string; api_version: string } {
   return { ...payload, request_id: stableRequestId(), api_version: apiContractVersion };
 }
 
@@ -223,7 +251,10 @@ export function parseCitations(value: unknown): CitationContract[] {
 }
 
 export function mergeDiagnostics(...values: Array<Record<string, unknown> | undefined>) {
-  return Object.assign({}, ...values.filter(Boolean).map((value) => omitSecrets(value as Record<string, unknown>)));
+  return Object.assign(
+    {},
+    ...values.filter(Boolean).map((value) => omitSecrets(value as Record<string, unknown>)),
+  );
 }
 
 export function hasContractVersion(payload: unknown): boolean {
@@ -265,11 +296,19 @@ export function coerceBoolean(value: unknown): boolean | undefined {
 }
 
 export function safeJson(value: unknown): string {
-  try { return JSON.stringify(value); } catch { return "[unserializable]"; }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "[unserializable]";
+  }
 }
 
 export function parseJson(value: string): unknown {
-  try { return JSON.parse(value); } catch { return undefined; }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 }
 
 export function isDevelopment(): boolean {
@@ -294,7 +333,9 @@ export function noSecretKeys(value: Record<string, unknown>): Record<string, unk
 
 export function diagnosticSummary(payload: unknown): string {
   const selected = selectDiagnostics(payload);
-  return Object.entries(selected).map(([key, value]) => `${key}=${String(value)}`).join(" · ");
+  return Object.entries(selected)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(" · ");
 }
 
 export function sameContract(a: unknown, b: unknown): boolean {
@@ -346,7 +387,10 @@ export function contractLogLabel(payload: unknown): string {
 }
 
 export function isSafePayload(payload: unknown): boolean {
-  return !isUnknownRecord(payload) || Object.keys(payload).every((key) => !/token|secret|password/i.test(key));
+  return (
+    !isUnknownRecord(payload) ||
+    Object.keys(payload).every((key) => !/token|secret|password/i.test(key))
+  );
 }
 
 export function validateSafePayload(payload: unknown): boolean {
@@ -388,7 +432,11 @@ export function parseChatResponse(payload: unknown): ChatResponse {
 }
 
 export function parseSafeChatResponse(payload: unknown): ChatResponse {
-  try { return parseChatResponse(payload); } catch { return {}; }
+  try {
+    return parseChatResponse(payload);
+  } catch {
+    return {};
+  }
 }
 
 export function hasDiagnostics(payload: unknown): boolean {
@@ -439,8 +487,16 @@ export function ensureApiVersion(payload: Record<string, unknown>) {
   return hasContractVersion(payload) ? payload : { ...payload, api_version: apiContractVersion };
 }
 
-export function createRequestPayload(message: string, history: Array<{ role: string; text: string }>, conversationId?: string | null) {
-  return addRequestMetadata({ message: trimText(message), history, ...(conversationId ? { conversation_id: conversationId } : {}) });
+export function createRequestPayload(
+  message: string,
+  history: Array<{ role: string; text: string }>,
+  conversationId?: string | null,
+) {
+  return addRequestMetadata({
+    message: trimText(message),
+    history,
+    ...(conversationId ? { conversation_id: conversationId } : {}),
+  });
 }
 
 export function isValidRequest(payload: unknown): boolean {
@@ -471,7 +527,10 @@ export function requestIdHeader(requestId: string): Headers {
 }
 
 export function isContractPayload(payload: unknown): boolean {
-  return isUnknownRecord(payload) && ("answer" in payload || "human_answer" in payload || "response" in payload || "text" in payload);
+  return (
+    isUnknownRecord(payload) &&
+    ("answer" in payload || "human_answer" in payload || "response" in payload || "text" in payload)
+  );
 }
 
 export function stableText(payload: unknown): string {
@@ -491,7 +550,9 @@ export function redactPayload(payload: unknown): unknown {
 }
 
 export function diagnosticsForUi(payload: unknown): string[] {
-  return Object.entries(responseDiagnostics(payload)).map(([key, value]) => `${key}: ${String(value)}`);
+  return Object.entries(responseDiagnostics(payload)).map(
+    ([key, value]) => `${key}: ${String(value)}`,
+  );
 }
 
 export function shouldShowDiagnostics(payload: unknown): boolean {
