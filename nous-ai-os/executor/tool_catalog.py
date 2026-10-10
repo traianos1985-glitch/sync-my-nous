@@ -131,10 +131,3 @@ def get_tool(name: str) -> dict | None:
                 result["approval_required"] = "depends_on_action"
             return result
     return None
-
-
-class _DependsOnRuntimeApproval:
-    pass
-
-
-DependsOnRuntimeApproval = _DependsOnRuntimeApproval()
