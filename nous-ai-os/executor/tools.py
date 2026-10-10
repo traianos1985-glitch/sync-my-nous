@@ -49,7 +49,7 @@ def run_tool(intent, context=None):
 
     if action == "calculate":
         expression = command
-        for prefix in ("calculate ", "/calculate ", "υπολόγισε "):
+        for prefix in ("calculate ", "/calculate ", "calc ", "υπολόγισε "):
             if expression.lower().startswith(prefix):
                 expression = expression[len(prefix):]
                 break
@@ -73,7 +73,7 @@ def run_tool(intent, context=None):
 
     if action == "text_stats":
         value = command
-        for prefix in ("text stats ", "μέτρησε κείμενο "):
+        for prefix in ("text stats ", "ανάλυση κειμένου ", "μέτρησε κείμενο "):
             if value.lower().startswith(prefix):
                 value = value[len(prefix):]
                 break
@@ -81,7 +81,7 @@ def run_tool(intent, context=None):
 
     if action == "json_validate":
         value = command
-        for prefix in ("json validate ", "έλεγξε json "):
+        for prefix in ("json validate ", "έλεγχος json ", "έλεγξε json "):
             if value.lower().startswith(prefix):
                 value = value[len(prefix):]
                 break
