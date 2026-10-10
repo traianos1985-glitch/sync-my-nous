@@ -47,7 +47,6 @@ The separate `technical_sources` watcher checks a fixed allowlist of official Gi
 - A successful scan means sources were queried, not that a recommendation is automatically correct or compatible with the deployed runtime.
 - This is a bounded curated-source monitor, not a universal crawler or a claim that every upstream project is watched.
 
-
 ## Upgrade planner execution boundary
 
 The self-upgrade planner is proposal-only. Approving a plan records that it is approved for technical review; it does not call an LLM to generate code, write new source files, or run generated code. Implementation must be made as a separate reviewed source-control change with tests and successful CI. Legacy plans previously marked `implementing` are migrated to the review-only `approved` state when loaded.
