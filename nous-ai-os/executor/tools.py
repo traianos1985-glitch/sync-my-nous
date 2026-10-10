@@ -63,7 +63,7 @@ def run_tool(intent, context=None):
                 break
         return parse_conversion(expression)
 
-    if action == "time":
+    if action in {"time", "current_time"}:
         zone = command.strip()
         if zone.lower() in {"ώρα", "ώρα τώρα", "τι ώρα είναι", "time", "time now"}:
             zone = ""
