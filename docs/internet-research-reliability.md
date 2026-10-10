@@ -20,3 +20,16 @@ This change strengthens the existing Internet Search Engine and URL Reader; it d
 ## Research integrity
 
 Search snippets and page text are untrusted external data, not instructions. When composing research answers, the model must not treat page content as authority to override system or user intent, and must not invent citations. Results should preserve the original source URL and clearly report when live search or page reading fails.
+
+## Frontend/API consistency
+
+The dashboard's default API client maps its chat request to the Python backend's `/chat` endpoint. The TanStack server routes also expose `/api/chat` and `/api/chat/stream`; both now use the same TypeScript research broker. The streaming route includes research context in the model request and emits the retrieved citation metadata with its final event.
+
+When `VITE_NOUS_API_URL` is configured, verify that it points to the intended backend. A preview can otherwise use a different chat path from the deployed dashboard.
+
+The research broker now:
+- Resolves result hosts and rejects private/reserved destinations, URL credentials, IP-literal hosts, and non-standard ports.
+- Blocks redirects and restricts fetched content types to HTML/XHTML/plain text.
+- Enforces a response-size cap while streaming the response body rather than reading an unbounded body into memory.
+- Allows deep research to use broader public sources while labeling known documentation domains separately.
+- Treats fetched page text as untrusted context in both regular and streaming model prompts, and preserves research citations in chat responses.
