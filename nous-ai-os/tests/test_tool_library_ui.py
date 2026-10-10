@@ -1,5 +1,8 @@
 import re
 
+from flask import Flask
+
+from executor.dashboard_api import dashboard_api_bp
 from executor.intent import detect_intent
 from executor.nous_ui import nous_dashboard_html
 from executor.tool_catalog import get_tool, tool_catalog
@@ -54,3 +57,21 @@ def test_safe_utility_commands_are_routed_and_direct_run_is_allowlisted():
         assert intent == {"type": "tool", "action": action}
         result = run_tool(intent, {"command": command})
         assert isinstance(result, dict) and result.get("ok") is True
+
+
+def test_tool_library_api_runs_only_allowlisted_local_utilities():
+    app = Flask(__name__)
+    app.register_blueprint(dashboard_api_bp)
+    client = app.test_client()
+
+    catalog_response = client.get("/api/tools/catalog")
+    assert catalog_response.status_code == 200
+    assert catalog_response.get_json()["ok"] is True
+
+    result = client.post("/api/tools/run", json={"command": "calculate 2 + 3"})
+    assert result.status_code == 200
+    assert result.get_json()["result"]["result"] == 5
+
+    blocked = client.post("/api/tools/run", json={"command": "cmd whoami"})
+    assert blocked.status_code == 403
+    assert blocked.get_json()["error"] == "tool_not_allowlisted_for_direct_execution"
