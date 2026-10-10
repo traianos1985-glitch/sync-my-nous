@@ -43,3 +43,23 @@ def test_rejects_absolute_and_windows_paths(tmp_path, monkeypatch):
         result = app_builder.approve_and_write("plan-1")
         assert result["ok"] is False
         assert result["error"] == "unsafe_app_path"
+
+
+
+def test_generated_web_app_is_created_under_persistent_data_dir(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(app_builder, "APP_DIR", "data/generated_apps")
+    result = app_builder.make_web_app("persistent_demo", title="Persistent Demo")
+    expected = tmp_path / "data" / "generated_apps" / "persistent_demo" / "index.html"
+    assert result["created"] is True
+    assert expected.is_file()
+    assert result["url"] == "/apps/persistent_demo/"
+
+
+def test_approved_app_run_command_points_to_written_entrypoint(tmp_path, monkeypatch):
+    _queue_plan(tmp_path, monkeypatch, [
+        {"path": "demo_app/main.py", "content": "print('safe')"},
+    ])
+    result = app_builder.approve_and_write("plan-1")
+    assert result["ok"] is True
+    assert result["run_command"].endswith("demo_app/main.py")
