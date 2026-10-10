@@ -17,7 +17,10 @@ BLOCKED = {
     "data/secrets.json",
     "data/credentials.json",
 }
-BLOCKED_NAMES = {".env", ".env.local", ".env.production"}
+BLOCKED_NAMES = {
+    ".env", ".env.local", ".env.production",
+    "api_tokens.json", "secrets.json", "credentials.json",
+}
 BLOCKED_DIR_NAMES = {"brain_backups", "brain_restores", "__pycache__", ".cache"}
 MAX_BACKUP_BYTES = 256 * 1024 * 1024
 MAX_FILE_BYTES = 64 * 1024 * 1024
@@ -98,6 +101,9 @@ def inspect_brain_backup(path):
                     or manifest.get("type") != "NOUS_BRAIN_BACKUP"
                     or not isinstance(manifest.get("files"), list)):
                 return {"ok": False, "error": "invalid_manifest", "path": path}
+            version = manifest.get("version")
+            if isinstance(version, bool) or not isinstance(version, int) or version not in (1, 2):
+                return {"ok": False, "error": "unsupported_backup_format", "path": path}
 
             files = []
             problems = []

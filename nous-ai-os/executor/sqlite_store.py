@@ -90,3 +90,41 @@ def load_memories(limit=200) -> list[dict]:
             raise RuntimeError(f"memory_store_integrity_failure:record_shape:{row['id']}")
         result.append(item)
     return result
+
+
+
+def inspect_sqlite_store() -> dict:
+    """Return a read-only diagnostic summary of SQLite memory integrity."""
+    conn = None
+    try:
+        conn = _get_connection()
+        integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        row = conn.execute(
+            "SELECT COUNT(*) AS count, MAX(timestamp) AS newest FROM memories"
+        ).fetchone()
+        malformed = 0
+        for record in conn.execute("SELECT id, data FROM memories"):
+            try:
+                decoded = json.loads(record["data"])
+                if not isinstance(decoded, dict):
+                    malformed += 1
+            except (TypeError, ValueError):
+                malformed += 1
+        return {
+            "ok": integrity == "ok" and malformed == 0,
+            "database": DB_PATH,
+            "integrity_check": integrity,
+            "record_count": int(row["count"]),
+            "newest_timestamp": row["newest"],
+            "malformed_records": malformed,
+        }
+    except (OSError, sqlite3.Error) as exc:
+        return {
+            "ok": False,
+            "database": DB_PATH,
+            "error": "sqlite_store_inspection_failed",
+            "details": str(exc),
+        }
+    finally:
+        if conn is not None:
+            conn.close()
