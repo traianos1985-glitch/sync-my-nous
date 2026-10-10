@@ -3952,7 +3952,7 @@ function renderToolbox(){
     const canRun = item.executable_from_tool_library === true;
     const label = !canRun ? "Μόνο μέσω ειδικής ροής" : (approval ? "Έλεγχος/έγκριση ανά ενέργεια" : "Ασφαλής απευθείας εκτέλεση");
     const actionControl = canRun
-      ? '<button type="button" class="miniBtn toolbox-run" data-command="' + escHtml(item.command) + '">Εκτέλεση ασφαλούς εργαλείου</button>'
+      ? '<button type="button" class="miniBtn toolbox-run" data-command="' + toolboxEscapeAttr(item.command) + '">Εκτέλεση ασφαλούς εργαλείου</button>'
       : '<div class="small" style="margin-top:10px;color:var(--warn);">Εκτέλεση μόνο από την ειδική ροή του NOUS — δεν εκτελείται από αυτό το πάνελ.</div>';
     return '<div class="card toolbox-card">' +
       '<div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;">' +
