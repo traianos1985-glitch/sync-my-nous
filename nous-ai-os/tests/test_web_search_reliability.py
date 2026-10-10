@@ -64,3 +64,19 @@ def test_search_status_does_not_claim_available_when_probe_fails(monkeypatch):
 
     assert result["available"] is False
     assert result["error"] == "search_unavailable"
+
+
+
+def test_internet_engine_marks_empty_search_as_no_results(monkeypatch, tmp_path):
+    from executor import internet_search_engine
+
+    monkeypatch.setattr(internet_search_engine, "_ddg_instant", lambda query: [])
+    monkeypatch.setattr(internet_search_engine, "_wikipedia_search", lambda query: [])
+    monkeypatch.setattr(internet_search_engine, "_ddg_html", lambda query, limit: [])
+    monkeypatch.setattr(internet_search_engine, "CACHE", tmp_path / "cache.json")
+
+    result = internet_search_engine.search_web("query", limit=3)
+
+    assert result["ok"] is False
+    assert result["error"] == "no_results"
+    assert result["results"] == []
