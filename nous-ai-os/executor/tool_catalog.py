@@ -106,6 +106,23 @@ TOOLS = (
         "risk": "agent_execution",
         "approval_required": DependsOnRuntimeApproval,
     },
+    {"name": "plugin", "category": "plugins", "description": "List installed plugins.", "command": "plugins", "risk": "read_only", "approval_required": False},
+    {"name": "memory", "category": "memory", "description": "Read recent stored memory entries.", "command": "memory", "risk": "read_only", "approval_required": False},
+    {"name": "memory_summary", "category": "memory", "description": "Summarize stored memory.", "command": "memory summary", "risk": "read_only", "approval_required": False},
+    {"name": "remember_fact", "category": "memory", "description": "Save a fact in personal memory.", "command": "remember <fact>", "risk": "state_change", "approval_required": False},
+    {"name": "recall", "category": "memory", "description": "Search remembered facts.", "command": "recall <query>", "risk": "read_only", "approval_required": False},
+    {"name": "plan", "category": "planning", "description": "Create a plan from a goal.", "command": "plan <goal>", "risk": "state_change", "approval_required": False},
+    {"name": "task", "category": "planning", "description": "Add a task.", "command": "task <description>", "risk": "state_change", "approval_required": False},
+    {"name": "tasks", "category": "planning", "description": "List saved tasks.", "command": "tasks", "risk": "read_only", "approval_required": False},
+    {"name": "web_search", "category": "research", "description": "Search the web.", "command": "search <query>", "risk": "external_read", "approval_required": False},
+    {"name": "fetch_page", "category": "research", "description": "Extract text from a URL.", "command": "open url https://example.com", "risk": "external_read", "approval_required": False},
+    {"name": "sysinfo", "category": "system", "description": "Read runtime information.", "command": "sysinfo", "risk": "read_only", "approval_required": False},
+    {"name": "snapshot", "category": "system", "description": "Create a project snapshot report.", "command": "snapshot", "risk": "read_only", "approval_required": False},
+    {"name": "compile", "category": "development", "description": "Run the code compile check.", "command": "compile", "risk": "read_only", "approval_required": False},
+    {"name": "git_status", "category": "development", "description": "Inspect Git status.", "command": "git status", "risk": "read_only", "approval_required": False},
+    {"name": "daily_brief", "category": "system", "description": "Generate the daily brief.", "command": "daily brief", "risk": "read_only", "approval_required": False},
+    {"name": "agent_solve", "category": "agent", "description": "Ask the agent executor to work on a goal.", "command": "agent solve <goal>", "risk": "agent_execution", "approval_required": "depends_on_action"},
+
 )
 
 
