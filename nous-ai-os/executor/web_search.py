@@ -113,11 +113,17 @@ def quick_fact(question: str) -> str:
 
 
 def web_search_status() -> dict[str, Any]:
-    """Report the real outcome of a bounded live search probe."""
+    """Report what the probe can establish without guessing provider health."""
     result = search("NOUS web search connectivity check", max_results=1)
+    error = result.get("error")
+    # The current providers collapse some network failures and true empty
+    # searches into the same outcome. Report that as unknown, not false.
+    available = None if error == "no_results" else bool(result.get("ok"))
+    status = "unknown" if available is None else ("available" if available else "unavailable")
     return {
-        "available": bool(result.get("ok")),
+        "available": available,
+        "status": status,
         "engine": "internet_search_engine",
         "probe_results": int(result.get("count", 0) or 0),
-        **({"error": result["error"]} if result.get("error") else {}),
+        **({"error": error} if error else {}),
     }
