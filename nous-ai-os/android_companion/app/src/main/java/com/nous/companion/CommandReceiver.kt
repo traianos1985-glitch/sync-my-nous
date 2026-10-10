@@ -3,6 +3,7 @@ package com.nous.companion
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Process
 import android.util.Log
 
@@ -11,10 +12,15 @@ class CommandReceiver : BroadcastReceiver() {
         // This receiver remains exported because the companion is driven through
         // explicit adb broadcasts. Restrict callers to adb shell and this app;
         // ordinary third-party apps must not be able to tap or navigate the UI.
-        val senderUid = sendingUid
-        if (senderUid != Process.SHELL_UID && senderUid != Process.myUid()) {
-            Log.w("NOUS_COMPANION", "Rejected command broadcast from untrusted uid")
-            return
+        // getSendingUid() is available on Android 14+. Older Android releases
+        // do not expose the sender UID through this API; the receiver still
+        // requires the exact explicit component and allowlisted action/command.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val senderUid = sendingUid
+            if (senderUid != Process.SHELL_UID && senderUid != Process.myUid()) {
+                Log.w("NOUS_COMPANION", "Rejected command broadcast from untrusted uid")
+                return
+            }
         }
 
         if (intent?.action != ACTION_COMMAND) {
