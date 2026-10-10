@@ -1,66 +1,99 @@
+"""Single-use operator approvals with durable, cross-worker state transitions."""
 import fcntl
 import json
 import os
+import tempfile
 import time
 from contextlib import contextmanager
 
 FILE = "data/operator_approvals.json"
+FINAL_STATUSES = {"completed", "failed", "cancelled"}
 
 
-def _load():
-    if not os.path.exists(FILE):
-        return []
-    try:
-        with open(FILE, "r", encoding="utf-8") as handle:
-            return json.load(handle)
-    except Exception:
-        return []
-
-
-def _save(items):
-    os.makedirs("data", exist_ok=True)
-    with open(FILE, "w", encoding="utf-8") as handle:
-        json.dump(items, handle, ensure_ascii=False, indent=2)
+def _lock_path():
+    return FILE + ".lock"
 
 
 @contextmanager
 def _edit_items():
-    os.makedirs(os.path.dirname(FILE), exist_ok=True)
-    with open(FILE, "a+", encoding="utf-8") as lock_file:
+    directory = os.path.dirname(FILE) or "."
+    os.makedirs(directory, exist_ok=True)
+    # Lock a stable sidecar file: locking FILE itself is unsafe when atomic
+    # replacement swaps its inode while another worker is waiting.
+    with open(_lock_path(), "a", encoding="utf-8") as lock_file:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        items = _load()
         try:
+            items = _load_unlocked()
             yield items
-        except Exception:
-            raise
-        else:
-            _save(items)
+            _save_unlocked(items)
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _load_unlocked():
+    if not os.path.exists(FILE):
+        return []
+    try:
+        with open(FILE, "r", encoding="utf-8") as handle:
+            items = json.load(handle)
+    except (OSError, ValueError, TypeError):
+        return []
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _save_unlocked(items):
+    directory = os.path.dirname(FILE) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(prefix=".operator_approvals.", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(items, handle, ensure_ascii=False, indent=2)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, FILE)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
 
 
 def request_approval(action, payload=None, reason="operator action"):
+    action = str(action).strip()
+    if not action:
+        raise ValueError("action_must_not_be_empty")
+    if payload is not None and not isinstance(payload, dict):
+        raise ValueError("payload_must_be_object")
     item = {
         "id": int(time.time_ns()),
-        "action": str(action),
-        "payload": payload or {},
-        "reason": reason,
+        "action": action,
+        "payload": payload.copy() if payload is not None else {},
+        "reason": str(reason),
         "status": "pending",
         "created": time.time(),
         "decided": None,
     }
     with _edit_items() as items:
+        existing_ids = {str(entry.get("id")) for entry in items}
+        while str(item["id"]) in existing_ids:
+            item["id"] += 1
         items.append(item)
     return item
 
 
 def list_approvals(status=None):
-    items = _load()
+    with _edit_items() as items:
+        result = list(items)
     if status:
-        items = [x for x in items if x.get("status") == status]
-    return items
+        result = [item for item in result if item.get("status") == status]
+    return result
 
 
 def get_approval(approval_id):
-    return next((x for x in _load() if str(x.get("id")) == str(approval_id)), None)
+    return next((item for item in list_approvals() if str(item.get("id")) == str(approval_id)), None)
 
 
 def approve(approval_id):
@@ -69,7 +102,7 @@ def approve(approval_id):
             if str(item.get("id")) == str(approval_id) and item.get("status") == "pending":
                 item["status"] = "approved"
                 item["decided"] = time.time()
-                return item
+                return item.copy()
     return None
 
 
@@ -79,11 +112,13 @@ def reject(approval_id):
             if str(item.get("id")) == str(approval_id) and item.get("status") == "pending":
                 item["status"] = "rejected"
                 item["decided"] = time.time()
-                return item
+                return item.copy()
     return None
 
 
 def claim_approved_approval(approval_id, action, payload):
+    if not isinstance(payload, dict):
+        return None
     with _edit_items() as items:
         for item in items:
             if (
@@ -94,18 +129,20 @@ def claim_approved_approval(approval_id, action, payload):
             ):
                 item["status"] = "executing"
                 item["execution_started"] = time.time()
-                return item
+                return item.copy()
     return None
 
 
 def finish_approval(approval_id, status, result=None):
+    if status not in FINAL_STATUSES:
+        raise ValueError("invalid_final_approval_status")
     with _edit_items() as items:
         for item in items:
             if str(item.get("id")) == str(approval_id) and item.get("status") == "executing":
                 item["status"] = status
                 item["result"] = result
                 item["finished"] = time.time()
-                return item
+                return item.copy()
     return None
 
 
