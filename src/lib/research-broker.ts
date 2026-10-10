@@ -28,7 +28,7 @@ const ALLOWED_DOMAINS = new Set([
 ]);
 
 function shouldResearch(message: string) {
-  return /\\b(latest|current|today|version|docs?|documentation|package|library|debug|error|api|how to|research|mission|task|τελευτα|τρέχ|έκδοση|τεκμηρί|βιβλιοθήκ|σφάλμα)\\b/i.test(
+  return /\b(latest|current|today|version|docs?|documentation|package|library|debug|error|api|how to|research|mission|task|τελευτα|τρέχ|έκδοση|τεκμηρί|βιβλιοθήκ|σφάλμα)\b/i.test(
     message,
   );
 }
@@ -73,7 +73,7 @@ async function assertSafeUrl(raw: string) {
   if (url.username || url.password) throw new Error("url_credentials_blocked");
   if (url.port && !["80", "443"].includes(url.port)) throw new Error("blocked_port");
 
-  const host = url.hostname.replace(/^\\[|\\]$/g, "").replace(/\\.$/, "").toLowerCase();
+  const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
   if (
     !host ||
     host === "localhost" ||
@@ -145,8 +145,8 @@ async function fetchText(url: string, timeoutMs = 8000) {
 
   const rawText = await readBoundedText(response);
   return rawText
-    .replace(/<script[\\s\\S]*?<\\/script>|<style[\\s\\S]*?<\\/style>|<iframe[\\s\\S]*?<\\/iframe>|<[^>]+>/gi, " ")
-    .replace(/\\s+/g, " ")
+    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<iframe[\s\S]*?<\/iframe>|<[^>]+>/gi, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_CONTENT);
 }
@@ -165,7 +165,7 @@ async function search(query: string, deep: boolean): Promise<Citation[]> {
   if (!response.ok) throw new Error(`search_${response.status}`);
   const html = await readBoundedText(response);
   const results: Citation[] = [];
-  for (const match of html.matchAll(/result__a[^>]+href="([^"]+)"[^>]*>([\\s\\S]*?)<\\/a>/gi)) {
+  for (const match of html.matchAll(/result__a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
     const rawHref = match[1].replace(/&amp;/g, "&");
     const redirectUrl = new URL(rawHref, "https://html.duckduckgo.com");
     const target = redirectUrl.searchParams.get("uddg") ?? rawHref;
@@ -175,7 +175,7 @@ async function search(query: string, deep: boolean): Promise<Citation[]> {
       results.push({
         title: match[2].replace(/<[^>]+>/g, "").trim(),
         url: safe.toString(),
-        domain: safe.hostname.replace(/^\\[|\\]$/g, ""),
+        domain: safe.hostname.replace(/^\[|\]$/g, ""),
       });
     } catch {
       /* skip unsafe or malformed results */
@@ -235,9 +235,9 @@ export async function research(
     const context = enriched
       .map(
         (item, index) =>
-          `[Source ${index + 1}] ${item.title} (${item.url})\\n${(item as { content?: string }).content ?? item.snippet ?? ""}`,
+          `[Source ${index + 1}] ${item.title} (${item.url})\n${(item as { content?: string }).content ?? item.snippet ?? ""}`,
       )
-      .join("\\n\\n")
+      .join("\n\n")
       .slice(0, mode === "deep" ? 12000 : 6000);
     const result = {
       used: enriched.length > 0,
