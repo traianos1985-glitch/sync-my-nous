@@ -34,7 +34,10 @@ def test_valid_completed_mission_is_healthy():
 
 def test_duplicate_mission_and_task_ids_are_reported():
     first = _mission(1, 1)
-    second = _mission(1, 1)
+    second = _mission(1, 2)
+    first["tasks"].append(dict(first["tasks"][0]))
+    first["tasks"][1]["title"] = "duplicate task ID"
+    first["plan_contract"] = build_plan_contract(first["tasks"])
     report = audit_missions([first, second], now=10000.0)
     codes = {issue["code"] for issue in report["issues"]}
     assert "duplicate_mission_id" in codes
