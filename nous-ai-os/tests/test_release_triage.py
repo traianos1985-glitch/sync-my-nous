@@ -9,7 +9,7 @@ def _release(**overrides):
         "name": "Python 3.15.0",
         "published_at": "2026-10-01T12:00:00Z",
         "url": "https://github.com/python/cpython/releases/tag/v3.15.0",
-        "notes_excerpt": "Security fix and performance improvement.",
+        "notes_excerpt": "Security advisory and performance improvement.",
     }
     value.update(overrides)
     return value
