@@ -119,6 +119,7 @@ def propose_release_evidence_plans(limit=5):
     items = _load()
     created = []
     deduped = []
+    deduped_keys = set()
     for evidence in candidates:
         repository = evidence.get("repository")
         tag = evidence.get("tag")
@@ -140,7 +141,10 @@ def propose_release_evidence_plans(limit=5):
             and plan["source_evidence"].get("tag") == tag
         ), None)
         if existing:
-            deduped.append(existing)
+            evidence_key = (repository, tag)
+            if evidence_key not in deduped_keys:
+                deduped.append(existing)
+                deduped_keys.add(evidence_key)
             continue
         plan = {
             "id": int(time.time_ns()),
