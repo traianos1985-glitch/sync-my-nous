@@ -38,9 +38,9 @@ def task_statuses(mission: dict[str, Any]) -> list[str]:
     if not isinstance(tasks, list):
         return []
     return [
-        str(t.get("status", "")).lower().strip()
-        for t in tasks
-        if isinstance(t, dict)
+        str(task.get("status", "")).lower().strip()
+        for task in tasks
+        if isinstance(task, dict)
     ]
 
 
@@ -49,19 +49,27 @@ def add_lesson(mission: dict[str, Any]) -> None:
     if not isinstance(lessons, list):
         lessons = []
 
-    mid = mission.get("id")
+    mission_id = mission.get("id")
     for item in lessons:
-        if isinstance(item, dict) and item.get("source_mission_id") == mid:
+        if isinstance(item, dict) and item.get("source_mission_id") == mission_id:
             return
 
+    status = str(mission.get("status", "")).lower().strip()
+    success = status in {"completed", "complete", "done", "success", "archived"}
+    outcome = "completed successfully" if success else f"ended with status: {status or 'unknown'}"
     lessons.append({
         "id": int(datetime.now().timestamp() * 1000000),
         "created_at": now_iso(),
         "source": "mission_lifecycle_manager",
-        "source_mission_id": mid,
-        "title": f"Mission completed: {mission.get('title')}",
-        "lesson": "Mission reached terminal/completed state and was archived by lifecycle manager.",
-        "success": True,
+        "source_mission_id": mission_id,
+        "title": f"Mission {outcome}: {mission.get('title')}",
+        "lesson": (
+            "Mission completed and archived by lifecycle manager."
+            if success else
+            f"Mission was archived without success; final status was {status or 'unknown'}."
+        ),
+        "success": success,
+        "outcome": status or "unknown",
     })
     save_json(LESSONS, lessons)
 
@@ -71,16 +79,16 @@ def add_knowledge(mission: dict[str, Any]) -> None:
     if not isinstance(queue, list):
         queue = []
 
-    mid = mission.get("id")
+    mission_id = mission.get("id")
     for item in queue:
-        if isinstance(item, dict) and item.get("source_mission_id") == mid:
+        if isinstance(item, dict) and item.get("source_mission_id") == mission_id:
             return
 
     queue.append({
         "id": int(datetime.now().timestamp() * 1000000),
         "created_at": now_iso(),
         "source": "mission_lifecycle_manager",
-        "source_mission_id": mid,
+        "source_mission_id": mission_id,
         "kind": "mission_lifecycle",
         "title": mission.get("title"),
         "status": mission.get("status"),
@@ -108,12 +116,12 @@ def run_mission_lifecycle_manager() -> dict[str, Any]:
 
         status = str(mission.get("status", "")).lower().strip()
         statuses = task_statuses(mission)
-
-        terminal = status in {"completed", "done", "cancelled", "archived"}
-        all_done = bool(statuses) and all(s in {"done", "completed"} for s in statuses)
+        terminal = status in {"completed", "done", "cancelled", "canceled", "failed", "archived"}
+        all_done = bool(statuses) and all(task_status in {"done", "completed"} for task_status in statuses)
 
         if terminal or all_done:
-            mission["status"] = "completed" if all_done and status not in {"cancelled"} else mission.get("status", "completed")
+            if all_done and status not in {"cancelled", "canceled", "failed"}:
+                mission["status"] = "completed"
             mission["archived_at"] = mission.get("archived_at") or now_iso()
             archived.append(mission)
             add_lesson(mission)
