@@ -78,3 +78,24 @@ def test_non_list_store_fails_closed():
     report = audit_missions({"not": "a list"})
     assert report["ok"] is False
     assert report["issues"][0]["code"] == "mission_store_not_a_list"
+
+def test_unhashable_status_values_are_reported_not_raised():
+    mission = _mission()
+    mission["status"] = {"unexpected": "object"}
+    mission["tasks"][0]["status"] = ["unexpected"]
+    report = audit_missions([mission], now=10000.0)
+    codes = {issue["code"] for issue in report["issues"]}
+    assert "unknown_mission_status" in codes
+    assert "unknown_task_status" in codes
+
+
+def test_malformed_plan_contract_is_reported_not_raised():
+    mission = _mission()
+    mission["plan_contract"] = {"hash": ["not", "a", "hash"]}
+    report = audit_missions([mission], now=10000.0)
+    assert any(issue["code"] == "mission_plan_contract_mismatch" for issue in report["issues"])
+
+
+def test_non_finite_clock_input_does_not_crash_audit():
+    report = audit_missions([_mission()], now=float("nan"))
+    assert report["status"] == "healthy"

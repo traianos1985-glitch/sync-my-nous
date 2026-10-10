@@ -5,6 +5,7 @@ they do not prove that an external action's claimed result is factually true.
 """
 from __future__ import annotations
 
+import math
 import time
 from typing import Any
 
@@ -21,7 +22,12 @@ KNOWN_TASK_STATUSES = {
 
 def audit_missions(missions: Any, now: float | None = None, stale_after: float = 900) -> dict[str, Any]:
     """Report malformed records, conflicting states, stale claims and bad evidence."""
-    now = time.time() if now is None else float(now)
+    try:
+        now = time.time() if now is None else float(now)
+        if not math.isfinite(now):
+            raise ValueError("non-finite timestamp")
+    except (TypeError, ValueError, OverflowError):
+        now = time.time()
     try:
         stale_after = max(1.0, float(stale_after))
     except (TypeError, ValueError, OverflowError):
@@ -50,7 +56,7 @@ def audit_missions(missions: Any, now: float | None = None, stale_after: float =
         mission_ids.add(key)
 
         mission_status = mission.get("status")
-        if mission_status not in KNOWN_MISSION_STATUSES:
+        if not isinstance(mission_status, str) or mission_status not in KNOWN_MISSION_STATUSES:
             issues.append({**prefix, "mission_id": mission_id, "code": "unknown_mission_status", "severity": "error"})
         tasks = mission.get("tasks")
         if not isinstance(tasks, list):
@@ -74,7 +80,7 @@ def audit_missions(missions: Any, now: float | None = None, stale_after: float =
             task_ids.add(task_key)
 
             status = task.get("status")
-            if status not in KNOWN_TASK_STATUSES:
+            if not isinstance(status, str) or status not in KNOWN_TASK_STATUSES:
                 issues.append({**task_prefix, "code": "unknown_task_status", "severity": "error"})
             if status == "running":
                 running.append(task)
@@ -86,7 +92,10 @@ def audit_missions(missions: Any, now: float | None = None, stale_after: float =
                     issues.append({**task_prefix, "code": "stale_or_invalid_running_claim", "severity": "warning"})
             if status == "done":
                 done_tasks.append(task)
-                check = verify_task_completion(task)
+                try:
+                    check = verify_task_completion(task)
+                except Exception as exc:
+                    check = {"status": "invalid", "reason": f"verification_error:{type(exc).__name__}"}
                 if check.get("status") != "verified":
                     issues.append({
                         **task_prefix,
@@ -98,21 +107,27 @@ def audit_missions(missions: Any, now: float | None = None, stale_after: float =
         if len(running) > 1:
             issues.append({**prefix, "mission_id": mission_id, "code": "multiple_running_tasks", "severity": "error"})
         if mission_status == "done":
-            completion = verify_mission_completion(mission)
+            try:
+                completion = verify_mission_completion(mission)
+            except Exception as exc:
+                completion = {"status": "invalid", "reason": f"verification_error:{type(exc).__name__}"}
             if completion.get("status") != "completed":
                 issues.append({
                     **prefix, "mission_id": mission_id,
                     "code": "done_mission_not_verified", "severity": "error",
                     "reason": completion.get("reason"),
                 })
-            if any(task.get("status") not in {"done"} for task in tasks if isinstance(task, dict)):
+            if any(not isinstance(task.get("status"), str) or task.get("status") != "done" for task in tasks if isinstance(task, dict)):
                 issues.append({**prefix, "mission_id": mission_id, "code": "done_mission_has_incomplete_tasks", "severity": "error"})
-        elif mission_status == "active" and any(task.get("status") in {"failed", "blocked", "needs_review", "rejected", "cancelled"} for task in tasks if isinstance(task, dict)):
+        elif mission_status == "active" and any(isinstance(task.get("status"), str) and task.get("status") in {"failed", "blocked", "needs_review", "rejected", "cancelled"} for task in tasks if isinstance(task, dict)):
             issues.append({**prefix, "mission_id": mission_id, "code": "active_mission_contains_terminal_task", "severity": "warning"})
 
         contract = mission.get("plan_contract")
         if contract is not None:
-            plan_check = verify_plan_contract(contract, tasks)
+            try:
+                plan_check = verify_plan_contract(contract, tasks)
+            except Exception as exc:
+                plan_check = {"ok": False, "error": f"verification_error:{type(exc).__name__}"}
             if not plan_check.get("ok"):
                 issues.append({
                     **prefix, "mission_id": mission_id,
