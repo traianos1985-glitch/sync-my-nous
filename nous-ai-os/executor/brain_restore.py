@@ -31,7 +31,7 @@ def _sha256_bytes(data: bytes) -> str:
 
 def _safe_backup_path(value: object) -> str | None:
     """Return a canonical, permitted relative JSON path, otherwise None."""
-    if not isinstance(value, str) or not value or "\\\\" in value or chr(0) in value:
+    if not isinstance(value, str) or not value or "\\" in value or chr(0) in value:
         return None
     candidate = PurePosixPath(value)
     if candidate.is_absolute() or candidate.as_posix() != value:
