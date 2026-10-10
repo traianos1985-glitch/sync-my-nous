@@ -26,7 +26,10 @@ EXCLUDED_FILES = {
     "data/secrets.json",
     "data/credentials.json",
 }
-EXCLUDED_NAMES = {".env", ".env.local", ".env.production"}
+EXCLUDED_NAMES = {
+    ".env", ".env.local", ".env.production",
+    "api_tokens.json", "secrets.json", "credentials.json",
+}
 EXCLUDED_DIR_NAMES = {
     "brain_backups",
     "brain_restores",
@@ -39,7 +42,7 @@ MAX_BACKUP_BYTES = 256 * 1024 * 1024
 
 def _is_excluded(path: str) -> bool:
     parts = Path(path).parts
-    if path in EXCLUDED_FILES:
+    if path in EXCLUDED_FILES or Path(path).name in EXCLUDED_NAMES:
         return True
     if any(part in EXCLUDED_DIR_NAMES for part in parts):
         return True
