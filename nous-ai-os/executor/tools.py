@@ -35,10 +35,67 @@ from executor.planner import make_plan
 from executor.task_state import add_task, list_tasks
 from executor.source_reader import read_source
 from executor.stability import stable_point
+from executor.utility_tools import calculate, parse_conversion, current_time, text_stats, validate_json_text, sha256_text
+from executor.tool_catalog import tool_catalog
 
 def run_tool(intent, context=None):
 
+    context = context if isinstance(context, dict) else {}
     action = intent.get("action")
+    command = str(context.get("command", ""))
+
+    if action == "tool_catalog":
+        return tool_catalog()
+
+    if action == "calculate":
+        expression = command.strip()
+        for prefix in ("calculate ", "calc ", "υπολόγισε "):
+            if expression.lower().startswith(prefix):
+                expression = expression[len(prefix):].strip()
+                break
+        return calculate(expression)
+
+    if action == "convert":
+        expression = command.strip()
+        for prefix in ("convert ", "μετατροπή "):
+            if expression.lower().startswith(prefix):
+                expression = expression[len(prefix):].strip()
+                break
+        return parse_conversion(expression)
+
+    if action == "current_time":
+        zone = command.strip()
+        for prefix in ("time ",):
+            if zone.lower().startswith(prefix):
+                zone = zone[len(prefix):].strip()
+                break
+        if zone.lower() in {"time now", "ώρα", "ώρα τώρα", "τι ώρα είναι"}:
+            zone = ""
+        return current_time(zone)
+
+    if action == "text_stats":
+        value = command.strip()
+        for prefix in ("text stats ", "ανάλυση κειμένου "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return text_stats(value)
+
+    if action == "json_validate":
+        value = command.strip()
+        for prefix in ("json validate ", "έλεγχος json "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return validate_json_text(value)
+
+    if action == "sha256":
+        value = command.strip()
+        for prefix in ("sha256 ", "hash "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return sha256_text(value)
 
     if action == "plugin":
         return "Plugins: " + ", ".join(list_plugins())
