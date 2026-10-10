@@ -135,6 +135,10 @@ def run_tool(intent, context=None):
     if action == "plugin":
         return "Plugins: " + ", ".join(list_plugins())
 
+    if action == "tool_catalog":
+        from executor.tool_catalog import tool_catalog
+        return tool_catalog()
+
     if action == "memory":
         return load()[-20:]
 
