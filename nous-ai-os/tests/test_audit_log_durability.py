@@ -3,6 +3,8 @@ import importlib
 import json
 from pathlib import Path
 
+import pytest
+
 from executor import action_log, agent_journal
 
 
@@ -47,3 +49,48 @@ def test_journal_verification_works_after_retention_and_detects_tampering(tmp_pa
     persisted[10]["data"]["index"] = "tampered"
     Path("data/agent_journal.json").write_text(json.dumps(persisted), encoding="utf-8")
     assert module.verify_journal()["error"] == "journal_integrity_failed"
+
+
+def test_corrupt_journal_is_reported_and_never_overwritten(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    module = importlib.reload(agent_journal)
+    monkeypatch.setattr(module, "FILE", "data/agent_journal.json")
+    Path("data").mkdir()
+    original = b'{"truncated":'
+
+    Path("data/agent_journal.json").write_bytes(original)
+
+    integrity = module.verify_journal()
+    with pytest.raises(RuntimeError, match="journal_integrity_failure"):
+        module.write_journal("must_not_erase_history", {"safe": True})
+
+    assert integrity["ok"] is False
+    assert integrity["error"] == "journal_store_integrity_failure"
+    assert Path("data/agent_journal.json").read_bytes() == original
+
+
+def test_malformed_journal_records_and_broken_hash_chain_fail_closed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    module = importlib.reload(agent_journal)
+    monkeypatch.setattr(module, "FILE", "data/agent_journal.json")
+    Path("data").mkdir()
+    original = json.dumps([{"event": "partial"}, "malformed"]).encode("utf-8")
+    Path("data/agent_journal.json").write_bytes(original)
+
+    assert module.verify_journal()["error"] == "journal_store_integrity_failure"
+    with pytest.raises(RuntimeError, match="journal_integrity_failure"):
+        module.write_journal("must_not_erase_history")
+
+    assert Path("data/agent_journal.json").read_bytes() == original
+
+    Path("data/agent_journal.json").write_text("[]", encoding="utf-8")
+    module.write_journal("valid")
+    persisted = json.loads(Path("data/agent_journal.json").read_text(encoding="utf-8"))
+    persisted[0]["event"] = "tampered"
+    tampered = json.dumps(persisted).encode("utf-8")
+    Path("data/agent_journal.json").write_bytes(tampered)
+
+    assert module.verify_journal()["error"] == "journal_integrity_failed"
+    with pytest.raises(RuntimeError, match="journal_integrity_failure"):
+        module.write_journal("must_not_extend_tampered_chain")
+    assert Path("data/agent_journal.json").read_bytes() == tampered
