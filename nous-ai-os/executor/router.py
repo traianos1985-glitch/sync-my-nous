@@ -124,6 +124,7 @@ from executor.goal_progress import list_goal_progress, refresh_goal_progress, go
 from executor.app_factory_v2 import create_app_from_idea, queue_app_idea, app_factory_status
 from executor.code_assistant import code_health, code_advice
 from executor.research_browser_agent import research_query, read_url
+from executor.technical_intelligence import technical_intelligence_status, latest_report as technical_intelligence_report, list_proposals as technical_intelligence_proposals, run_scan as run_technical_intelligence_scan
 from executor.knowledge_research import research_next_topic, learning_cycle
 from executor.autonomous_agent import capabilities as autonomous_capabilities, run_agent as run_autonomous_agent, run_check as run_agent_check, pending_proposals as pending_agent_proposals, approve_proposal as approve_agent_proposal
 
@@ -2634,6 +2635,31 @@ def remote_guardian_check_route():
 
     data = request.get_json(silent=True) or {}
     return jsonify(check_action(data.get("action", ""), data.get("payload", {})))
+
+
+@app.route("/remote/technical-intelligence/status")
+def remote_technical_intelligence_status_route():
+    return jsonify(technical_intelligence_status())
+
+
+@app.route("/remote/technical-intelligence/report")
+def remote_technical_intelligence_report_route():
+    return jsonify(technical_intelligence_report())
+
+
+@app.route("/remote/technical-intelligence/proposals")
+def remote_technical_intelligence_proposals_route():
+    return jsonify(technical_intelligence_proposals())
+
+
+@app.route("/remote/technical-intelligence/scan", methods=["POST"])
+def remote_technical_intelligence_scan_route():
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    limit = data.get("limit", 40)
+    result = run_technical_intelligence_scan(limit)
+    return jsonify(result), (200 if result.get("ok") else 400 if result.get("error") == "invalid_limit" else 503)
 
 
 @app.route("/remote/research/status")
