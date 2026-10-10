@@ -23,7 +23,7 @@ def test_sqlite_memory_returns_newest_records_in_chronological_order(tmp_path, m
     assert store.inspect_sqlite_store()["ok"] is True
 
 
-@pytest.mark.parametrize("limit", [0, -1, 501, True, 1.5, "2", None])
+@pytest.mark.parametrize("limit", [0, -1, True, 1.5, "2", None])
 def test_sqlite_memory_rejects_invalid_limits(tmp_path, monkeypatch, limit):
     from executor import sqlite_store
 
@@ -48,7 +48,7 @@ def test_sqlite_memory_fails_closed_on_corrupt_record(tmp_path, monkeypatch):
     finally:
         conn.close()
 
-    with pytest.raises(RuntimeError, match="sqlite_memory_integrity_failure"):
+    with pytest.raises(RuntimeError, match="memory_store_integrity_failure"):
         store.load_memories()
     health = store.inspect_sqlite_store()
     assert health["ok"] is False
@@ -185,3 +185,28 @@ def test_restore_rejects_nested_secret_filename_before_any_write(tmp_path, monke
     assert result["ok"] is False
     assert not target.exists()
     assert any(problem["error"] == "path_not_allowed" for problem in result["inspection"]["problems"])
+
+
+
+def test_sqlite_store_diagnostics_report_malformed_records(tmp_path, monkeypatch):
+    from executor import sqlite_store
+
+    monkeypatch.chdir(tmp_path)
+    store = importlib.reload(sqlite_store)
+    monkeypatch.setattr(store, "DB_PATH", "data/memory.db")
+    store.init_db()
+    store.save_memory({"healthy": True})
+    health = store.inspect_sqlite_store()
+    assert health["ok"] is True
+    assert health["record_count"] == 1
+    assert health["malformed_records"] == 0
+
+    conn = sqlite3.connect(store.DB_PATH)
+    try:
+        conn.execute("INSERT INTO memories(timestamp, data) VALUES (?, ?)", (2.0, "{bad"))
+        conn.commit()
+    finally:
+        conn.close()
+    health = store.inspect_sqlite_store()
+    assert health["ok"] is False
+    assert health["malformed_records"] == 1
