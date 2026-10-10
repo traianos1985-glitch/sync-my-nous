@@ -7,6 +7,7 @@ import json
 import math
 import operator
 import re
+from urllib.parse import quote, unquote
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -224,3 +225,48 @@ def validate_json_text(text: str) -> dict:
 def sha256_text(text: str) -> dict:
     value = str(text)
     return {"ok": True, "algorithm": "sha256", "sha256": hashlib.sha256(value.encode("utf-8")).hexdigest(), "characters": len(value)}
+
+
+_MAX_TEXT_TOOL_INPUT = 10_000
+
+
+def format_json(text: str) -> dict:
+    """Validate and pretty-print JSON with a bounded input size."""
+    value = str(text)
+    if not value.strip() or len(value) > _MAX_TEXT_TOOL_INPUT:
+        return {"ok": False, "error": "json_empty_or_too_long"}
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+        return {
+            "ok": False,
+            "error": "invalid_json",
+            "line": getattr(exc, "lineno", None),
+            "column": getattr(exc, "colno", None),
+            "details": str(exc),
+        }
+    return {
+        "ok": True,
+        "formatted": json.dumps(parsed, ensure_ascii=False, indent=2),
+        "type": type(parsed).__name__,
+    }
+
+
+def encode_url_component(text: str) -> dict:
+    """Percent-encode a single URL component, not an entire URL."""
+    value = str(text)
+    if len(value) > _MAX_TEXT_TOOL_INPUT:
+        return {"ok": False, "error": "text_too_long"}
+    return {"ok": True, "encoded": quote(value, safe="")}
+
+
+def decode_url_component(text: str) -> dict:
+    """Percent-decode a URL component and reject invalid UTF-8."""
+    value = str(text)
+    if len(value) > _MAX_TEXT_TOOL_INPUT:
+        return {"ok": False, "error": "text_too_long"}
+    try:
+        decoded = unquote(value, encoding="utf-8", errors="strict")
+    except (UnicodeDecodeError, ValueError):
+        return {"ok": False, "error": "invalid_url_encoding"}
+    return {"ok": True, "decoded": decoded}
