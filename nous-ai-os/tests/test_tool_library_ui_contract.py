@@ -24,7 +24,7 @@ def test_inline_button_handlers_resolve_to_declared_functions_or_browser_methods
     for handler in handlers:
         called.update(re.findall(r'([A-Za-z_$][\w$]*)\s*\(', handler))
     browser_methods = {
-        "removeItem", "stopPropagation", "getElementById", "stringify",
+        "removeItem", "stopPropagation", "getElementById", "stringify", "String",
         "confirm", "alert", "prompt", "open", "close", "setTimeout",
         "clearTimeout", "setInterval", "clearInterval", "parseInt", "parseFloat",
         "encodeURIComponent", "decodeURIComponent",
