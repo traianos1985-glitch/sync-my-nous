@@ -204,6 +204,7 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
 def answer_from_web(query: str) -> dict[str, Any]:
     res = search_web(query)
     results = res.get("results", [])
+    llm_ans = None
 
     if results:
         lines = ["🔍 Βρήκα αυτά τα σχετικά αποτελέσματα:"]
