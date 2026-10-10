@@ -145,6 +145,28 @@ Important rules:
     return {"ok": True, "plan": plan}
 
 
+def _safe_app_target(rel_path: object, app_name: object) -> Path:
+    """Resolve a generated file path and reject traversal and symlink escapes."""
+    raw = str(rel_path or "").strip()
+    slug = str(app_name or "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", slug):
+        raise ValueError("invalid_app_name")
+    if not raw or chr(92) in raw or chr(0) in raw:
+        raise ValueError("invalid_path")
+    if re.match(r"^[A-Za-z]:", raw):
+        raise ValueError("absolute_path_not_allowed")
+    parts = raw.split("/")
+    if raw.startswith("/") or any(part in {"", ".", ".."} for part in parts):
+        raise ValueError("path_traversal_not_allowed")
+    if len(parts) < 2 or parts[0] != slug:
+        raise ValueError("path_must_be_inside_app_directory")
+    root = APPS_DIR.resolve()
+    target = root.joinpath(*parts).resolve()
+    if target == root or root not in target.parents:
+        raise ValueError("path_outside_apps_directory")
+    return target
+
+
 def _syntax_check(path: Path) -> dict:
     if path.suffix not in {".py"}:
         return {"ok": True, "skipped": True}
@@ -168,20 +190,39 @@ def approve_and_write(plan_id: str) -> dict[str, Any]:
     APPS_DIR.mkdir(parents=True, exist_ok=True)
     written = []
     errors = []
+    prepared = []
+    seen_targets = set()
+    app_name = plan.get("app_name", "")
 
+    # Validate every path before writing anything to prevent partial writes on bad plans.
     for file_spec in plan.get("files", []):
-        rel_path = str(file_spec.get("path", "")).strip().lstrip("/")
+        if not isinstance(file_spec, dict):
+            return {"ok": False, "error": "invalid_file_spec"}
         content = str(file_spec.get("content", ""))
-        if not rel_path or not content.strip():
+        if not content.strip():
             continue
-        target = APPS_DIR / rel_path
+        try:
+            target = _safe_app_target(file_spec.get("path"), app_name)
+        except ValueError as exc:
+            return {"ok": False, "error": "unsafe_app_path", "details": str(exc)}
+        target_key = str(target)
+        if target_key in seen_targets:
+            return {"ok": False, "error": "duplicate_app_path", "path": str(file_spec.get("path", ""))}
+        seen_targets.add(target_key)
+        prepared.append((target, content))
+
+    for target, content in prepared:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-        written.append(str(target))
-        if target.suffix == ".py":
-            chk = _syntax_check(target)
+        resolved_target = target.resolve()
+        resolved_root = APPS_DIR.resolve()
+        if resolved_target == resolved_root or resolved_root not in resolved_target.parents:
+            return {"ok": False, "error": "path_outside_apps_directory", "path": str(target)}
+        resolved_target.write_text(content, encoding="utf-8")
+        written.append(str(resolved_target))
+        if resolved_target.suffix == ".py":
+            chk = _syntax_check(resolved_target)
             if not chk.get("ok") and not chk.get("skipped"):
-                errors.append({"file": str(target), "error": chk.get("error")})
+                errors.append({"file": str(resolved_target), "error": chk.get("error")})
 
     plan["status"] = "approved"
     plan["approved_at"] = now_iso()
