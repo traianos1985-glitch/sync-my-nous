@@ -1,4 +1,4 @@
-"""Safe preview/restore for NOUS brain backups."""
+"""Safe preview/restore for NOUS runtime backups."""
 from __future__ import annotations
 
 import hashlib
@@ -11,8 +11,13 @@ from pathlib import PurePosixPath
 
 RESTORE_DIR = "data/brain_restores"
 ALLOWED_PREFIX = "data/"
-BLOCKED = {"data/api_tokens.json"}
-BLOCKED_DIRS = {"data/brain_backups", "data/brain_restores"}
+BLOCKED = {
+    "data/api_tokens.json",
+    "data/secrets.json",
+    "data/credentials.json",
+}
+BLOCKED_NAMES = {".env", ".env.local", ".env.production"}
+BLOCKED_DIR_NAMES = {"brain_backups", "brain_restores", "__pycache__", ".cache"}
 MAX_BACKUP_BYTES = 256 * 1024 * 1024
 MAX_FILE_BYTES = 64 * 1024 * 1024
 
@@ -30,19 +35,20 @@ def _sha256_bytes(data: bytes) -> str:
 
 
 def _safe_backup_path(value: object) -> str | None:
-    """Return a canonical, permitted relative JSON path, otherwise None."""
+    """Return a canonical, permitted relative path below data/, otherwise None."""
     if not isinstance(value, str) or not value or "\\" in value or chr(0) in value:
         return None
     candidate = PurePosixPath(value)
     if candidate.is_absolute() or candidate.as_posix() != value:
         return None
-    if any(part in {"", ".", ".."} for part in value.split("/")):
+    parts = value.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
         return None
-    if not value.startswith(ALLOWED_PREFIX) or not value.endswith(".json"):
+    if not value.startswith(ALLOWED_PREFIX):
         return None
-    if value in BLOCKED:
+    if value in BLOCKED or any(part in BLOCKED_DIR_NAMES for part in parts):
         return None
-    if any(value == d or value.startswith(d + "/") for d in BLOCKED_DIRS):
+    if parts[-1] in BLOCKED_NAMES:
         return None
     return value
 
@@ -59,7 +65,7 @@ def _inside_data_dir(relative_path: str) -> str | None:
 
 
 def inspect_brain_backup(path):
-    if not path or not os.path.isfile(path):
+    if not path or not os.path.isfile(path) or os.path.islink(path):
         return {"ok": False, "error": "backup_not_found", "path": path}
     if os.path.getsize(path) > MAX_BACKUP_BYTES:
         return {"ok": False, "error": "backup_too_large", "path": path}
@@ -67,14 +73,14 @@ def inspect_brain_backup(path):
         return {"ok": False, "error": "not_a_zip_file", "path": path}
 
     try:
-        with zipfile.ZipFile(path, "r") as z:
-            names = z.namelist()
+        with zipfile.ZipFile(path, "r") as archive:
+            names = archive.namelist()
             if names.count("manifest.json") != 1:
                 return {"ok": False, "error": "manifest_missing_or_duplicate", "path": path}
             if len(names) != len(set(names)):
                 return {"ok": False, "error": "duplicate_zip_entries", "path": path}
 
-            manifest = json.loads(z.read("manifest.json").decode("utf-8"))
+            manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
             if not isinstance(manifest, dict) or not isinstance(manifest.get("files"), list):
                 return {"ok": False, "error": "invalid_manifest", "path": path}
 
@@ -82,48 +88,57 @@ def inspect_brain_backup(path):
             problems = []
             seen = set()
             total_size = 0
+            manifest_paths = set()
             for item in manifest["files"]:
                 if not isinstance(item, dict):
                     problems.append({"error": "invalid_manifest_entry"})
                     continue
                 raw_path = item.get("path")
-                fpath = _safe_backup_path(raw_path)
+                file_path = _safe_backup_path(raw_path)
                 expected = item.get("sha256")
-                if fpath is None:
+                if file_path is None:
                     problems.append({"path": raw_path, "error": "path_not_allowed"})
                     continue
-                if fpath in seen:
-                    problems.append({"path": fpath, "error": "duplicate_manifest_path"})
+                if file_path in seen:
+                    problems.append({"path": file_path, "error": "duplicate_manifest_path"})
                     continue
-                seen.add(fpath)
-                if fpath not in names:
-                    problems.append({"path": fpath, "error": "missing_from_zip"})
+                seen.add(file_path)
+                manifest_paths.add(file_path)
+                if file_path not in names:
+                    problems.append({"path": file_path, "error": "missing_from_zip"})
                     continue
-                info = z.getinfo(fpath)
+                info = archive.getinfo(file_path)
                 if info.file_size > MAX_FILE_BYTES:
-                    problems.append({"path": fpath, "error": "file_too_large"})
+                    problems.append({"path": file_path, "error": "file_too_large"})
                     continue
                 total_size += info.file_size
                 if total_size > MAX_BACKUP_BYTES:
                     problems.append({"error": "expanded_backup_too_large"})
                     break
-                data = z.read(fpath)
-                try:
-                    json.loads(data.decode("utf-8"))
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    problems.append({"path": fpath, "error": "invalid_json"})
-                    continue
+                data = archive.read(file_path)
+                if file_path.endswith(".json"):
+                    try:
+                        json.loads(data.decode("utf-8"))
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        problems.append({"path": file_path, "error": "invalid_json"})
+                        continue
                 actual = _sha256_bytes(data)
                 files.append({
-                    "path": fpath,
+                    "path": file_path,
                     "size": len(data),
                     "sha256": actual,
                     "expected_sha256": expected,
                     "sha256_ok": isinstance(expected, str) and actual == expected,
                 })
                 if not isinstance(expected, str) or actual != expected:
-                    problems.append({"path": fpath, "error": "sha256_mismatch"})
+                    problems.append({"path": file_path, "error": "sha256_mismatch"})
+                expected_size = item.get("size")
+                if expected_size is not None and expected_size != len(data):
+                    problems.append({"path": file_path, "error": "size_mismatch"})
 
+            unexpected = set(names) - manifest_paths - {"manifest.json"}
+            if unexpected:
+                problems.append({"error": "unlisted_zip_entries", "entries": sorted(unexpected)[:20]})
             if not files:
                 problems.append({"error": "no_restorable_files"})
             return {
@@ -157,7 +172,7 @@ def restore_brain_backup(path, apply=False):
     os.makedirs(safety_dir, exist_ok=True)
     restored = []
 
-    with zipfile.ZipFile(path, "r") as z:
+    with zipfile.ZipFile(path, "r") as archive:
         for item in inspection["files"]:
             relative = item["path"]
             target = _inside_data_dir(relative)
@@ -167,15 +182,17 @@ def restore_brain_backup(path, apply=False):
             target = _inside_data_dir(relative)
             if target is None:
                 return {"ok": False, "error": "restore_target_not_allowed", "path": relative}
+            data = archive.read(relative)
+            if _sha256_bytes(data) != item["sha256"]:
+                return {"ok": False, "error": "backup_changed_during_restore", "path": relative}
+            if relative.endswith(".json"):
+                json.loads(data.decode("utf-8"))
             if os.path.exists(target):
                 safe_copy = os.path.join(safety_dir, relative)
                 os.makedirs(os.path.dirname(safe_copy), exist_ok=True)
                 shutil.copy2(target, safe_copy)
-            data = z.read(relative)
-            # Revalidate content immediately before writing.
-            json.loads(data.decode("utf-8"))
-            with open(target, "wb") as out:
-                out.write(data)
+            with open(target, "wb") as output:
+                output.write(data)
             restored.append(relative)
 
     return {"ok": True, "restored": restored, "safety_backup": safety_dir, "time": time.time()}
