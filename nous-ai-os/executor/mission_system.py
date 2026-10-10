@@ -11,6 +11,7 @@ from executor.ops_console import run_ops_action
 from executor.agent_journal import write_journal
 from executor.learning_memory import record_lesson
 from executor.mission_contracts import build_plan_contract, verify_plan_contract, build_execution_evidence
+from executor.mission_completion import find_explicit_failure, verify_mission_completion, verify_task_completion
 
 FILE = "data/missions.json"
 
@@ -266,8 +267,22 @@ def run_next_mission_task(mission_id):
         pending = [task for task in tasks if task.get("status") == "pending"]
         if not pending:
             if tasks and all(task.get("status") == "done" for task in tasks):
-                mission["status"] = "done"
-                mission["result"] = "all_tasks_done"
+                completion = verify_mission_completion(mission)
+                mission["completion_verification"] = completion
+                if completion.get("status") == "completed":
+                    mission["status"] = "done"
+                    mission["result"] = "all_tasks_verified"
+                else:
+                    mission["status"] = "blocked"
+                    mission["result"] = "mission_completion_verification_failed"
+                    mission["updated"] = time.time()
+                    return {
+                        "ok": False,
+                        "blocked": True,
+                        "error": "mission_completion_verification_failed",
+                        "completion_verification": completion,
+                        "mission": mission,
+                    }
             mission["updated"] = time.time()
             return {"ok": True, "idle": True, "mission": mission}
 
@@ -302,7 +317,13 @@ def run_next_mission_task(mission_id):
     except Exception as exc:
         result = {"ok": False, "error": "action_execution_exception", "detail": str(exc)[:1000]}
 
-    execution_ok = result.get("ok") is True
+    # Some operation wrappers report ok=True while their nested subsystem result
+    # explicitly reports failure. Do not let the wrapper hide that failure.
+    nested_result = result.get("result", result)
+    explicit_failures = find_explicit_failure(nested_result)
+    execution_ok = result.get("ok") is True and not explicit_failures
+    if explicit_failures:
+        result["completion_signals"] = explicit_failures[:20]
     with _edit_missions() as items:
         mission = _find_mission(items, mission_id)
         if not mission:
@@ -322,12 +343,28 @@ def run_next_mission_task(mission_id):
         task["status"] = "done" if execution_ok else "failed"
         task["execution_ok"] = execution_ok
         task["execution_evidence"] = build_execution_evidence(task, result, claim_id)
+        task_verification = verify_task_completion(task)
+        task["completion_verification"] = task_verification
+        execution_ok = execution_ok and task_verification.get("status") == "verified"
         if not execution_ok:
-            mission["status"] = "blocked"
-            mission["result"] = "task_execution_failed"
+            if task_verification.get("status") == "needs_review":
+                task["status"] = "needs_review"
+                mission["status"] = "blocked"
+                mission["result"] = "task_completion_needs_review"
+            else:
+                task["status"] = "failed"
+                mission["status"] = "blocked"
+                mission["result"] = "task_execution_failed"
         elif mission.get("tasks") and all(item.get("status") == "done" for item in mission["tasks"]):
-            mission["status"] = "done"
-            mission["result"] = "all_tasks_done"
+            completion = verify_mission_completion(mission)
+            mission["completion_verification"] = completion
+            if completion.get("status") == "completed":
+                mission["status"] = "done"
+                mission["result"] = "all_tasks_verified"
+            else:
+                mission["status"] = "blocked"
+                mission["result"] = "mission_completion_verification_failed"
+                execution_ok = False
         else:
             mission["status"] = "active"
         mission["updated"] = time.time()
