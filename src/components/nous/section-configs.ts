@@ -247,6 +247,8 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Technical Intelligence", path: "/remote/technical-intelligence/status" },
       { label: "Τελευταία αναφορά", path: "/remote/technical-intelligence/report" },
       { label: "Προτάσεις αναβάθμισης", path: "/remote/technical-intelligence/proposals" },
+      { label: "Επίσημα release notes — κατάσταση", path: "/remote/technical-sources/status" },
+      { label: "Επίσημα release notes — αναφορά", path: "/remote/technical-sources/report" },
     ],
     actions: [
       {
@@ -255,6 +257,12 @@ export const sectionConfigs: Record<string, SectionConfig> = {
         body: { limit: 40 },
         confirm:
           "Να ελεγχθούν οι εκδόσεις των βιβλιοθηκών στα επίσημα registries; Δεν θα γίνει εγκατάσταση ή αλλαγή κώδικα.",
+      },
+      {
+        label: "Έλεγχος επίσημων release notes",
+        path: "/remote/technical-sources/scan",
+        confirm:
+          "Να ελεγχθούν οι τελευταίες εκδόσεις από προκαθορισμένες επίσημες πηγές; Το περιεχόμενο θα αποθηκευτεί μόνο ως πληροφορία και δεν θα εκτελεστεί κώδικας.",
       },
     ],
   },
