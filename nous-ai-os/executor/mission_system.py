@@ -46,14 +46,17 @@ def _locked_items():
 
 
 def _load_unlocked():
+    """Load mission state without hiding corruption or resetting history."""
     if not os.path.exists(FILE):
         return []
     try:
         with open(FILE, "r", encoding="utf-8") as handle:
             items = json.load(handle)
-    except (OSError, ValueError, TypeError):
-        return []
-    return items if isinstance(items, list) else []
+    except (OSError, UnicodeError, ValueError, TypeError) as exc:
+        raise RuntimeError("mission_store_integrity_failure") from exc
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise RuntimeError("mission_store_integrity_failure")
+    return items
 
 
 def _save_unlocked(items):
