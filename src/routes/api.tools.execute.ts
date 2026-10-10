@@ -90,7 +90,10 @@ export const Route = createFileRoute("/api/tools/execute")({
           .returning();
 
         if (!approval) {
-          return Response.json({ error: "Approved action is already being handled" }, { status: 409 });
+          return Response.json(
+            { error: "Approved action is already being handled" },
+            { status: 409 },
+          );
         }
 
         const runId = randomUUID();
