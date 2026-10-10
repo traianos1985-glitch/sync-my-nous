@@ -159,6 +159,7 @@ TOOLS = (
     {"name": "list_schedules", "category": "automation", "description": "List scheduled tasks.", "command": "schedules", "risk": "read_only", "approval_required": False},
     {"name": "battery_guard", "category": "android", "description": "Inspect battery guard state.", "command": "battery guard", "risk": "read_only", "approval_required": False},
     {"name": "cloud_info", "category": "system", "description": "Show configured cloud/runtime entry points; does not verify external deployment.", "command": "cloud info", "risk": "read_only", "approval_required": False},
+    {"name": "tool_catalog", "category": "system", "description": "List the registered built-in tools and their safety classifications.", "command": "tools", "risk": "read_only", "approval_required": False},
     {"name": "research", "category": "research", "description": "Research a topic using the existing search workflow.", "command": "research <topic>", "risk": "external_read", "approval_required": False},
     {"name": "web", "category": "research", "description": "Legacy direct URL fetch command; unavailable from Tool Library due to URL safety restrictions.", "command": "web https://example.com", "risk": "restricted_external_read", "approval_required": True},
     {"name": "cmd", "category": "system", "description": "Generic command execution is intentionally unavailable from Tool Library.", "command": "cmd <command>", "risk": "restricted_command_execution", "approval_required": True},
