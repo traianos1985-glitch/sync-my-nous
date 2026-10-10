@@ -37,6 +37,36 @@ def _load_unlocked():
     return [item for item in items if isinstance(item, dict)]
 
 
+def inspect_queue_store():
+    """Read-only integrity summary of the persisted queue before filtered loading."""
+    with _queue_lock():
+        if not os.path.exists(FILE):
+            return {"status": "healthy", "record_count": 0, "malformed_records": 0}
+        try:
+            with open(FILE, "r", encoding="utf-8") as handle:
+                raw = json.load(handle)
+        except (OSError, ValueError, TypeError) as exc:
+            return {
+                "status": "degraded",
+                "error": f"queue_store_unreadable:{type(exc).__name__}",
+                "record_count": 0,
+                "malformed_records": 0,
+            }
+        if not isinstance(raw, list):
+            return {
+                "status": "degraded",
+                "error": "queue_store_not_a_list",
+                "record_count": 0,
+                "malformed_records": 0,
+            }
+        malformed = sum(not isinstance(item, dict) for item in raw)
+        return {
+            "status": "degraded" if malformed else "healthy",
+            "record_count": len(raw),
+            "malformed_records": malformed,
+        }
+
+
 def _save_unlocked(items):
     directory = os.path.dirname(FILE) or "."
     os.makedirs(directory, exist_ok=True)

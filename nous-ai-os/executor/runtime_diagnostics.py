@@ -1,6 +1,7 @@
 """Truthful, bounded diagnostics for NOUS runtime subsystems."""
 from __future__ import annotations
 
+import math
 import shutil
 import time
 from typing import Any, Callable
@@ -39,15 +40,16 @@ def _journal_check() -> dict[str, Any]:
 
 
 def _queue_check() -> dict[str, Any]:
-    from executor.task_queue import list_queue
+    from executor.task_queue import inspect_queue_store, list_queue
 
+    store = inspect_queue_store()
     items = list_queue()
     counts = {"pending": 0, "running": 0, "done": 0, "failed": 0, "other": 0}
     stale_running = 0
     now = time.time()
     for item in items:
         status = item.get("status")
-        if status in counts:
+        if isinstance(status, str) and status in counts:
             counts[status] += 1
         else:
             counts["other"] += 1
@@ -56,13 +58,19 @@ def _queue_check() -> dict[str, Any]:
                 started = float(item.get("started") or 0)
             except (TypeError, ValueError, OverflowError):
                 started = 0
-            if started <= 0 or started > now or now - started >= 900:
+            if not math.isfinite(started) or started <= 0 or started > now or now - started >= 900:
                 stale_running += 1
-    degraded = counts["failed"] > 0 or stale_running > 0 or counts["other"] > 0
+    degraded = (
+        store.get("status") != "healthy"
+        or counts["failed"] > 0
+        or stale_running > 0
+        or counts["other"] > 0
+    )
     return {
         "status": "degraded" if degraded else "healthy",
         "counts": counts,
         "stale_running": stale_running,
+        "store_integrity": store,
     }
 
 
