@@ -253,7 +253,8 @@ export const sectionConfigs: Record<string, SectionConfig> = {
         label: "Έλεγχος νέων εκδόσεων",
         path: "/remote/technical-intelligence/scan",
         body: { limit: 40 },
-        confirm: "Να ελεγχθούν οι εκδόσεις των βιβλιοθηκών στα επίσημα registries; Δεν θα γίνει εγκατάσταση ή αλλαγή κώδικα.",
+        confirm:
+          "Να ελεγχθούν οι εκδόσεις των βιβλιοθηκών στα επίσημα registries; Δεν θα γίνει εγκατάσταση ή αλλαγή κώδικα.",
       },
     ],
   },
