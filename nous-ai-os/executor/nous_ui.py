@@ -331,7 +331,6 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
 
       <div class="navDivider"></div>
       <div class="navSection">Εργαλεία</div>
-      <button class="navItem" data-sec="tools" onclick="showSection('tools');toolCatalogLoad()"><span class="ni">🧰</span> Tool Library</button>
       <button class="navItem" data-sec="documents" onclick="showSection('documents')"><span class="ni">📚</span> Documents</button>
       <button class="navItem" data-sec="toolbox" onclick="showSection('toolbox')"><span class="ni">🧰</span> Tool Library</button>
       <button class="navItem" data-sec="scheduler" onclick="showSection('scheduler')"><span class="ni">⏱</span> Scheduler</button>
@@ -1691,88 +1690,7 @@ function toggleAdvancedNav(){
   arrow.textContent=adv.classList.contains("open")?"▾":"▸";
 }
 
-async let _nousToolCatalog = [];
-let _nousToolCatalogLoaded = false;
-
-function toolAttr(value){
-  return String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-}
-
-async function toolCatalogLoad(){
-  const meta = document.getElementById("toolCatalogMeta");
-  const error = document.getElementById("toolCatalogError");
-  if(meta) meta.textContent = "Έλεγχος καταλόγου εργαλείων…";
-  if(error){ error.style.display="none"; error.textContent=""; }
-  const data = await getJson("/api/tools/catalog");
-  if(!data || data.ok !== true || !Array.isArray(data.tools)){
-    _nousToolCatalog = [];
-    _nousToolCatalogLoaded = false;
-    if(meta) meta.textContent = "Ο κατάλογος δεν φορτώθηκε.";
-    if(error){ error.textContent = "Το backend δεν επέστρεψε έγκυρο κατάλογο. Έλεγξε το token και την κατάσταση του server."; error.style.display="block"; }
-    renderToolCatalog();
-    return;
-  }
-  _nousToolCatalog = data.tools;
-  _nousToolCatalogLoaded = true;
-  const category = document.getElementById("toolCategory");
-  if(category){
-    const selected = category.value;
-    const categories = Array.isArray(data.categories) ? data.categories : [...new Set(data.tools.map(t=>t.category).filter(Boolean))];
-    category.innerHTML = '<option value="">Όλες οι κατηγορίες</option>' + categories.map(c=>'<option value="'+toolAttr(c)+'">'+escHtml(c)+'</option>').join("");
-    if(categories.includes(selected)) category.value = selected;
-  }
-  renderToolCatalog();
-}
-
-function renderToolCatalog(){
-  const list = document.getElementById("toolCatalogList");
-  const meta = document.getElementById("toolCatalogMeta");
-  if(!list) return;
-  const search = (document.getElementById("toolSearch")?.value || "").trim().toLowerCase();
-  const category = document.getElementById("toolCategory")?.value || "";
-  const filtered = _nousToolCatalog.filter(t=>{
-    const blob = [t.name,t.category,t.description,t.command,t.risk].join(" ").toLowerCase();
-    return (!search || blob.includes(search)) && (!category || t.category === category);
-  });
-  if(meta) meta.textContent = _nousToolCatalogLoaded
-    ? "Backend catalog: "+_nousToolCatalog.length+" εργαλεία · εμφανίζονται "+filtered.length+" · οι κατηγορίες/περιγραφές φορτώνονται από τον server."
-    : "Ο κατάλογος δεν είναι διαθέσιμος — δεν εμφανίζονται πλασματικά αποτελέσματα.";
-  if(!_nousToolCatalogLoaded){
-    list.innerHTML = '<div class="card">Δεν υπάρχουν δεδομένα καταλόγου από το backend.</div>';
-    return;
-  }
-  if(!filtered.length){
-    list.innerHTML = '<div class="card">Δεν βρέθηκαν εργαλεία με αυτά τα κριτήρια.</div>';
-    return;
-  }
-  list.innerHTML = filtered.map(t=>{
-    const approval = t.approval_required === true || t.approval_required === "depends_on_action";
-    const risk = String(t.risk || "unspecified");
-    const blocked = /not_implemented|restricted_|blocked/i.test(risk);
-    const statusLabel = blocked ? "Περιορισμένο / μη διαθέσιμο" : (approval ? "Απαιτεί προσεκτικό έλεγχο" : "Χωρίς επιπλέον έγκριση στον κατάλογο");
-    const statusColor = blocked ? "var(--bad)" : (approval ? "var(--warn)" : "var(--ok)");
-    const command = String(t.command || "");
-    return '<div class="card" style="margin-bottom:0;">'
-      +'<div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between;"><h3 style="margin:0;overflow-wrap:anywhere;">'+escHtml(t.name)+'</h3><span class="pill">'+escHtml(t.category || "other")+'</span></div>'
-      +'<p style="font-size:13px;line-height:1.45;">'+escHtml(t.description || "Δεν υπάρχει περιγραφή.")+'</p>'
-      +'<div class="kv"><span>Κατάσταση</span><b style="color:'+statusColor+';text-align:right;">'+statusLabel+'</b></div>'
-      +'<div class="kv"><span>Κίνδυνος</span><span>'+escHtml(risk)+'</span></div>'
-      +'<div style="font-family:monospace;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0;color:var(--accent2);">'+escHtml(command || "Δεν έχει δηλωθεί εντολή")+'</div>'
-      +'<button class="miniBtn" data-command="'+toolAttr(command)+'" onclick="toolCatalogUse(this.getAttribute(\\'data-command\\'))" '+(blocked || !command ? "disabled" : "")+' style="opacity:'+(blocked || !command ? ".45" : "1")+';">'+(blocked ? "Μη διαθέσιμο" : "Άνοιγμα στο Chat")+'</button>'
-      +'</div>';
-  }).join("");
-}
-
-function toolCatalogUse(command){
-  if(!command) return;
-  const prompt = document.getElementById("prompt");
-  if(prompt) prompt.value = command;
-  showSection("chat");
-  if(prompt) prompt.focus();
-}
-
-function refreshSection(id){
-  if(id==="tools") return toolCatalogLoad();
+async function refreshSection(id){
   if(id==="toolbox") return loadToolbox();
   if(id==="home") return loadHome();
   if(id==="brain") return loadBrain();
@@ -4139,31 +4057,6 @@ boot();
 })();
 </script>
 
-
-<section id="tools" class="section">
-  <div class="workspace" style="max-width:1200px;margin:auto;">
-    <div class="hero">
-      <h1>🧰 NOUS Tool Library</h1>
-      <p>Κατάλογος από τα εργαλεία που δηλώνει το backend, μαζί με τις νέες τοπικές λειτουργίες. Οι ενέργειες ανοίγουν στο Chat για να βλέπεις και να ελέγχεις την εντολή πριν την εκτελέσεις.</p>
-    </div>
-    <div class="card">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input id="toolSearch" type="text" placeholder="Αναζήτηση εργαλείου, κατηγορίας ή εντολής…" oninput="renderToolCatalog()" style="flex:1;min-width:190px;padding:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;">
-        <select id="toolCategory" onchange="renderToolCatalog()" style="min-width:150px;padding:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;">
-          <option value="">Όλες οι κατηγορίες</option>
-        </select>
-        <button class="miniBtn" style="width:auto;padding:10px 14px;" onclick="toolCatalogLoad()">↻ Ανανέωση</button>
-      </div>
-      <div id="toolCatalogMeta" class="small" style="margin-top:10px;">Φόρτωση καταλόγου…</div>
-      <div id="toolCatalogError" class="small" style="display:none;color:var(--bad);margin-top:8px;"></div>
-    </div>
-    <div id="toolCatalogList" class="grid"></div>
-    <div class="card">
-      <h3>Σημείωση ασφάλειας</h3>
-      <p class="small">Η κάρτα περιγράφει το εργαλείο που καταγράφει ο κώδικας· δεν εγγυάται ότι κάθε εξωτερική υπηρεσία ή συσκευή είναι διαθέσιμη. Οι ενέργειες με παραμέτρους όπως &lt;goal&gt; είναι πρότυπα και χρειάζονται επεξεργασία στο Chat. Ενέργειες υψηλού κινδύνου πρέπει να ελέγχονται ξεχωριστά.</p>
-    </div>
-  </div>
-</section>
 
 <section id="documents" class="section">
   <div class="hero">
