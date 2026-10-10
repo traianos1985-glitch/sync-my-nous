@@ -1,33 +1,20 @@
 import json
-import os
 import time
+
+from executor.json_state_store import edit_list, read_list, write_list
 
 FILE = "data/lessons_learned.json"
 
 
 def _load():
-    if not os.path.exists(FILE):
-        return []
-    try:
-        return json.load(open(FILE, "r", encoding="utf-8"))
-    except Exception:
-        return []
+    return read_list(FILE)
 
 
 def _save(items):
-    os.makedirs("data", exist_ok=True)
-    json.dump(items, open(FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    return write_list(FILE, items)
 
 
-def record_lesson(
-    lesson,
-    outcome="success",
-    goal_id=None,
-    mission_id=None,
-    decision_id=None,
-    confidence=0.8,
-    tags=None,
-):
+def record_lesson(lesson, outcome="success", goal_id=None, mission_id=None, decision_id=None, confidence=0.8, tags=None):
     item = {
         "id": int(time.time_ns()),
         "lesson": lesson,
@@ -39,10 +26,11 @@ def record_lesson(
         "tags": tags or [],
         "created": time.time(),
     }
-
-    items = _load()
-    items.append(item)
-    _save(items)
+    with edit_list(FILE) as items:
+        ids = {str(existing.get("id")) for existing in items}
+        while str(item["id"]) in ids:
+            item["id"] += 1
+        items.append(item)
     return item
 
 
@@ -55,18 +43,13 @@ def lesson_status():
     return {
         "time": time.time(),
         "total": len(items),
-        "success": len([x for x in items if x.get("outcome") == "success"]),
-        "failure": len([x for x in items if x.get("outcome") == "failure"]),
+        "success": len([item for item in items if item.get("outcome") == "success"]),
+        "failure": len([item for item in items if item.get("outcome") == "failure"]),
         "recent": items[-10:],
     }
 
 
 def search_lessons(query=""):
     q = (query or "").lower()
-    results = []
-
-    for item in _load():
-        if q in json.dumps(item, ensure_ascii=False).lower():
-            results.append(item)
-
+    results = [item for item in _load() if q in json.dumps(item, ensure_ascii=False).lower()]
     return results[-50:]

@@ -1,33 +1,36 @@
-import json, os, time
+import time
 
-FILE="data/tasks.json"
+from executor.json_state_store import edit_list, read_list, write_list
+
+FILE = "data/tasks.json"
+
 
 def _load():
-    if not os.path.exists(FILE):
-        return []
-    try:
-        return json.load(open(FILE,"r",encoding="utf-8"))
-    except:
-        return []
+    return read_list(FILE)
+
 
 def _save(tasks):
-    os.makedirs("data",exist_ok=True)
-    json.dump(tasks,open(FILE,"w",encoding="utf-8"),ensure_ascii=False,indent=2)
+    return write_list(FILE, tasks)
+
 
 def add_task(text):
-    tasks=_load()
-    item={"id":int(time.time()),"task":text,"status":"open"}
-    tasks.append(item)
-    _save(tasks)
+    with edit_list(FILE) as tasks:
+        task_id = time.time_ns()
+        used = {str(item.get("id")) for item in tasks}
+        while str(task_id) in used:
+            task_id += 1
+        item = {"id": task_id, "task": text, "status": "open"}
+        tasks.append(item)
     return item
+
 
 def list_tasks():
     return _load()
 
+
 def close_task(task_id):
-    tasks=_load()
-    for t in tasks:
-        if str(t.get("id"))==str(task_id):
-            t["status"]="closed"
-    _save(tasks)
-    return tasks
+    with edit_list(FILE) as tasks:
+        for task in tasks:
+            if str(task.get("id")) == str(task_id):
+                task["status"] = "closed"
+    return _load()
