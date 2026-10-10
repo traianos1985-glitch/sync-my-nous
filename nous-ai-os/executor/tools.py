@@ -35,7 +35,6 @@ from executor.planner import make_plan
 from executor.task_state import add_task, list_tasks
 from executor.source_reader import read_source
 from executor.stability import stable_point
-from executor import utility_tools
 from executor.utility_tools import calculate, parse_conversion, current_time, text_stats, validate_json_text, sha256_text
 from executor.tool_catalog import tool_catalog
 
@@ -44,39 +43,6 @@ def run_tool(intent, context=None):
     context = context if isinstance(context, dict) else {}
     action = intent.get("action")
 
-    command = str(context.get("command", "")) if isinstance(context, dict) else ""
-    normalized = command.strip()
-
-    if action == "calculate":
-        expression = normalized.split(" ", 1)[1] if " " in normalized else ""
-        expression = expression.removeprefix("calc ").removeprefix("υπολόγισε ").strip()
-        return utility_tools.calculate(expression)
-
-    if action == "convert":
-        conversion = normalized.split(" ", 1)[1] if " " in normalized else ""
-        conversion = conversion.removeprefix("μετατροπή ").strip()
-        return utility_tools.parse_conversion(conversion)
-
-    if action == "current_time":
-        zone = normalized.split(" ", 1)[1].strip() if " " in normalized else ""
-        if zone.startswith("ώρα "):
-            zone = zone[4:].strip()
-        return utility_tools.current_time(zone)
-
-    if action == "text_stats":
-        value = normalized.split(" ", 2)[2] if len(normalized.split(" ", 2)) == 3 else ""
-        if value.startswith("μέτρησε κείμενο "):
-            value = value[len("μέτρησε κείμενο "):]
-        return utility_tools.text_stats(value)
-
-    if action == "json_validate":
-        value = normalized.split(" ", 2)[2] if len(normalized.split(" ", 2)) == 3 else ""
-        if value.startswith("έλεγξε json "):
-            value = value[len("έλεγξε json "):]
-        return utility_tools.validate_json_text(value)
-
-    if action == "sha256":
-        return utility_tools.sha256_text(normalized.split(" ", 1)[1] if " " in normalized else "")
     command = str((context or {}).get("command", "")) if isinstance(context, dict) else ""
 
     if action == "tool_catalog":
@@ -134,10 +100,6 @@ def run_tool(intent, context=None):
         return sha256_text(value)
     if action == "plugin":
         return "Plugins: " + ", ".join(list_plugins())
-
-    if action == "tool_catalog":
-        from executor.tool_catalog import tool_catalog
-        return tool_catalog()
 
     if action == "memory":
         return load()[-20:]
