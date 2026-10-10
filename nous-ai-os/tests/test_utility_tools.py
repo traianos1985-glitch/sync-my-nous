@@ -1,4 +1,4 @@
-import math
+import hashlib
 
 import pytest
 
@@ -10,7 +10,7 @@ from executor.tool_catalog import get_tool, tool_catalog
     ("2 + 3 * 4", 14),
     ("sqrt(81)", 9),
     ("round(pi, 3)", 3.142),
-    ("-4 ** 2", 16),
+    ("-4 ** 2", -16),
 ])
 def test_calculator_supports_safe_math(expression, expected):
     result = utility_tools.calculate(expression)
@@ -61,7 +61,7 @@ def test_text_stats_and_json_validation():
 
 def test_sha256_is_stable_and_tool_catalog_is_machine_readable():
     result = utility_tools.sha256_text("NOUS")
-    assert result["sha256"] == "eaf7d7e6f6b90c2e3d7d0a3b7d0e4b2c7a52b1c7a7d6d80d77e5b13f3f7e7e9f" or len(result["sha256"]) == 64
+    assert result["sha256"] == hashlib.sha256(b"NOUS").hexdigest()
     catalog = tool_catalog()
     assert catalog["ok"] is True
     assert get_tool("calculate")["approval_required"] is False
