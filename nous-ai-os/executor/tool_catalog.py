@@ -1,6 +1,7 @@
 """Machine-readable catalog of built-in NOUS command tools."""
 from __future__ import annotations
 
+
 TOOLS = (
     {
         "name": "calculate",
