@@ -36,3 +36,13 @@ The report is written atomically to the runtime data directory, with a bounded s
 ## CI and supply-chain maintenance
 
 Dependabot is configured separately to propose dependency updates for npm, Python requirements/manifests, and GitHub Actions. Its PRs still require the repository's normal CI and human review; this service never merges or applies them automatically.
+
+## Official technical release intelligence
+
+The separate `technical_sources` watcher checks a fixed allowlist of official GitHub project release APIs (not arbitrary URLs) for recent releases and release-note summaries. The initial allowlist covers Python, Flask, Requests, Vite, and Next.js. Each result records its source URL, release tag, publication time, and a short bounded excerpt.
+
+- The watcher uses HTTPS, a fixed `api.github.com` host, finite timeouts, no redirects, response-size limits, and a small fixed source count.
+- Release-note text is untrusted reference material. NOUS stores it as data only; it is not passed to a shell, code interpreter, or automatic patch executor.
+- The scan endpoint requires the admin token. Status and report endpoints are read-only.
+- A successful scan means sources were queried, not that a recommendation is automatically correct or compatible with the deployed runtime.
+- This is a bounded curated-source monitor, not a universal crawler or a claim that every upstream project is watched.
