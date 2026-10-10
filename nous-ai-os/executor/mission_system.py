@@ -35,7 +35,6 @@ APPROVAL_REQUIRED = {
 def _locked_items():
     directory = os.path.dirname(FILE) or "."
     os.makedirs(directory, exist_ok=True)
-    # Lock a stable sidecar because the JSON file is atomically replaced.
     with open(FILE + ".lock", "a", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
         try:
@@ -239,6 +238,11 @@ def run_next_mission_task(mission_id):
             return {"ok": False, "error": "mission_not_active", "mission": mission}
 
         tasks = mission.get("tasks", [])
+        # Missions are sequential. Do not let a second worker start task N+1
+        # while task N is still executing outside the state lock.
+        if any(task.get("status") == "running" for task in tasks):
+            return {"ok": False, "busy": True, "mission": mission}
+
         pending = [task for task in tasks if task.get("status") == "pending"]
         if not pending:
             if tasks and all(task.get("status") == "done" for task in tasks):
@@ -346,6 +350,7 @@ def run_mission_cycle(mission_id, max_steps=3):
         if (
             not result.get("ok")
             or result.get("idle")
+            or result.get("busy")
             or result.get("approval_required")
             or result.get("blocked")
             or result.get("mission", {}).get("status") in {"done", "blocked"}
