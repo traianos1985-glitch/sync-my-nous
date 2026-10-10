@@ -3155,8 +3155,7 @@ _running_apps: dict = {}   # app_name -> {"pid": int, "proc": Popen, "port": int
 
 @app.route("/remote/app-builder/read-file")
 def app_builder_read_file_route():
-    """Return the text content of a file inside apps/<app>/<file>."""
-    from pathlib import Path as _P
+    """Return the text content of a file inside the selected app directory."""
     app_name = request.args.get("app", "").strip()
     filename = request.args.get("file", "").strip()
     if not app_name or not filename:
@@ -3374,7 +3373,6 @@ def app_builder_stop_app_route():
 def app_builder_download_route(app_name):
     """Download the entire app folder as a ZIP file."""
     import zipfile, io
-    from pathlib import Path as _P
     from flask import send_file
     app_dir = _find_builder_app_dir(app_name)
     if app_dir is None:
