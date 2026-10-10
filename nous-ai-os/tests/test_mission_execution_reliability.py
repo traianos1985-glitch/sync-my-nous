@@ -1,4 +1,5 @@
 import importlib
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -30,6 +31,38 @@ def test_parallel_workers_claim_a_task_only_once(tmp_path, monkeypatch):
     assert calls == ["code_health"]
     assert sum(bool(result.get("execution_ok")) for result in results) == 1
     assert any(result.get("idle") for result in results)
+
+
+def test_parallel_worker_cannot_skip_a_running_task_and_start_the_next(tmp_path, monkeypatch):
+    missions = _fresh_missions(tmp_path, monkeypatch)
+    entered = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    def slow_action(action, payload=None):
+        calls.append(action)
+        entered.set()
+        release.wait(timeout=2)
+        return {"ok": True, "action": action}
+
+    monkeypatch.setattr(missions, "run_ops_action", slow_action)
+    mission = missions.create_mission("Sequential tasks", tasks=[
+        {"action": "code_health"},
+        {"action": "git_status"},
+    ])
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        first = pool.submit(missions.run_next_mission_task, mission["id"])
+        assert entered.wait(timeout=2)
+        second = missions.run_next_mission_task(mission["id"])
+        assert second["busy"] is True
+        assert calls == ["code_health"]
+        release.set()
+        assert first.result(timeout=3)["execution_ok"] is True
+
+    next_result = missions.run_next_mission_task(mission["id"])
+    assert next_result["execution_ok"] is True
+    assert calls == ["code_health", "git_status"]
 
 
 def test_action_exception_is_recorded_as_failure_not_success(tmp_path, monkeypatch):
