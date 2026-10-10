@@ -3,7 +3,7 @@ def detect_intent(text):
     t = str(text).lower().strip()
     t = t.strip("?.!,;:·…")
 
-    if t in {"/tools", "tools", "tool catalog", "εργαλεία", "διαθέσιμα εργαλεία"}:
+    if t in {"/tools", "tools", "tool catalog", "εργαλεία", "διαθέσιμα εργαλεία", "κατάλογος εργαλείων"}:
         return {"type": "tool", "action": "tool_catalog"}
 
     if t.startswith(("calculate ", "calc ", "υπολόγισε ")):
@@ -12,13 +12,13 @@ def detect_intent(text):
     if t.startswith(("convert ", "μετατροπή ")):
         return {"type": "tool", "action": "convert"}
 
-    if t in {"time", "time now", "ώρα", "ώρα τώρα", "τι ώρα είναι"} or t.startswith("time "):
+    if t in {"time", "time now", "ώρα", "ώρα τώρα", "τι ώρα είναι"} or t.startswith(("time ", "ώρα ")):
         return {"type": "tool", "action": "current_time"}
 
-    if t.startswith(("text stats ", "ανάλυση κειμένου ")):
+    if t.startswith(("text stats ", "ανάλυση κειμένου ", "μέτρησε κείμενο ")):
         return {"type": "tool", "action": "text_stats"}
 
-    if t.startswith(("json validate ", "έλεγχος json ")):
+    if t.startswith(("json validate ", "έλεγχος json ", "έλεγξε json ")):
         return {"type": "tool", "action": "json_validate"}
 
     if t.startswith(("sha256 ", "hash ")):
@@ -27,32 +27,11 @@ def detect_intent(text):
     if t in ["/status", "status", "κατάσταση"]:
         return {"type": "system", "action": "status"}
 
-    if t.startswith("calculate ") or t.startswith("calc ") or t.startswith("υπολόγισε "):
-        return {"type": "tool", "action": "calculate"}
-
-    if t.startswith("convert ") or t.startswith("μετατροπή "):
-        return {"type": "tool", "action": "convert"}
-
-    if t == "time" or t.startswith("time ") or t == "ώρα" or t.startswith("ώρα "):
-        return {"type": "tool", "action": "current_time"}
-
-    if t.startswith("text stats ") or t.startswith("μέτρησε κείμενο "):
-        return {"type": "tool", "action": "text_stats"}
-
-    if t.startswith("json validate ") or t.startswith("έλεγξε json "):
-        return {"type": "tool", "action": "json_validate"}
-
-    if t.startswith("sha256 "):
-        return {"type": "tool", "action": "sha256"}
-
     if t in ["/evolve", "evolve", "εξέλιξη"]:
         return {"type": "system", "action": "evolve"}
 
     if t in ["/plugins", "plugins", "plugin"] or "plugins" in t:
         return {"type": "tool", "action": "plugin"}
-
-    if t in ["/tools", "tools", "εργαλεία", "κατάλογος εργαλείων"]:
-        return {"type": "tool", "action": "tool_catalog"}
 
     if t in ["/memory", "memory", "μνήμη"] or "μνήμη" in t:
         return {"type": "tool", "action": "memory"}
