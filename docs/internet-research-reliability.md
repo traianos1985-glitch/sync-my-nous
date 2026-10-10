@@ -28,6 +28,7 @@ The dashboard's default API client maps its chat request to the Python backend's
 When `VITE_NOUS_API_URL` is configured, verify that it points to the intended backend. A preview can otherwise use a different chat path from the deployed dashboard.
 
 The research broker now:
+
 - Resolves result hosts and rejects private/reserved destinations, URL credentials, IP-literal hosts, and non-standard ports.
 - Blocks redirects and restricts fetched content types to HTML/XHTML/plain text.
 - Enforces a response-size cap while streaming the response body rather than reading an unbounded body into memory.

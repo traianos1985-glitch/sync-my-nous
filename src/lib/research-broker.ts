@@ -75,7 +75,10 @@ async function assertSafeUrl(raw: string) {
   const expectedPort = url.protocol === "https:" ? "443" : "80";
   if (url.port && url.port !== expectedPort) throw new Error("blocked_port");
 
-  const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
+  const host = url.hostname
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "")
+    .toLowerCase();
   if (
     !host ||
     host === "localhost" ||
@@ -147,7 +150,10 @@ async function fetchText(url: string, timeoutMs = 8000) {
 
   const rawText = await readBoundedText(response);
   return rawText
-    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<iframe[\s\S]*?<\/iframe>|<[^>]+>/gi, " ")
+    .replace(
+      /<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<iframe[\s\S]*?<\/iframe>|<[^>]+>/gi,
+      " ",
+    )
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_CONTENT);
