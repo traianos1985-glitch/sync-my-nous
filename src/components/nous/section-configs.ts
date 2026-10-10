@@ -242,4 +242,20 @@ export const sectionConfigs: Record<string, SectionConfig> = {
     ],
     actions: [{ label: "Πρότεινε upgrade", path: "/remote/upgrade-planner/propose" }],
   },
+  techwatch: {
+    endpoints: [
+      { label: "Technical Intelligence", path: "/remote/technical-intelligence/status" },
+      { label: "Τελευταία αναφορά", path: "/remote/technical-intelligence/report" },
+      { label: "Προτάσεις αναβάθμισης", path: "/remote/technical-intelligence/proposals" },
+    ],
+    actions: [
+      {
+        label: "Έλεγχος νέων εκδόσεων",
+        path: "/remote/technical-intelligence/scan",
+        body: { limit: 40 },
+        confirm:
+          "Να ελεγχθούν οι εκδόσεις των βιβλιοθηκών στα επίσημα registries; Δεν θα γίνει εγκατάσταση ή αλλαγή κώδικα.",
+      },
+    ],
+  },
 };

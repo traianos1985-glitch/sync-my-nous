@@ -29,6 +29,7 @@ export const navGroups: NavGroup[] = [
       { id: "deploy", icon: "🚀", label: "Deploy" },
       { id: "backup", icon: "☁", label: "Backup" },
       { id: "larmor", icon: "🧲", label: "Larmor Monitor" },
+      { id: "techwatch", icon: "🧭", label: "Tech Watch" },
       { id: "field", icon: "🔍", label: "Πεδίο & Χάρτης" },
       { id: "remote-access", icon: "📡", label: "Remote Access" },
       { id: "control", icon: "◈", label: "Control Plane" },
