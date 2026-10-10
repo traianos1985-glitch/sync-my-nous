@@ -37,11 +37,65 @@ from executor.source_reader import read_source
 from executor.stability import stable_point
 from executor.utility_tools import calculate, parse_conversion, current_time, text_stats, validate_json_text, sha256_text
 from executor.tool_catalog import tool_catalog
+from executor.utility_tools import calculate, parse_conversion, current_time, text_stats, validate_json_text, sha256_text
+from executor.tool_catalog import tool_catalog
 
 def run_tool(intent, context=None):
 
     context = context if isinstance(context, dict) else {}
     action = intent.get("action")
+    command = str((context or {}).get("command", "")) if isinstance(context, dict) else ""
+
+    if action == "tool_catalog":
+        return tool_catalog()
+
+    if action == "calculate":
+        expression = command
+        for prefix in ("calculate ", "/calculate ", "υπολόγισε "):
+            if expression.lower().startswith(prefix):
+                expression = expression[len(prefix):]
+                break
+        return calculate(expression)
+
+    if action == "convert":
+        expression = command
+        for prefix in ("convert ", "/convert ", "μετατροπή "):
+            if expression.lower().startswith(prefix):
+                expression = expression[len(prefix):]
+                break
+        return parse_conversion(expression)
+
+    if action == "time":
+        zone = command.strip()
+        for prefix in ("time", "/time", "ώρα"):
+            if zone.lower().startswith(prefix):
+                zone = zone[len(prefix):].strip()
+                break
+        return current_time(zone)
+
+    if action == "text_stats":
+        value = command
+        for prefix in ("text stats ", "μέτρησε κείμενο "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return text_stats(value)
+
+    if action == "json_validate":
+        value = command
+        for prefix in ("json validate ", "έλεγξε json "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return validate_json_text(value)
+
+    if action == "sha256":
+        value = command
+        for prefix in ("sha256 ", "hash "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return sha256_text(value)
     command = str(context.get("command", ""))
 
     if action == "tool_catalog":
