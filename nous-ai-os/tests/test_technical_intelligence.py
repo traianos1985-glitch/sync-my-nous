@@ -35,7 +35,7 @@ def test_collect_dependencies_reads_manifests_without_running_package_managers(t
     assert by_name[("npm", "react")]["current_version"] == "18.2.0"
     assert by_name[("npm", "vite")]["declared"] == "^5.0.0"
     assert by_name[("pypi", "requests")]["current_version"] == "2.32.0"
-    assert "git+https" not in " ".join(by_name)
+    assert "git+https" not in " ".join(item["name"] for item in found)
     assert len([item for item in found if item["ecosystem"] == "pypi" and item["name"] == "requests"]) == 1
 
 
