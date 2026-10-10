@@ -80,3 +80,18 @@ def test_internet_engine_marks_empty_search_as_no_results(monkeypatch, tmp_path)
     assert result["ok"] is False
     assert result["error"] == "no_results"
     assert result["results"] == []
+
+
+def test_search_status_reports_unknown_when_empty_results_are_ambiguous(monkeypatch):
+    monkeypatch.setattr(
+        web_search,
+        "search",
+        lambda query, max_results: {
+            "ok": False, "error": "no_results", "results": [], "count": 0
+        },
+    )
+
+    result = web_search.web_search_status()
+
+    assert result["available"] is None
+    assert result["status"] == "unknown"
