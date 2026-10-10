@@ -37,34 +37,47 @@ def _load_unlocked():
     return [item for item in items if isinstance(item, dict)]
 
 
+def _inspect_queue_store_unlocked():
+    """Inspect raw persisted queue data without filtering or modifying it."""
+    if not os.path.exists(FILE):
+        return {"status": "healthy", "record_count": 0, "malformed_records": 0}
+    try:
+        with open(FILE, "r", encoding="utf-8") as handle:
+            raw = json.load(handle)
+    except (OSError, ValueError, TypeError) as exc:
+        return {
+            "status": "degraded",
+            "error": f"queue_store_unreadable:{type(exc).__name__}",
+            "record_count": 0,
+            "malformed_records": 0,
+        }
+    if not isinstance(raw, list):
+        return {
+            "status": "degraded",
+            "error": "queue_store_not_a_list",
+            "record_count": 0,
+            "malformed_records": 0,
+        }
+    malformed = sum(not isinstance(item, dict) for item in raw)
+    return {
+        "status": "degraded" if malformed else "healthy",
+        "record_count": len(raw),
+        "malformed_records": malformed,
+    }
+
+
 def inspect_queue_store():
     """Read-only integrity summary of the persisted queue before filtered loading."""
     with _queue_lock():
-        if not os.path.exists(FILE):
-            return {"status": "healthy", "record_count": 0, "malformed_records": 0}
-        try:
-            with open(FILE, "r", encoding="utf-8") as handle:
-                raw = json.load(handle)
-        except (OSError, ValueError, TypeError) as exc:
-            return {
-                "status": "degraded",
-                "error": f"queue_store_unreadable:{type(exc).__name__}",
-                "record_count": 0,
-                "malformed_records": 0,
-            }
-        if not isinstance(raw, list):
-            return {
-                "status": "degraded",
-                "error": "queue_store_not_a_list",
-                "record_count": 0,
-                "malformed_records": 0,
-            }
-        malformed = sum(not isinstance(item, dict) for item in raw)
-        return {
-            "status": "degraded" if malformed else "healthy",
-            "record_count": len(raw),
-            "malformed_records": malformed,
-        }
+        return _inspect_queue_store_unlocked()
+
+
+def _integrity_failure(integrity):
+    return {
+        "ok": False,
+        "error": "queue_store_integrity_failure",
+        "integrity": integrity,
+    }
 
 
 def _save_unlocked(items):
@@ -109,6 +122,9 @@ def add_task(title, kind="general", priority=5, payload=None):
         "result": None,
     }
     with _queue_lock():
+        integrity = _inspect_queue_store_unlocked()
+        if integrity["status"] != "healthy":
+            return _integrity_failure(integrity)
         items = _load_unlocked()
         existing_ids = {str(entry.get("id")) for entry in items}
         while str(item["id"]) in existing_ids:
@@ -133,6 +149,9 @@ def next_task():
 
 def update_task(task_id, **updates):
     with _queue_lock():
+        integrity = _inspect_queue_store_unlocked()
+        if integrity["status"] != "healthy":
+            return _integrity_failure(integrity)
         items = _load_unlocked()
         for item in items:
             if str(item.get("id")) == str(task_id):
@@ -154,6 +173,9 @@ def retry_failed(max_attempts=DEFAULT_MAX_ATTEMPTS):
         return {"retried": [], "error": "max_attempts_must_be_positive"}
 
     with _queue_lock():
+        integrity = _inspect_queue_store_unlocked()
+        if integrity["status"] != "healthy":
+            return {"retried": [], **_integrity_failure(integrity)}
         items = _load_unlocked()
         changed = []
         for item in items:
@@ -187,6 +209,9 @@ def recover_dead_tasks(max_age_seconds=900, max_recoveries=DEFAULT_MAX_RECOVERIE
     recovered = []
     failed = []
     with _queue_lock():
+        integrity = _inspect_queue_store_unlocked()
+        if integrity["status"] != "healthy":
+            return {"recovered": [], "failed": [], **_integrity_failure(integrity)}
         items = _load_unlocked()
         for item in items:
             if item.get("status") != "running":

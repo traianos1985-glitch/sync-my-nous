@@ -104,3 +104,43 @@ def test_mission_lifecycle_does_not_record_cancelled_mission_as_success(tmp_path
     assert result["archived"] == 1
     assert lessons[0]["success"] is False
     assert lessons[0]["outcome"] == "cancelled"
+
+
+def test_queue_mutations_fail_closed_without_overwriting_corrupt_store(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    import importlib
+    from executor import task_queue
+
+    queue = importlib.reload(task_queue)
+    Path("data").mkdir()
+    corrupt = b'{"broken":'
+    Path("data/agent_queue.json").write_bytes(corrupt)
+
+    added = queue.add_task("must not erase corrupt queue")
+    retried = queue.retry_failed()
+    recovered = queue.recover_dead_tasks()
+
+    assert added["ok"] is False
+    assert added["error"] == "queue_store_integrity_failure"
+    assert retried["error"] == "queue_store_integrity_failure"
+    assert recovered["error"] == "queue_store_integrity_failure"
+    assert Path("data/agent_queue.json").read_bytes() == corrupt
+
+
+def test_queue_mutations_preserve_malformed_records_until_explicit_clear(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    import importlib
+    from executor import task_queue
+
+    queue = importlib.reload(task_queue)
+    Path("data").mkdir()
+    original = json.dumps([{"id": 1, "status": "pending"}, ["malformed"]]).encode()
+    Path("data/agent_queue.json").write_bytes(original)
+
+    result = queue.update_task(1, status="done")
+
+    assert result["ok"] is False
+    assert result["error"] == "queue_store_integrity_failure"
+    assert Path("data/agent_queue.json").read_bytes() == original
+    assert queue.clear_queue() == {"cleared": True}
+    assert json.loads(Path("data/agent_queue.json").read_text(encoding="utf-8")) == []
