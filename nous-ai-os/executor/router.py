@@ -126,6 +126,7 @@ from executor.code_assistant import code_health, code_advice
 from executor.research_browser_agent import research_query, read_url
 from executor.technical_intelligence import technical_intelligence_status, latest_report as technical_intelligence_report, list_proposals as technical_intelligence_proposals, run_scan as run_technical_intelligence_scan
 from executor.technical_sources import source_watch_status, latest_source_report, run_source_scan
+from executor.release_triage import triage_latest_releases
 from executor.knowledge_research import research_next_topic, learning_cycle
 from executor.autonomous_agent import capabilities as autonomous_capabilities, run_agent as run_autonomous_agent, run_check as run_agent_check, pending_proposals as pending_agent_proposals, approve_proposal as approve_agent_proposal
 
@@ -2671,6 +2672,12 @@ def remote_technical_sources_status_route():
 @app.route("/remote/technical-sources/report")
 def remote_technical_sources_report_route():
     return jsonify(latest_source_report())
+
+
+@app.route("/remote/technical-sources/triage")
+def remote_technical_sources_triage_route():
+    limit = request.args.get("limit", default=25, type=int)
+    return jsonify(triage_latest_releases(limit=limit))
 
 
 @app.route("/remote/technical-sources/scan", methods=["POST"])

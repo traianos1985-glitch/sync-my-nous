@@ -50,3 +50,10 @@ The separate `technical_sources` watcher checks a fixed allowlist of official Gi
 ## Upgrade planner execution boundary
 
 The self-upgrade planner is proposal-only. Approving a plan records that it is approved for technical review; it does not call an LLM to generate code, write new source files, or run generated code. Implementation must be made as a separate reviewed source-control change with tests and successful CI. Legacy plans previously marked `implementing` are migrated to the review-only `approved` state when loaded.
+
+## Release evidence triage
+
+- `GET /remote/technical-sources/triage` turns the most recent official-release report into a bounded, deterministic review queue.
+- The queue highlights keyword signals for security, breaking changes, bug fixes, and performance. These are triage hints, not a claim that a release is safe, vulnerable, or compatible.
+- Each item retains its official release link and bounded excerpt, and is marked as requiring human review. Unknown repositories and arbitrary source links are excluded.
+- This step does not create upgrade plans, generate code, edit source files, install packages, or execute release-note content. A future proposal may cite these items, but any implementation must still be a separate reviewed PR with passing CI.

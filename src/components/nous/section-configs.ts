@@ -256,6 +256,7 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Προτάσεις αναβάθμισης", path: "/remote/technical-intelligence/proposals" },
       { label: "Επίσημα release notes — κατάσταση", path: "/remote/technical-sources/status" },
       { label: "Επίσημα release notes — αναφορά", path: "/remote/technical-sources/report" },
+      { label: "Release evidence — ουρά αξιολόγησης", path: "/remote/technical-sources/triage" },
     ],
     actions: [
       {
