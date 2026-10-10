@@ -3935,7 +3935,7 @@ function renderToolbox(){
   }
   list.innerHTML = items.map(item => {
     const approval = item.approval_required === true || item.approval_required === "depends_on_action";
-    const label = approval ? "Έλεγχος/έγκριση ανά ενέργεια" : "Χωρίς επιπλέον έγκριση";
+    const label = !canRun ? "Μόνο μέσω ειδικής ροής" : (approval ? "Έλεγχος/έγκριση ανά ενέργεια" : "Ασφαλής απευθείας εκτέλεση");
     const canRun = item.executable_from_tool_library === true;
     const actionControl = canRun
       ? '<button type="button" class="miniBtn toolbox-run" data-command="' + escHtml(item.command) + '">Εκτέλεση ασφαλούς εργαλείου</button>'
