@@ -2994,15 +2994,55 @@ def dashboard():
 def apps_list():
     return jsonify(list_apps())
 
+def _persistent_generated_apps_root():
+    return Path(os.environ.get("NOUS_GENERATED_APPS_DIR", "data/generated_apps"))
+
+
+def _valid_app_slug(name):
+    import re as _re
+    return bool(_re.fullmatch(r"[A-Za-z0-9_-]{1,80}", str(name or "")))
+
+
+def _find_app_dir(name, roots):
+    """Find an app directory only under one of the explicitly allowed roots."""
+    if not _valid_app_slug(name):
+        return None
+    for root in roots:
+        root_path = Path(root).resolve()
+        target = (root_path / name).resolve()
+        try:
+            target.relative_to(root_path)
+        except ValueError:
+            continue
+        if target.is_dir():
+            return target
+    return None
+
+
+def _find_builder_app_dir(name):
+    return _find_app_dir(name, [_persistent_generated_apps_root(), Path("apps")])
+
+
+def _find_web_app_dir(name):
+    # Keep serving old generated_apps/ folders while new apps use persistent storage.
+    return _find_app_dir(name, [_persistent_generated_apps_root(), Path("generated_apps")])
+
+
 @app.route("/apps/<name>/")
 def open_generated_app(name):
-    abs_dir = os.path.join(os.getcwd(), "generated_apps", name)
-    return send_from_directory(abs_dir, "index.html")
+    abs_dir = _find_web_app_dir(name)
+    if abs_dir is None:
+        return jsonify({"ok": False, "error": "app_not_found"}), 404
+    return send_from_directory(str(abs_dir), "index.html")
+
 
 @app.route("/apps/<name>/<path:filename>")
 def open_generated_app_asset(name, filename):
-    abs_dir = os.path.join(os.getcwd(), "generated_apps", name)
-    return send_from_directory(abs_dir, filename)
+    abs_dir = _find_web_app_dir(name)
+    if abs_dir is None:
+        return jsonify({"ok": False, "error": "app_not_found"}), 404
+    return send_from_directory(str(abs_dir), filename)
+
 
 # ── App Builder API ─────────────────────────────────────────────────────────
 
@@ -3058,18 +3098,27 @@ def app_builder_get_route(plan_id):
 
 @app.route("/remote/app-builder/files")
 def app_builder_files_route():
-    """Browse the apps/ folder — list all built app directories and their files."""
-    from pathlib import Path as _Path
-    apps_dir = _Path("apps")
-    if not apps_dir.exists():
-        return jsonify({"ok": True, "apps": [], "total": 0, "path": "apps/"})
+    """List persistent generated apps first, then legacy repository apps."""
     apps = []
-    for entry in sorted(apps_dir.iterdir()):
-        if entry.is_dir():
+    seen = set()
+    roots = [_persistent_generated_apps_root(), Path("apps")]
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for entry in sorted(root.iterdir()):
+            if not entry.is_dir() or entry.name in seen:
+                continue
+            if not _valid_app_slug(entry.name):
+                continue
+            seen.add(entry.name)
             files = []
             try:
                 for f in sorted(entry.rglob("*")):
                     if f.is_file():
+                        try:
+                            f.resolve().relative_to(entry.resolve())
+                        except ValueError:
+                            continue
                         size = f.stat().st_size
                         files.append({
                             "name": str(f.relative_to(entry)),
@@ -3078,25 +3127,26 @@ def app_builder_files_route():
                         })
             except Exception:
                 pass
-            # Detect run command from main.py / app.py / requirements.txt
-            run_cmd = _detect_run_command(entry)
             apps.append({
                 "name": entry.name,
                 "path": str(entry),
+                "source": "persistent" if root == roots[0] else "legacy",
                 "file_count": len(files),
                 "files": files[:30],
-                "run_command": run_cmd,
+                "run_command": _detect_run_command(entry),
             })
-    return jsonify({"ok": True, "apps": apps, "total": len(apps), "path": "apps/"})
+    return jsonify({
+        "ok": True, "apps": apps, "total": len(apps),
+        "path": str(_persistent_generated_apps_root()), "sources": [str(p) for p in roots],
+    })
 
 
 def _detect_run_command(app_dir) -> str:
-    from pathlib import Path as _P
-    p = _P(app_dir)
+    p = Path(app_dir)
     for candidate in ["main.py", "app.py", "run.py", "server.py"]:
-        if (p / candidate).exists():
-            return f"python apps/{p.name}/{candidate}"
-    return f"python apps/{p.name}/main.py"
+        if (p / candidate).is_file():
+            return f"python {p / candidate}"
+    return f"python {p / 'main.py'}"
 
 
 # ── In-memory store for running app subprocesses ──────────────────────────────
@@ -3111,13 +3161,17 @@ def app_builder_read_file_route():
     filename = request.args.get("file", "").strip()
     if not app_name or not filename:
         return jsonify({"ok": False, "error": "app and file params required"})
-    # Security: no path traversal
-    base = _P("apps") / app_name
+    # Security: constrain app and file paths to an allowed app directory.
+    base = _find_builder_app_dir(app_name)
+    if base is None:
+        return jsonify({"ok": False, "error": "app not found"}), 404
     target = (base / filename).resolve()
-    if not str(target).startswith(str(base.resolve())):
-        return jsonify({"ok": False, "error": "invalid path"})
+    try:
+        target.relative_to(base.resolve())
+    except ValueError:
+        return jsonify({"ok": False, "error": "invalid path"}), 400
     if not target.exists() or not target.is_file():
-        return jsonify({"ok": False, "error": "file not found"})
+        return jsonify({"ok": False, "error": "file not found"}), 404
     try:
         content = target.read_text(encoding="utf-8", errors="replace")
         return jsonify({"ok": True, "content": content, "file": filename, "app": app_name})
@@ -3201,9 +3255,9 @@ def app_builder_run_app_route():
     if not app_name or _P(app_name).name != app_name:
         return jsonify({"ok": False, "error": "valid app name required"}), 400
 
-    app_dir = _P("apps") / app_name
-    if not app_dir.exists() or not app_dir.is_dir():
-        return jsonify({"ok": False, "error": f"apps/{app_name} not found"}), 404
+    app_dir = _find_builder_app_dir(app_name)
+    if app_dir is None:
+        return jsonify({"ok": False, "error": f"app {app_name} not found"}), 404
 
     run_cmd = _detect_run_command(app_dir)
     approval_payload = {"app": app_name, "run_command": run_cmd}
@@ -3322,14 +3376,18 @@ def app_builder_download_route(app_name):
     import zipfile, io
     from pathlib import Path as _P
     from flask import send_file
-    app_dir = _P("apps") / app_name
-    if not app_dir.exists():
+    app_dir = _find_builder_app_dir(app_name)
+    if app_dir is None:
         return jsonify({"ok": False, "error": "not found"}), 404
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in sorted(app_dir.rglob("*")):
             if f.is_file():
-                zf.write(f, arcname=str(f.relative_to(_P("apps"))))
+                try:
+                    f.resolve().relative_to(app_dir.resolve())
+                except ValueError:
+                    continue
+                zf.write(f, arcname=f"{app_name}/{f.relative_to(app_dir)}")
     buf.seek(0)
     return send_file(buf, mimetype="application/zip",
                      as_attachment=True, download_name=f"{app_name}.zip")
