@@ -37,7 +37,6 @@ The report is written atomically to the runtime data directory, with a bounded s
 
 Dependabot is configured separately to propose dependency updates for npm, Python requirements/manifests, and GitHub Actions. Its PRs still require the repository's normal CI and human review; this service never merges or applies them automatically.
 
-
 ## Official technical release intelligence
 
 The separate `technical_sources` watcher checks a fixed allowlist of official GitHub project release APIs (not arbitrary URLs) for recent releases and release-note summaries. The initial allowlist covers Python, Flask, Requests, Vite, and Next.js. Each result records its source URL, release tag, publication time, and a short bounded excerpt.
