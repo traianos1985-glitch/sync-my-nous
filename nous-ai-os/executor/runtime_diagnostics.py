@@ -67,7 +67,8 @@ def _queue_check() -> dict[str, Any]:
 
 
 def _mission_check() -> dict[str, Any]:
-    from executor.mission_system import mission_status
+    from executor.mission_system import list_missions, mission_status
+    from executor.mission_integrity import audit_missions
 
     result = mission_status()
     if not isinstance(result, dict):
@@ -75,9 +76,12 @@ def _mission_check() -> dict[str, Any]:
     blocked = int(result.get("blocked", 0) or 0)
     active = int(result.get("active", 0) or 0)
     done = int(result.get("done", 0) or 0)
+    integrity = audit_missions(list_missions())
+    degraded = blocked > 0 or integrity.get("ok") is not True
     return {
-        "status": "degraded" if blocked else "healthy",
+        "status": "degraded" if degraded else "healthy",
         "counts": {"total": int(result.get("total", 0) or 0), "active": active, "done": done, "blocked": blocked},
+        "integrity": integrity,
     }
 
 
