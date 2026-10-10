@@ -1,6 +1,9 @@
+import fcntl
 import json
 import os
+import tempfile
 import time
+from contextlib import contextmanager
 
 from executor.mission_system import mission_status, run_mission_cycle
 from executor.goal_progress_intelligence import apply_goal_progress_intelligence
@@ -32,30 +35,64 @@ BLOCKED_AUTO_ACTIONS = {
 }
 
 
-def _load():
+@contextmanager
+def _state_lock():
+    os.makedirs(os.path.dirname(FILE) or ".", exist_ok=True)
+    with open(FILE + ".lock", "a", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _load_unlocked():
     if not os.path.exists(FILE):
-        return {
-            "enabled": False,
-            "runs": [],
-            "last_run": None,
-        }
+        return {"enabled": False, "runs": [], "last_run": None}
     try:
-        return json.load(open(FILE, "r", encoding="utf-8"))
+        with open(FILE, "r", encoding="utf-8") as handle:
+            state = json.load(handle)
+        if not isinstance(state, dict):
+            raise ValueError("state_not_object")
+        state.setdefault("enabled", False)
+        state.setdefault("runs", [])
+        state.setdefault("last_run", None)
+        return state
+    except (OSError, ValueError, TypeError):
+        return {"enabled": False, "runs": [], "last_run": None, "error": "state_load_failed"}
+
+
+def _save_unlocked(state):
+    directory = os.path.dirname(FILE) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(prefix=".auto_mission_executor.", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(state, handle, ensure_ascii=False, indent=2)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, FILE)
     except Exception:
-        return {
-            "enabled": False,
-            "runs": [],
-            "last_run": None,
-            "error": "state_load_failed",
-        }
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
+
+
+def _load():
+    with _state_lock():
+        return _load_unlocked()
 
 
 def _save(state):
-    os.makedirs("data", exist_ok=True)
-    json.dump(state, open(FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    with _state_lock():
+        _save_unlocked(state)
 
 
 def _task_allowed(task):
+    if not isinstance(task, dict):
+        return False, "invalid_task"
     action = task.get("action")
     if action in BLOCKED_AUTO_ACTIONS:
         return False, "blocked_action"
@@ -68,30 +105,25 @@ def _task_allowed(task):
 
 def _mission_safe_summary(mission):
     tasks = mission.get("tasks", [])
-    pending = [t for t in tasks if t.get("status") == "pending"]
-
+    if not isinstance(tasks, list):
+        return {"safe": False, "reason": "invalid_tasks", "pending": 0, "blocked_tasks": []}
+    pending = [task for task in tasks if isinstance(task, dict) and task.get("status") == "pending"]
     if not pending:
-        return {
-            "safe": False,
-            "reason": "no_pending_tasks",
-            "pending": 0,
-            "blocked_tasks": [],
-        }
+        return {"safe": False, "reason": "no_pending_tasks", "pending": 0, "blocked_tasks": []}
 
     blocked = []
-    for t in pending:
-        allowed, reason = _task_allowed(t)
+    for task in pending:
+        allowed, reason = _task_allowed(task)
         if not allowed:
             blocked.append({
-                "task_id": t.get("id"),
-                "title": t.get("title"),
-                "action": t.get("action"),
+                "task_id": task.get("id"),
+                "title": task.get("title"),
+                "action": task.get("action"),
                 "reason": reason,
             })
-
     return {
-        "safe": len(blocked) == 0,
-        "reason": "safe" if len(blocked) == 0 else "blocked_tasks",
+        "safe": not blocked,
+        "reason": "safe" if not blocked else "blocked_tasks",
         "pending": len(pending),
         "blocked_tasks": blocked,
     }
@@ -100,35 +132,28 @@ def _mission_safe_summary(mission):
 def auto_mission_executor_status():
     state = _load()
     ms = mission_status()
-
     candidates = []
     blocked = []
-
-    for m in ms.get("missions", []):
-        if m.get("status") not in ["active"]:
+    for mission in ms.get("missions", []):
+        if not isinstance(mission, dict) or mission.get("status") != "active":
             continue
-
-        summary = _mission_safe_summary(m)
+        summary = _mission_safe_summary(mission)
         item = {
-            "mission_id": m.get("id"),
-            "title": m.get("title"),
-            "status": m.get("status"),
+            "mission_id": mission.get("id"),
+            "title": mission.get("title"),
+            "status": mission.get("status"),
             "safe": summary.get("safe"),
             "reason": summary.get("reason"),
             "pending": summary.get("pending"),
             "blocked_tasks": summary.get("blocked_tasks"),
         }
-
-        if summary.get("safe"):
-            candidates.append(item)
-        else:
-            blocked.append(item)
-
+        (candidates if summary.get("safe") else blocked).append(item)
     return {
         "time": time.time(),
         "enabled": state.get("enabled", False),
-        "safe_actions": sorted(list(SAFE_AUTO_ACTIONS)),
-        "blocked_actions": sorted(list(BLOCKED_AUTO_ACTIONS)),
+        "safe_actions": sorted(SAFE_AUTO_ACTIONS),
+        "blocked_actions": sorted(BLOCKED_AUTO_ACTIONS),
+        "run_in_progress": state.get("run_in_progress"),
         "candidates": candidates,
         "blocked": blocked,
         "last_run": state.get("last_run"),
@@ -137,80 +162,110 @@ def auto_mission_executor_status():
 
 
 def set_auto_mission_executor_enabled(enabled):
-    state = _load()
-    state["enabled"] = bool(enabled)
-    _save(state)
-    return {"ok": True, "enabled": state["enabled"], "status": auto_mission_executor_status()}
+    with _state_lock():
+        state = _load_unlocked()
+        state["enabled"] = bool(enabled)
+        _save_unlocked(state)
+    return {"ok": True, "enabled": bool(enabled), "status": auto_mission_executor_status()}
 
 
 def run_auto_mission_executor(max_missions=1, max_steps_per_mission=3, trigger="manual"):
-    state = _load()
-    status = auto_mission_executor_status()
+    try:
+        mission_limit = max(1, min(int(max_missions), 10))
+    except (TypeError, ValueError, OverflowError):
+        mission_limit = 1
+    try:
+        step_limit = max(1, min(int(max_steps_per_mission), 25))
+    except (TypeError, ValueError, OverflowError):
+        step_limit = 3
+
+    # Durable single-run claim: concurrent scheduler ticks cannot execute the
+    # same candidate missions at the same time. The lock is not held in actions.
+    with _state_lock():
+        state = _load_unlocked()
+        if state.get("run_in_progress"):
+            return {"ok": False, "error": "run_already_in_progress"}
+        run_id = str(time.time_ns())
+        state["run_in_progress"] = {"id": run_id, "started": time.time(), "trigger": str(trigger)}
+        _save_unlocked(state)
 
     run = {
-        "id": int(time.time_ns()),
+        "id": run_id,
         "time": time.time(),
-        "trigger": trigger,
-        "max_missions": int(max_missions),
-        "max_steps_per_mission": int(max_steps_per_mission),
+        "trigger": str(trigger),
+        "max_missions": mission_limit,
+        "max_steps_per_mission": step_limit,
         "executed": [],
         "skipped": [],
         "post_checks": {},
     }
-
-    candidates = status.get("candidates", [])[:int(max_missions)]
-
-    for c in candidates:
-        mission_id = c.get("mission_id")
-        result = run_mission_cycle(mission_id, int(max_steps_per_mission))
-
-        run["executed"].append({
-            "mission_id": mission_id,
-            "title": c.get("title"),
-            "result": result,
-        })
-
-    for b in status.get("blocked", []):
-        run["skipped"].append(b)
-
     try:
-        run["post_checks"]["goal_progress"] = apply_goal_progress_intelligence()
-    except Exception as e:
-        run["post_checks"]["goal_progress_error"] = str(e)
+        status = auto_mission_executor_status()
+        candidates = status.get("candidates", [])[:mission_limit]
+        for candidate in candidates:
+            mission_id = candidate.get("mission_id")
+            try:
+                result = run_mission_cycle(mission_id, step_limit)
+            except Exception as exc:
+                result = {"ok": False, "status": "executor_exception", "error": str(exc)[:1000], "results": []}
+            run["executed"].append({
+                "mission_id": mission_id,
+                "title": candidate.get("title"),
+                "result": result,
+                "ok": result.get("ok") is True,
+            })
+        run["skipped"] = status.get("blocked", [])
 
-    try:
-        run["post_checks"]["self_diagnosis"] = run_self_diagnosis()
-    except Exception as e:
-        run["post_checks"]["self_diagnosis_error"] = str(e)
+        try:
+            run["post_checks"]["goal_progress"] = apply_goal_progress_intelligence()
+        except Exception as exc:
+            run["post_checks"]["goal_progress_error"] = str(exc)[:1000]
+        try:
+            run["post_checks"]["self_diagnosis"] = run_self_diagnosis()
+        except Exception as exc:
+            run["post_checks"]["self_diagnosis_error"] = str(exc)[:1000]
 
-    record_decision(
-        title="Auto mission executor run",
-        reason="Executed only safe allowlisted mission tasks.",
-        action="auto_mission_executor",
-        result={
-            "trigger": trigger,
-            "executed_count": len(run["executed"]),
-            "skipped_count": len(run["skipped"]),
-        },
-        confidence=0.8,
-        tags=["auto_executor", "safe_mode", trigger],
-    )
+        executed_ok = bool(run["executed"]) and all(item["ok"] for item in run["executed"])
+        if executed_ok and not run["skipped"]:
+            run["status"] = "completed"
+        elif run["executed"] and executed_ok:
+            run["status"] = "partial"
+        elif run["executed"]:
+            run["status"] = "failed"
+        else:
+            run["status"] = "no_work"
 
-    record_lesson(
-        lesson="Auto mission executor completed safe run with %s executed missions and %s skipped missions."
-        % (len(run["executed"]), len(run["skipped"])),
-        outcome="success",
-        confidence=0.75,
-        tags=["auto_executor", "safe_mode", trigger],
-    )
-
-    state["last_run"] = run
-    state.setdefault("runs", []).append(run)
-    state["runs"] = state["runs"][-50:]
-    _save(state)
-
-    return {
-        "ok": True,
-        "run": run,
-        "status": auto_mission_executor_status(),
-    }
+        record_decision(
+            title="Auto mission executor run",
+            reason="Executed only safe allowlisted mission tasks.",
+            action="auto_mission_executor",
+            result={
+                "trigger": trigger,
+                "status": run["status"],
+                "executed_count": len(run["executed"]),
+                "skipped_count": len(run["skipped"]),
+            },
+            confidence=0.8,
+            tags=["auto_executor", "safe_mode", str(trigger)],
+        )
+        record_lesson(
+            lesson="Auto mission executor run ended with status %s (%s executed, %s skipped)."
+            % (run["status"], len(run["executed"]), len(run["skipped"])),
+            outcome="success" if run["status"] == "completed" else "failure",
+            confidence=0.75,
+            tags=["auto_executor", "safe_mode", str(trigger)],
+        )
+        with _state_lock():
+            state = _load_unlocked()
+            state["last_run"] = run
+            state.setdefault("runs", []).append(run)
+            state["runs"] = state["runs"][-50:]
+            state.pop("run_in_progress", None)
+            _save_unlocked(state)
+        return {"ok": run["status"] == "completed", "run": run, "status": auto_mission_executor_status()}
+    except Exception:
+        with _state_lock():
+            state = _load_unlocked()
+            state.pop("run_in_progress", None)
+            _save_unlocked(state)
+        raise
