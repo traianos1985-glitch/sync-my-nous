@@ -4,12 +4,20 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "android_companion/**"
+      - "nous-ai-os/android_companion/**"
       - ".github/workflows/android-companion-build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-companion-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -23,13 +31,19 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        working-directory: android_companion
+        working-directory: nous-ai-os/android_companion
         run: gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nous-companion-debug-apk
-          path: android_companion/app/build/outputs/apk/debug/*.apk
+          path: nous-ai-os/android_companion/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
