@@ -83,11 +83,14 @@ def _synthesize_from_sources(query: str, pages: list[dict[str, Any]]) -> str | N
         "Χρησιμοποίησε μόνο τα διαθέσιμα αποσπάσματα και έγκυρες αριθμημένες παραπομπές."
     )
     try:
-        from executor.remote_llm import ask
+        from executor.remote_llm import ask_with_turns
 
-        answer = ask(prompt, system=system)
+        result = ask_with_turns([{"role": "user", "content": prompt}], system=system)
     except Exception:
         return None
+    if not isinstance(result, dict) or not result.get("success"):
+        return None
+    answer = result.get("response", "")
     if not isinstance(answer, str) or not answer.strip():
         return None
 
