@@ -16,6 +16,7 @@ TOOLS = (
         "description": "Evaluate arithmetic and approved math functions without Python eval.",
         "command": "calculate 12 * (4 + 3)",
         "risk": "local_computation",
+        "executable_from_tool_library": True,
         "approval_required": False,
     },
     {
@@ -24,6 +25,7 @@ TOOLS = (
         "description": "Convert length, mass, volume, speed, and temperature units.",
         "command": "convert 12 km to miles",
         "risk": "local_computation",
+        "executable_from_tool_library": True,
         "approval_required": False,
     },
     {
@@ -32,6 +34,7 @@ TOOLS = (
         "description": "Return local time, UTC, or time in an IANA timezone.",
         "command": "time Europe/Athens",
         "risk": "read_only",
+        "executable_from_tool_library": True,
         "approval_required": False,
     },
     {
@@ -40,6 +43,7 @@ TOOLS = (
         "description": "Count characters, non-whitespace characters, words, lines, and paragraphs.",
         "command": "text stats <text>",
         "risk": "local_computation",
+        "executable_from_tool_library": True,
         "approval_required": False,
     },
     {
@@ -48,6 +52,7 @@ TOOLS = (
         "description": "Validate JSON and report the top-level type or parse location.",
         "command": "json validate <json>",
         "risk": "local_computation",
+        "executable_from_tool_library": True,
         "approval_required": False,
     },
     {
@@ -56,6 +61,7 @@ TOOLS = (
         "description": "Calculate a SHA-256 checksum of supplied UTF-8 text.",
         "command": "sha256 <text>",
         "risk": "local_computation",
+        "executable_from_tool_library": True,
         "approval_required": False,
     },
     {
