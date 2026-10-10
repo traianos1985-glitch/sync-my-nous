@@ -51,6 +51,9 @@ def detect_intent(text):
     if t in ["/plugins", "plugins", "plugin"] or "plugins" in t:
         return {"type": "tool", "action": "plugin"}
 
+    if t in ["/tools", "tools", "εργαλεία", "κατάλογος εργαλείων"]:
+        return {"type": "tool", "action": "tool_catalog"}
+
     if t in ["/memory", "memory", "μνήμη"] or "μνήμη" in t:
         return {"type": "tool", "action": "memory"}
 
