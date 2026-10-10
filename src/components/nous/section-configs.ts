@@ -240,7 +240,14 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Upgrades", path: "/remote/upgrade-planner/status" },
       { label: "Plans", path: "/remote/upgrade-planner/plans" },
     ],
-    actions: [{ label: "Πρότεινε upgrade", path: "/remote/upgrade-planner/propose" }],
+    actions: [
+      {
+        label: "Πρότεινε upgrade",
+        path: "/remote/upgrade-planner/propose",
+        confirm:
+          "Να δημιουργηθεί πρόταση για αξιολόγηση; Η έγκριση δεν εκτελεί κώδικα ούτε αλλάζει αρχεία.",
+      },
+    ],
   },
   techwatch: {
     endpoints: [
