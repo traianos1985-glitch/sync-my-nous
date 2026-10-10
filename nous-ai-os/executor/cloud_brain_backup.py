@@ -8,6 +8,7 @@ from executor.brain_state import save_brain_state
 
 BACKUP_DIR = "data/brain_backups"
 
+# Explicit core files are kept for clarity; runtime JSON discovery covers new state files.
 FILES = [
     "data/brain_state.json",
     "data/goals_v2.json",
@@ -17,6 +18,27 @@ FILES = [
     "data/knowledge_queue.json",
     "data/vercel_deployments.json",
 ]
+EXCLUDED_FILES = {"data/api_tokens.json"}
+EXCLUDED_DIRS = {"data/brain_backups", "data/brain_restores", "data/__pycache__"}
+
+
+def _runtime_json_files():
+    found = set()
+    for root, dirs, files in os.walk("data", followlinks=False):
+        dirs[:] = sorted(
+            d for d in dirs
+            if os.path.join(root, d) not in EXCLUDED_DIRS
+            and not os.path.islink(os.path.join(root, d))
+        )
+        for name in files:
+            path = os.path.join(root, name).replace(os.sep, "/")
+            if not name.endswith(".json") or path in EXCLUDED_FILES:
+                continue
+            if os.path.islink(path) or not os.path.isfile(path):
+                continue
+            found.add(path)
+    found.update(path for path in FILES if os.path.isfile(path))
+    return sorted(found - EXCLUDED_FILES)
 
 
 def _sha256(path):
@@ -43,14 +65,13 @@ def create_brain_backup():
     }
 
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for path in FILES:
-            if os.path.exists(path):
-                z.write(path, path)
-                manifest["files"].append({
-                    "path": path,
-                    "sha256": _sha256(path),
-                    "size": os.path.getsize(path),
-                })
+        for path in _runtime_json_files():
+            z.write(path, path)
+            manifest["files"].append({
+                "path": path,
+                "sha256": _sha256(path),
+                "size": os.path.getsize(path),
+            })
 
         z.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
 
@@ -90,6 +111,8 @@ def brain_backup_status():
     return {
         "time": time.time(),
         "backup_dir": BACKUP_DIR,
-        "tracked_files": FILES,
+        "tracked_files": _runtime_json_files(),
+        "excluded_files": sorted(EXCLUDED_FILES),
+        "backup_scope": "JSON runtime state under data/; excludes API tokens and backup/restore archives",
         "existing": list_brain_backups(),
     }
