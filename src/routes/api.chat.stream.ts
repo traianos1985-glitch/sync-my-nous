@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/chat/stream")({
 
         const researchResult = await research(message, body.researchMode ?? "auto");
         const modelMessage = researchResult.context
-          ? `${message}\\n\\n[READ-ONLY RESEARCH CONTEXT — cite only these sources]\n${researchResult.context}`
+          ? `${message}\n\n[READ-ONLY RESEARCH CONTEXT — cite only these sources]\n${researchResult.context}`
           : message;
 
         const focusContext = [
