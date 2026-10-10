@@ -16,7 +16,22 @@ def _load():
     try:
         with open(FILE, "r", encoding="utf-8") as handle:
             value = json.load(handle)
-        return value if isinstance(value, list) else []
+        if not isinstance(value, list):
+            return []
+        migrated = False
+        for plan in value:
+            # Older versions used "implementing" while generating/writing LLM code.
+            # On upgrade, downgrade this legacy state to review-only metadata.
+            if isinstance(plan, dict) and plan.get("status") == "implementing":
+                plan["status"] = "approved"
+                plan["execution_mode"] = "proposal_only"
+                plan["execution_log"] = list(plan.get("execution_log", [])) + [
+                    "Legacy plan migrated to review-only state; automatic execution is disabled."
+                ]
+                migrated = True
+        if migrated:
+            _save(value)
+        return value
     except (OSError, ValueError, TypeError):
         return []
 
