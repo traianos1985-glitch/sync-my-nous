@@ -24,6 +24,28 @@ def detect_intent(text):
     if t.startswith(("sha256 ", "hash ")):
         return {"type": "tool", "action": "sha256"}
 
+    # Built-in tool discovery and deterministic local utilities.
+    if t in ["tools", "/tools", "tool catalog", "κατάλογος εργαλείων", "εργαλεία"]:
+        return {"type": "tool", "action": "tool_catalog"}
+
+    if t.startswith("calculate ") or t.startswith("/calculate ") or t.startswith("υπολόγισε "):
+        return {"type": "tool", "action": "calculate"}
+
+    if t.startswith("convert ") or t.startswith("/convert ") or t.startswith("μετατροπή "):
+        return {"type": "tool", "action": "convert"}
+
+    if t == "time" or t.startswith("time ") or t.startswith("/time ") or t.startswith("ώρα "):
+        return {"type": "tool", "action": "time"}
+
+    if t.startswith("text stats ") or t.startswith("μέτρησε κείμενο "):
+        return {"type": "tool", "action": "text_stats"}
+
+    if t.startswith("json validate ") or t.startswith("έλεγξε json "):
+        return {"type": "tool", "action": "json_validate"}
+
+    if t.startswith("sha256 ") or t.startswith("hash "):
+        return {"type": "tool", "action": "sha256"}
+
     if t in ["/status", "status", "κατάσταση"]:
         return {"type": "system", "action": "status"}
 
