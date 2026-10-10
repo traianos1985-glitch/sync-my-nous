@@ -39,7 +39,8 @@ def test_tool_library_has_real_catalog_and_execution_endpoint_wiring():
     for name in ("calculate", "convert", "time", "text_stats", "json_validate", "sha256", "web_search", "agent_solve"):
         assert get_tool(name) is not None
     assert all(get_tool(name)["executable_from_tool_library"] is True for name in (
-        "calculate", "convert", "time", "text_stats", "json_validate", "sha256"
+        "calculate", "convert", "time", "text_stats", "json_validate", "sha256",
+        "json_format", "url_encode", "url_decode"
     ))
 
 
@@ -71,6 +72,14 @@ def test_tool_library_api_runs_only_allowlisted_local_utilities():
     result = client.post("/api/tools/run", json={"command": "calculate 2 + 3"})
     assert result.status_code == 200
     assert result.get_json()["result"]["result"] == 5
+
+    formatted = client.post("/api/tools/run", json={"command": 'json format {"ok":true}'})
+    assert formatted.status_code == 200
+    assert formatted.get_json()["result"]["formatted"] == '{\n  "ok": true\n}'
+
+    encoded = client.post("/api/tools/run", json={"command": "url encode hello world"})
+    assert encoded.status_code == 200
+    assert encoded.get_json()["result"]["encoded"] == "hello%20world"
 
     blocked = client.post("/api/tools/run", json={"command": "cmd whoami"})
     assert blocked.status_code == 403
