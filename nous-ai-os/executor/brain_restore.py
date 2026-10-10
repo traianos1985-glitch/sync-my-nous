@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import shutil
+import tempfile
 import time
 import zipfile
 from pathlib import PurePosixPath
@@ -61,6 +62,12 @@ def _inside_data_dir(relative_path: str) -> str | None:
             return None
     except ValueError:
         return None
+    # Reject symlinks in every existing component; a restore must not follow them.
+    current = os.path.abspath("data")
+    for part in relative_path.removeprefix("data/").split("/"):
+        current = os.path.join(current, part)
+        if os.path.islink(current):
+            return None
     return target
 
 
@@ -83,6 +90,8 @@ def inspect_brain_backup(path):
             manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
             if not isinstance(manifest, dict) or not isinstance(manifest.get("files"), list):
                 return {"ok": False, "error": "invalid_manifest", "path": path}
+            if manifest.get("type") != "NOUS_BRAIN_BACKUP" or manifest.get("version") not in (1, 2):
+                return {"ok": False, "error": "unsupported_backup_format", "path": path}
 
             files = []
             problems = []
@@ -133,7 +142,9 @@ def inspect_brain_backup(path):
                 if not isinstance(expected, str) or actual != expected:
                     problems.append({"path": file_path, "error": "sha256_mismatch"})
                 expected_size = item.get("size")
-                if expected_size is not None and expected_size != len(data):
+                if expected_size is not None and (
+                    isinstance(expected_size, bool) or not isinstance(expected_size, int) or expected_size != len(data)
+                ):
                     problems.append({"path": file_path, "error": "size_mismatch"})
 
             unexpected = set(names) - manifest_paths - {"manifest.json"}
@@ -154,6 +165,31 @@ def inspect_brain_backup(path):
         return {"ok": False, "error": "backup_read_failed", "details": str(exc), "path": path}
 
 
+def _write_atomic(path: str, data: bytes) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".nous-restore-", suffix=".tmp", dir=os.path.dirname(path))
+    try:
+        with os.fdopen(fd, "wb") as output:
+            output.write(data)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+        try:
+            directory_fd = os.open(os.path.dirname(path), os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            pass
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
 def restore_brain_backup(path, apply=False):
     inspection = inspect_brain_backup(path)
     if not inspection.get("ok"):
@@ -166,36 +202,87 @@ def restore_brain_backup(path, apply=False):
             "inspection": inspection,
         }
 
-    os.makedirs(RESTORE_DIR, exist_ok=True)
-    stamp = int(time.time())
-    safety_dir = os.path.join(RESTORE_DIR, f"before_restore_{stamp}")
-    os.makedirs(safety_dir, exist_ok=True)
-    restored = []
+    # Stage and validate every payload before changing any live file.
+    staged = {}
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            for item in inspection["files"]:
+                relative = item["path"]
+                target = _inside_data_dir(relative)
+                if target is None:
+                    return {"ok": False, "error": "restore_target_not_allowed", "path": relative}
+                data = archive.read(relative)
+                if _sha256_bytes(data) != item["sha256"]:
+                    return {"ok": False, "error": "backup_changed_during_restore", "path": relative}
+                if relative.endswith(".json"):
+                    json.loads(data.decode("utf-8"))
+                staged[relative] = data
 
-    with zipfile.ZipFile(path, "r") as archive:
-        for item in inspection["files"]:
-            relative = item["path"]
+        # Recheck all targets after staging, before creating directories or files.
+        targets = {}
+        for relative in staged:
             target = _inside_data_dir(relative)
             if target is None:
                 return {"ok": False, "error": "restore_target_not_allowed", "path": relative}
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            target = _inside_data_dir(relative)
-            if target is None:
-                return {"ok": False, "error": "restore_target_not_allowed", "path": relative}
-            data = archive.read(relative)
-            if _sha256_bytes(data) != item["sha256"]:
-                return {"ok": False, "error": "backup_changed_during_restore", "path": relative}
-            if relative.endswith(".json"):
-                json.loads(data.decode("utf-8"))
-            if os.path.exists(target):
+            targets[relative] = target
+
+        stamp = f"{time.time_ns()}"
+        os.makedirs(RESTORE_DIR, exist_ok=True)
+        safety_dir = os.path.join(RESTORE_DIR, f"before_restore_{stamp}")
+        os.makedirs(safety_dir, exist_ok=False)
+        previous = {}
+        existed = set()
+        for relative, target in targets.items():
+            if os.path.isfile(target) and not os.path.islink(target):
+                with open(target, "rb") as source:
+                    previous[relative] = source.read(MAX_FILE_BYTES + 1)
+                if len(previous[relative]) > MAX_FILE_BYTES:
+                    raise RuntimeError(f"restore_target_too_large:{relative}")
+                existed.add(relative)
                 safe_copy = os.path.join(safety_dir, relative)
                 os.makedirs(os.path.dirname(safe_copy), exist_ok=True)
                 shutil.copy2(target, safe_copy)
-            with open(target, "wb") as output:
-                output.write(data)
-            restored.append(relative)
+            elif os.path.exists(target):
+                raise RuntimeError(f"restore_target_not_regular_file:{relative}")
 
-    return {"ok": True, "restored": restored, "safety_backup": safety_dir, "time": time.time()}
+        changed = []
+        try:
+            for relative, data in staged.items():
+                target = targets[relative]
+                if _inside_data_dir(relative) != target:
+                    raise RuntimeError(f"restore_target_changed:{relative}")
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                _write_atomic(target, data)
+                changed.append(relative)
+        except Exception as exc:
+            rollback_errors = []
+            for relative in reversed(changed):
+                target = targets[relative]
+                try:
+                    if relative in existed:
+                        _write_atomic(target, previous[relative])
+                    else:
+                        os.unlink(target)
+                except Exception as rollback_exc:
+                    rollback_errors.append({"path": relative, "error": str(rollback_exc)})
+            return {
+                "ok": False,
+                "error": "restore_apply_failed_rolled_back" if not rollback_errors else "restore_apply_failed_rollback_incomplete",
+                "details": str(exc),
+                "rollback_errors": rollback_errors,
+                "safety_backup": safety_dir,
+            }
+
+        return {
+            "ok": True,
+            "restored": list(staged),
+            "safety_backup": safety_dir,
+            "time": time.time(),
+            "atomic_per_file": True,
+            "rollback_on_failure": True,
+        }
+    except (OSError, zipfile.BadZipFile, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        return {"ok": False, "error": "restore_preflight_failed", "details": str(exc)}
 
 
 def restore_status():
@@ -205,5 +292,8 @@ def restore_status():
         "restore_dir": RESTORE_DIR,
         "allowed_prefix": ALLOWED_PREFIX,
         "blocked": sorted(BLOCKED),
-        "safety_backups": sorted(os.listdir(RESTORE_DIR), reverse=True),
+        "safety_backups": sorted(
+            name for name in os.listdir(RESTORE_DIR)
+            if name != ".restore.lock"
+        , reverse=True),
     }
