@@ -28,7 +28,7 @@ const ALLOWED_DOMAINS = new Set([
 ]);
 
 function shouldResearch(message: string) {
-  return /\b(latest|current|today|version|docs?|documentation|package|library|debug|error|api|how to|research|mission|task|τελευτα|τρέχ|έκδοση|τεκμηρί|βιβλιοθήκ|σφάλμα)\b/i.test(
+  return /\b(latest|current|today|version|docs?|documentation|package|library|debug|error|api|how to|research|mission|task)\b|τελευτα|τρέχ|έκδοση|τεκμηρί|βιβλιοθήκ|σφάλμα/i.test(
     message,
   );
 }
