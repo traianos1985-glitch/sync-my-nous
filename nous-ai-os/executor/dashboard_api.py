@@ -33,6 +33,9 @@ from executor.mission_system import (
 )
 from executor.task_queue import list_queue, update_task
 from executor.upload_processing_engine import UPLOADS, process_uploaded_file
+from executor.tool_catalog import tool_catalog
+from executor.intent import detect_intent
+from executor.tools import run_tool
 
 dashboard_api_bp = Blueprint("dashboard_api", __name__, url_prefix="/api")
 
@@ -112,6 +115,45 @@ def _map_job(item: dict) -> dict:
         "createdAt": _iso(item.get("created")),
         "completedAt": _iso(item.get("finished")) or None,
     }
+
+
+# ---------------------------------------------------------------- tool catalog
+
+@dashboard_api_bp.get("/tools/catalog")
+def api_tool_catalog():
+    """Live discoverable catalog of built-in tools and supported command examples."""
+    category = request.args.get("category", "")
+    return jsonify(tool_catalog(category))
+
+
+@dashboard_api_bp.post("/tools/run")
+def api_tool_run():
+    """Run only explicitly allowlisted, bounded local utility tools from the Tool Library."""
+    data = request.get_json(silent=True) or {}
+    command = str(data.get("command") or "").strip()
+    if not command or len(command) > 3000:
+        return jsonify({"ok": False, "error": "command_empty_or_too_long"}), 400
+
+    intent = detect_intent(command)
+    allowed_actions = {
+        "calculate", "convert", "current_time", "text_stats", "json_validate", "sha256",
+    }
+    if intent.get("type") != "tool" or intent.get("action") not in allowed_actions:
+        return jsonify({
+            "ok": False,
+            "error": "tool_not_allowlisted_for_direct_execution",
+            "allowed_actions": sorted(allowed_actions),
+        }), 403
+
+    try:
+        result = run_tool(intent, {"command": command})
+    except Exception:
+        current_app.logger.exception("Tool Library utility execution failed")
+        return jsonify({"ok": False, "error": "utility_execution_failed"}), 500
+
+    if not isinstance(result, dict) or result.get("ok") is not True:
+        return jsonify({"ok": False, "error": "utility_failed", "details": result}), 400
+    return jsonify({"ok": True, "result": result})
 
 
 # ---------------------------------------------------------------- status

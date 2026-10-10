@@ -332,6 +332,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
       <div class="navDivider"></div>
       <div class="navSection">Εργαλεία</div>
       <button class="navItem" data-sec="documents" onclick="showSection('documents')"><span class="ni">📚</span> Documents</button>
+      <button class="navItem" data-sec="toolbox" onclick="showSection('toolbox')"><span class="ni">🧰</span> Tool Library</button>
       <button class="navItem" data-sec="scheduler" onclick="showSection('scheduler')"><span class="ni">⏱</span> Scheduler</button>
       <button class="navItem" data-sec="deploy" onclick="showSection('deploy')"><span class="ni">🚀</span> Deploy</button>
       <button class="navItem" data-sec="backup" onclick="showSection('backup')"><span class="ni">☁</span> Backup</button>
@@ -426,6 +427,22 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
             <div style="color:var(--muted);">Φόρτωση αναφοράς…</div>
           </div>
         </div>
+      </section>
+
+      <section id="toolbox" class="section">
+        <div class="hero">
+          <h1>🧰 NOUS Tool Library</h1>
+          <p>Ζωντανός κατάλογος εργαλείων από το backend. Οι ασφαλείς τοπικοί υπολογισμοί εκτελούνται από περιορισμένο API allowlist· οι υπόλοιπες λειτουργίες χρησιμοποιούν τις ειδικές ροές του NOUS.</p>
+        </div>
+        <div class="card">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="toolboxFilter" type="search" placeholder="Αναζήτηση εργαλείου ή κατηγορίας…" oninput="renderToolbox()" style="flex:1;min-width:180px;">
+            <select id="toolboxCategory" onchange="renderToolbox()" style="min-width:150px;padding:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;"><option value="">Όλες οι κατηγορίες</option></select>
+            <button class="miniBtn" onclick="loadToolbox()">↻ Ανανέωση καταλόγου</button>
+          </div>
+          <div id="toolboxStatus" class="small" style="margin-top:8px;">Φόρτωση εργαλείων…</div>
+        </div>
+        <div id="toolboxList" class="grid"></div>
       </section>
 
       <section id="chat" class="section">
@@ -1663,7 +1680,7 @@ function showSection(id){
     const adv=document.getElementById("advancedNav");
     if(adv && adv.contains(btn)) adv.classList.add("open");
   }
-  const labels={home:"Dashboard",chat:"Chat",goals:"Goals",missions:"Missions",planner:"Planner",brain:"Brain & Memory",appbuilder:"App Builder","remote-access":"Remote Access",documents:"Documents",scheduler:"Scheduler",deploy:"Deploy",backup:"Backup",settings:"Settings",autoexec:"Auto Exec",loopv3:"Agent Loop",autoscheduler:"AutoSched",diagnosis:"Diagnosis",repair:"Repair",selfheal:"Self Heal",intelligence:"Intelligence",learning:"Learning",system:"System",command:"Command",approvals:"Approvals",audit:"Audit",patchapply:"PatchApply",loopv2:"Loop v2",companion:"Companion",pending:"Pending",graphs:"Graphs",analyst:"Analyst",upgrades:"Upgrades",mega:"Mega"};
+  const labels={toolbox:"Tool Library",home:"Dashboard",chat:"Chat",goals:"Goals",missions:"Missions",planner:"Planner",brain:"Brain & Memory",appbuilder:"App Builder","remote-access":"Remote Access",documents:"Documents",scheduler:"Scheduler",deploy:"Deploy",backup:"Backup",settings:"Settings",autoexec:"Auto Exec",loopv3:"Agent Loop",autoscheduler:"AutoSched",diagnosis:"Diagnosis",repair:"Repair",selfheal:"Self Heal",intelligence:"Intelligence",learning:"Learning",system:"System",command:"Command",approvals:"Approvals",audit:"Audit",patchapply:"PatchApply",loopv2:"Loop v2",companion:"Companion",pending:"Pending",graphs:"Graphs",analyst:"Analyst",upgrades:"Upgrades",mega:"Mega"};
   document.getElementById("title").textContent="NOUS — "+(labels[id]||id.charAt(0).toUpperCase()+id.slice(1));
   refreshSection(id);
 }
@@ -1675,6 +1692,7 @@ function toggleAdvancedNav(){
 }
 
 async function refreshSection(id){
+  if(id==="toolbox") return loadToolbox();
   if(id==="home") return loadHome();
   if(id==="brain") return loadBrain();
   if(id==="goals") return loadGoals();
@@ -2641,7 +2659,7 @@ async function sendPrompt(){
   try {
     const r = await fetch("/chat", {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
+      headers: authHeaders({}),
       body: JSON.stringify({message: text, conversation_id: window.NOUS_ACTIVE_CONVERSATION_ID || ""})
     });
     const d = await r.json();
@@ -3886,6 +3904,91 @@ function signsQuick(q){
   const el = document.getElementById("signsQuery");
   if(el) el.value = q;
   signsSearch(q);
+}
+
+let nousToolCatalog = [];
+
+async function loadToolbox(){
+  const status = document.getElementById("toolboxStatus");
+  if(status) status.textContent = "Φόρτωση καταλόγου από το backend…";
+  const data = await getJson("/api/tools/catalog");
+  if(!data || data.ok !== true || !Array.isArray(data.tools)){
+    if(status) status.textContent = "Δεν ήταν δυνατή η φόρτωση του καταλόγου. Έλεγξε σύνδεση/API και ανανέωσε.";
+    const list = document.getElementById("toolboxList");
+    if(list) list.innerHTML = "";
+    return;
+  }
+  nousToolCatalog = data.tools;
+  const category = document.getElementById("toolboxCategory");
+  if(category){
+    const selected = category.value;
+    const categories = Array.isArray(data.categories) ? data.categories : [...new Set(nousToolCatalog.map(item=>item.category).filter(Boolean))];
+    category.innerHTML = '<option value="">Όλες οι κατηγορίες</option>' + categories.map(value=>'<option value="'+toolboxEscapeAttr(value)+'">'+escHtml(value)+'</option>').join("");
+    if(categories.includes(selected)) category.value = selected;
+  }
+  if(status) status.textContent = "Καταχωρισμένα εργαλεία backend: " + data.count + " · Οι λειτουργίες με κουμπί εκτέλεσης είναι allowlisted και περιορισμένες.";
+  renderToolbox();
+}
+
+function toolboxEscapeAttr(value){
+  return String(value == null ? '' : value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderToolbox(){
+  const list = document.getElementById("toolboxList");
+  if(!list) return;
+  const filter = (document.getElementById("toolboxFilter")?.value || "").trim().toLowerCase();
+  const category = document.getElementById("toolboxCategory")?.value || "";
+  const items = nousToolCatalog.filter(item =>
+    (!category || item.category === category) &&
+    [item.name,item.category,item.description,item.command,item.risk].some(value => String(value || "").toLowerCase().includes(filter))
+  );
+  if(!items.length){
+    list.innerHTML = '<div class="card">Δεν βρέθηκαν εργαλεία που να ταιριάζουν στην αναζήτηση.</div>';
+    return;
+  }
+  list.innerHTML = items.map(item => {
+    const approval = item.approval_required === true || item.approval_required === "depends_on_action";
+    const canRun = item.executable_from_tool_library === true;
+    const label = !canRun ? "Μόνο μέσω ειδικής ροής" : (approval ? "Έλεγχος/έγκριση ανά ενέργεια" : "Ασφαλής απευθείας εκτέλεση");
+    const actionControl = canRun
+      ? '<button type="button" class="miniBtn toolbox-run" data-command="' + toolboxEscapeAttr(item.command) + '">Εκτέλεση ασφαλούς εργαλείου</button>'
+      : '<div class="small" style="margin-top:10px;color:var(--warn);">Εκτέλεση μόνο από την ειδική ροή του NOUS — δεν εκτελείται από αυτό το πάνελ.</div>';
+    return '<div class="card toolbox-card">' +
+      '<div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;">' +
+      '<h3 style="margin:0;">' + escHtml(item.name) + '</h3><span class="pill">' + escHtml(item.category) + '</span></div>' +
+      '<p style="font-size:13px;line-height:1.5;color:var(--muted);">' + escHtml(item.description) + '</p>' +
+      '<div class="small">Εντολή: <code>' + escHtml(item.command) + '</code></div>' +
+      '<div class="small" style="margin-top:5px;">Κίνδυνος: ' + escHtml(item.risk) + ' · ' + escHtml(label) + '</div>' +
+      actionControl + '</div>';
+  }).join("");
+  list.querySelectorAll(".toolbox-run").forEach(button => {
+    button.addEventListener("click", () => toolboxRun(button.dataset.command || ""));
+  });
+}
+
+async function toolboxRun(command){
+  const placeholder = command.match(/<([^>]+)>/);
+  if(placeholder){
+    const value = prompt("Συμπλήρωσε: " + placeholder[1]);
+    if(value === null) return;
+    command = command.replace(placeholder[0], value);
+  }
+  showSection("chat");
+  addMsg("Εργαλείο: " + command, "user");
+  nousShowTyping(true);
+  try{
+    const result = await postJson("/api/tools/run", {command: command});
+    addMsg(result && result.ok ? result.result : {
+      ok: false,
+      error: (result && (result.error || result.message)) || "tool_execution_failed",
+      details: result && result.details
+    }, "bot");
+  }catch(error){
+    addMsg("Σφάλμα εκτέλεσης εργαλείου: " + String(error), "bot");
+  }finally{
+    nousShowTyping(false);
+  }
 }
 
 async function boot(){

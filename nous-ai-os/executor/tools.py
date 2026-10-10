@@ -35,11 +35,69 @@ from executor.planner import make_plan
 from executor.task_state import add_task, list_tasks
 from executor.source_reader import read_source
 from executor.stability import stable_point
+from executor.utility_tools import calculate, parse_conversion, current_time, text_stats, validate_json_text, sha256_text
+from executor.tool_catalog import tool_catalog
 
 def run_tool(intent, context=None):
 
+    context = context if isinstance(context, dict) else {}
     action = intent.get("action")
 
+    command = str((context or {}).get("command", "")) if isinstance(context, dict) else ""
+
+    if action == "tool_catalog":
+        return tool_catalog()
+
+    if action == "calculate":
+        expression = command
+        for prefix in ("calculate ", "/calculate ", "calc ", "υπολόγισε "):
+            if expression.lower().startswith(prefix):
+                expression = expression[len(prefix):]
+                break
+        return calculate(expression)
+
+    if action == "convert":
+        expression = command
+        for prefix in ("convert ", "/convert ", "μετατροπή "):
+            if expression.lower().startswith(prefix):
+                expression = expression[len(prefix):]
+                break
+        return parse_conversion(expression)
+
+    if action in {"time", "current_time"}:
+        zone = command.strip()
+        if zone.lower() in {"ώρα", "ώρα τώρα", "τι ώρα είναι", "time", "time now"}:
+            zone = ""
+        else:
+            for prefix in ("time", "/time", "ώρα"):
+                if zone.lower().startswith(prefix):
+                    zone = zone[len(prefix):].strip()
+                    break
+        return current_time(zone)
+
+    if action == "text_stats":
+        value = command
+        for prefix in ("text stats ", "ανάλυση κειμένου ", "μέτρησε κείμενο "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return text_stats(value)
+
+    if action == "json_validate":
+        value = command
+        for prefix in ("json validate ", "έλεγχος json ", "έλεγξε json "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return validate_json_text(value)
+
+    if action == "sha256":
+        value = command
+        for prefix in ("sha256 ", "hash "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return sha256_text(value)
     if action == "plugin":
         return "Plugins: " + ", ".join(list_plugins())
 
@@ -51,7 +109,12 @@ def run_tool(intent, context=None):
         return "notification_sent"
 
     if action == "internet":
-        return "Internet gateway module installed"
+        return {
+            "ok": False,
+            "available": False,
+            "error": "internet_gateway_not_implemented",
+            "message": "Το παλιό internet command είναι placeholder και δεν εκτελεί πραγματική σύνδεση στο διαδίκτυο.",
+        }
 
 
     if action == "web":
