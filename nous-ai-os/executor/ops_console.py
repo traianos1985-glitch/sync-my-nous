@@ -5,6 +5,7 @@ from executor.git_workflow import git_workflow_status, git_safe_checkpoint
 from executor.vercel_deploy_integration import vercel_status, vercel_deploy
 from executor.companion_bridge import companion_status, companion_home, companion_back, companion_ui_tree
 from executor.agent_journal import write_journal
+from executor.audit_safety import audit_summary
 
 
 def ops_status():
@@ -70,7 +71,7 @@ def ops_full_validation():
         "vercel": vercel_status(),
         "companion": companion_status(),
     }
-    write_journal("ops_full_validation", result)
+    write_journal("ops_full_validation", audit_summary(result))
     return result
 
 
@@ -114,5 +115,5 @@ def run_ops_action(action, payload=None):
         "time": time.time(),
     }
 
-    write_journal("ops_action_executed", output)
+    write_journal("ops_action_executed", {**audit_summary(output), "result_summary": audit_summary(result)})
     return output

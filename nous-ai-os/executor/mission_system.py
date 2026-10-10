@@ -12,6 +12,8 @@ from executor.agent_journal import write_journal
 from executor.learning_memory import record_lesson
 from executor.mission_contracts import build_plan_contract, verify_plan_contract, build_execution_evidence
 from executor.mission_completion import find_explicit_failure, verify_mission_completion, verify_task_completion
+from executor.audit_safety import audit_summary, payload_fingerprint
+from executor.runtime_governance import ActionPayloadError, validate_action_payload
 
 FILE = "data/missions.json"
 
@@ -115,10 +117,24 @@ def mission_status():
 def create_mission(title, description="", tasks=None):
     if not isinstance(title, str) or not title.strip():
         return {"ok": False, "error": "mission_title_required"}
+    if len(title) > 200:
+        return {"ok": False, "error": "mission_title_too_long"}
+    if not isinstance(description, str) or len(description) > 4000:
+        return {"ok": False, "error": "mission_description_invalid"}
     if tasks is None:
         tasks = []
     if not isinstance(tasks, list) or any(not isinstance(task, dict) for task in tasks):
         return {"ok": False, "error": "tasks_must_be_a_list_of_objects"}
+    if len(tasks) > 100:
+        return {"ok": False, "error": "too_many_mission_tasks"}
+    for task in tasks:
+        action = task.get("action")
+        if not isinstance(action, str) or not action or len(action) > 100:
+            return {"ok": False, "error": "task_action_invalid"}
+        try:
+            validate_action_payload(task.get("payload", {}))
+        except ActionPayloadError as exc:
+            return {"ok": False, "error": str(exc), "action": action}
 
     now = time.time()
     mission = {
@@ -207,11 +223,26 @@ def approve_task(mission_id, task_id):
             return {"ok": False, "error": "mission_not_found"}
         for task in mission.get("tasks", []):
             if str(task.get("id")) == str(task_id):
-                if task.get("status") not in {"pending", "waiting_approval"}:
+                if task.get("action") not in APPROVAL_REQUIRED or not task.get("requires_approval"):
+                    return {"ok": False, "error": "task_does_not_require_approval"}
+                if task.get("status") != "waiting_approval":
                     return {"ok": False, "error": "task_not_awaiting_approval", "status": task.get("status")}
                 task["approved"] = True
+                task["approved_at"] = time.time()
+                task["approved_intent_sha256"] = payload_fingerprint({
+                    "mission_id": mission.get("id"),
+                    "task_id": task.get("id"),
+                    "action": task.get("action"),
+                    "payload": task.get("payload", {}),
+                })
                 task["status"] = "pending"
                 mission["updated"] = time.time()
+                write_journal("mission_task_approved", {
+                    "mission_id": mission.get("id"),
+                    "task_id": task.get("id"),
+                    "action": task.get("action"),
+                    "intent_sha256": task["approved_intent_sha256"],
+                })
                 return {"ok": True, "mission": mission, "task": task}
         return {"ok": False, "error": "task_not_found"}
 
@@ -379,11 +410,28 @@ def run_next_mission_task(mission_id):
 
         task = pending[0]
         action = task.get("action")
-        if action in APPROVAL_REQUIRED and not task.get("approved"):
-            task["status"] = "waiting_approval"
-            mission["status"] = "blocked"
-            mission["updated"] = time.time()
-            return {"ok": False, "approval_required": True, "mission": mission, "task": task}
+        if action in APPROVAL_REQUIRED:
+            expected_approval = payload_fingerprint({
+                "mission_id": mission.get("id"),
+                "task_id": task.get("id"),
+                "action": action,
+                "payload": task.get("payload", {}),
+            })
+            approval_matches = (
+                task.get("approved") is True
+                and task.get("requires_approval") is True
+                and isinstance(task.get("approved_intent_sha256"), str)
+                and task.get("approved_intent_sha256") == expected_approval
+            )
+            if not approval_matches:
+                task["approved"] = False
+                task.pop("approved_at", None)
+                task.pop("approved_intent_sha256", None)
+                task["requires_approval"] = True
+                task["status"] = "waiting_approval"
+                mission["status"] = "blocked"
+                mission["updated"] = time.time()
+                return {"ok": False, "approval_required": True, "mission": mission, "task": task}
 
         if action not in SAFE_TASK_ACTIONS and action not in APPROVAL_REQUIRED:
             task["status"] = "blocked"
@@ -406,7 +454,8 @@ def run_next_mission_task(mission_id):
         if not isinstance(result, dict):
             result = {"ok": False, "error": "malformed_action_result", "result_type": type(result).__name__}
     except Exception as exc:
-        result = {"ok": False, "error": "action_execution_exception", "detail": str(exc)[:1000]}
+        # Exception messages can embed tokens, URLs, request bodies, or local paths.
+        result = {"ok": False, "error": "action_execution_exception", "detail": type(exc).__name__}
 
     # Some operation wrappers report ok=True while their nested subsystem result
     # explicitly reports failure. Do not let the wrapper hide that failure.
@@ -482,7 +531,7 @@ def run_next_mission_task(mission_id):
         "task_id": claimed_task_id,
         "execution_id": claim_id,
         "execution_ok": execution_ok,
-        "result": result,
+        "result_summary": audit_summary(result),
     })
     return output
 
