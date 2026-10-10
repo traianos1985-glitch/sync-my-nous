@@ -11,6 +11,7 @@ def _modules(tmp_path, monkeypatch):
     from executor import sqlite_store, memory
     store = importlib.reload(sqlite_store)
     monkeypatch.setattr(store, "DB_PATH", "data/test_memory.db")
+    store.init_db()
     facade = importlib.reload(memory)
     return store, facade
 
