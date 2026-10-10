@@ -156,16 +156,30 @@ TOOLS = (
     {"name": "autonomy_cycle", "category": "automation", "description": "Run one autonomy cycle.", "command": "autonomy cycle", "risk": "automation", "approval_required": True},
     {"name": "repair_system", "category": "system", "description": "Run system repair checks.", "command": "repair system", "risk": "state_change", "approval_required": True},
     {"name": "repair_advice", "category": "system", "description": "Generate repair advice.", "command": "repair advice", "risk": "read_only", "approval_required": False},
+    {"name": "list_schedules", "category": "automation", "description": "List scheduled tasks.", "command": "schedules", "risk": "read_only", "approval_required": False},
+    {"name": "battery_guard", "category": "android", "description": "Inspect battery guard state.", "command": "battery guard", "risk": "read_only", "approval_required": False},
+    {"name": "cloud_info", "category": "system", "description": "Show configured cloud/runtime entry points; does not verify external deployment.", "command": "cloud info", "risk": "read_only", "approval_required": False},
+    {"name": "research", "category": "research", "description": "Research a topic using the existing search workflow.", "command": "research <topic>", "risk": "external_read", "approval_required": False},
+    {"name": "web", "category": "research", "description": "Legacy direct URL fetch command; unavailable from Tool Library due to URL safety restrictions.", "command": "web https://example.com", "risk": "restricted_external_read", "approval_required": True},
+    {"name": "cmd", "category": "system", "description": "Generic command execution is intentionally unavailable from Tool Library.", "command": "cmd <command>", "risk": "restricted_command_execution", "approval_required": True},
 
 )
 
 
 def tool_catalog(category: str | None = None) -> dict:
     normalized = str(category or "").strip().lower()
-    items = [dict(item) for item in TOOLS if not normalized or item["category"] == normalized]
-    for item in items:
+    items = []
+    seen = set()
+    for raw in TOOLS:
+        if normalized and raw["category"] != normalized:
+            continue
+        if raw["name"] in seen:
+            continue
+        seen.add(raw["name"])
+        item = dict(raw)
         if item.get("approval_required") is DependsOnRuntimeApproval:
             item["approval_required"] = "depends_on_action"
+        items.append(item)
     return {
         "ok": True,
         "count": len(items),
