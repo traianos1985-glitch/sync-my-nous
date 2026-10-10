@@ -222,6 +222,20 @@ def _fetch_latest(dependency: dict) -> dict:
         return {"ok": False, "error": type(exc).__name__}
 
 
+def _select_dependencies(dependencies: list[dict], limit: int) -> list[dict]:
+    """Round-robin ecosystems so a large npm manifest cannot starve Python checks."""
+    groups: dict[str, list[dict]] = {}
+    for dependency in dependencies:
+        groups.setdefault(str(dependency.get("ecosystem", "unknown")), []).append(dependency)
+    selected = []
+    ecosystems = sorted(groups)
+    while len(selected) < limit and any(groups.values()):
+        for ecosystem in ecosystems:
+            if groups[ecosystem] and len(selected) < limit:
+                selected.append(groups[ecosystem].pop(0))
+    return selected
+
+
 def _recommendation(dependency: dict, latest: str) -> dict:
     current = dependency.get("current_version")
     kind = _update_kind(current, latest)
@@ -269,7 +283,8 @@ def run_scan(limit: int = 40) -> dict:
         }
 
     started = time.monotonic()
-    dependencies = collect_dependencies()[:limit]
+    discovered = collect_dependencies()
+    dependencies = _select_dependencies(discovered, limit)
     findings = []
     errors = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
@@ -304,7 +319,8 @@ def run_scan(limit: int = 40) -> dict:
         "status": "complete" if not errors else ("partial" if findings else "unavailable"),
         "checked_at": time.time(),
         "duration_ms": round((time.monotonic() - started) * 1000),
-        "manifest_count": len(dependencies),
+        "dependency_count": len(discovered),
+        "scanned_count": len(dependencies),
         "checked_count": len(findings),
         "error_count": len(errors),
         "update_count": len(updates),
@@ -328,7 +344,8 @@ def run_scan(limit: int = 40) -> dict:
         history.append({
             "checked_at": report["checked_at"],
             "status": report["status"],
-            "manifest_count": report["manifest_count"],
+            "dependency_count": report["dependency_count"],
+            "scanned_count": report["scanned_count"],
             "checked_count": report["checked_count"],
             "error_count": report["error_count"],
             "update_count": report["update_count"],
@@ -372,7 +389,8 @@ def technical_intelligence_status() -> dict:
         "last_scan_at": report.get("checked_at"),
         "last_scan_status": report.get("status", "not_scanned"),
         "last_scan_counts": {
-            "manifest_count": report.get("manifest_count", 0),
+            "dependency_count": report.get("dependency_count", 0),
+            "scanned_count": report.get("scanned_count", 0),
             "checked_count": report.get("checked_count", 0),
             "error_count": report.get("error_count", 0),
             "update_count": report.get("update_count", 0),
