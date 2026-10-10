@@ -5,7 +5,7 @@ This change strengthens the existing Internet Search Engine and URL Reader; it d
 ## Response contract
 
 - Search inputs must be non-empty strings; result limits are integers from 1 through 10.
-- Search failures return `ok: false` and a stable error code. A successful search with no matches remains distinguishable from a provider failure.
+- Search calls with no returned matches use `ok: false` and `error: no_results` instead of claiming success. Existing providers still collapse some transport failures into an empty result list, so provider-level diagnostics remain a follow-up improvement.
 - Search results are bounded and normalized to objects with `title`, `url`, and `snippet` fields.
 - The status probe reports the actual result of its search call instead of treating any returned dictionary as proof of availability.
 
