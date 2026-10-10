@@ -120,7 +120,7 @@ def log_event(event, data=None):
     os.makedirs("data", exist_ok=True)
     item = {"time": time.time(), "event": str(event), "data": data if isinstance(data, dict) else {}}
     with open(LOG_FILE, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(item, ensure_ascii=False, allow_nan=False) + "\\n")
+        handle.write(json.dumps(item, ensure_ascii=False, allow_nan=False) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
     return item
