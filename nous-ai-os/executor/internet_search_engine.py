@@ -183,12 +183,14 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
         results = _ddg_html(q, limit)
 
     payload = {
-        "ok": True,
+        "ok": bool(results),
         "tool": "Internet Search Engine",
         "timestamp": now_iso(),
         "query": q,
         "results": results[:limit],
     }
+    if not results:
+        payload["error"] = "no_results"
 
     cache = load_json(CACHE, [])
     if not isinstance(cache, list):
@@ -202,6 +204,7 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
 def answer_from_web(query: str) -> dict[str, Any]:
     res = search_web(query)
     results = res.get("results", [])
+    llm_ans = None
 
     if results:
         lines = ["🔍 Βρήκα αυτά τα σχετικά αποτελέσματα:"]
@@ -223,11 +226,17 @@ def answer_from_web(query: str) -> dict[str, Any]:
             answer = "Δεν μπόρεσα να βρω αποτελέσματα γι' αυτή την αναζήτηση."
 
     return {
-        "ok": True,
-        "mode": "internet_search",
+        "ok": bool(results) or bool(llm_ans if not results else False),
+        "web_ok": bool(res.get("ok")),
+        "mode": "internet_search" if results else ("knowledge_fallback_no_web" if llm_ans else "internet_search_empty"),
         "answer": answer,
         "results": results[:4],
-        "raw": {"ok": True, "query": res.get("query"), "results_count": len(results)},
+        "raw": {
+            "ok": bool(res.get("ok")),
+            "query": res.get("query"),
+            "results_count": len(results),
+            **({"error": res.get("error")} if res.get("error") else {}),
+        },
     }
 
 

@@ -13,8 +13,8 @@ export type Citation = {
 };
 
 const MAX_RESULTS = NOUS_LIMITS.maxResearchSources;
-
 const MAX_CONTENT = 6000;
+const MAX_RESPONSE_BYTES = 1_000_000;
 const ALLOWED_DOMAINS = new Set([
   "docs.python.org",
   "developer.mozilla.org",
@@ -28,7 +28,7 @@ const ALLOWED_DOMAINS = new Set([
 ]);
 
 function shouldResearch(message: string) {
-  return /\b(latest|current|today|version|docs?|documentation|package|library|debug|error|api|how to|research|mission|task|τελευτα|τρέχ|έκδοση|τεκμηρί|βιβλιοθήκ|σφάλμα)\b/i.test(
+  return /\b(latest|current|today|version|docs?|documentation|package|library|debug|error|api|how to|research|mission|task)\b|τελευτα|τρέχ|έκδοση|τεκμηρί|βιβλιοθήκ|σφάλμα/i.test(
     message,
   );
 }
@@ -39,57 +39,151 @@ function domainAllowed(hostname: string) {
   );
 }
 
-async function assertSafeUrl(raw: string, officialOnly = false) {
+function isNonPublicAddress(address: string): boolean {
+  const normalized = address.toLowerCase().split("%")[0];
+  if (isIP(normalized) === 4) {
+    const [a, b, c] = normalized.split(".").map(Number);
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 0 && (c === 0 || c === 2)) ||
+      (a === 192 && b === 168) ||
+      (a === 192 && b === 88 && c === 99) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+      (a === 203 && b === 0 && c === 113)
+    );
+  }
+
+  if (isIP(normalized) === 6) {
+    const firstHextet = Number.parseInt(normalized.split(":")[0] || "0", 16);
+    // Only global-unicast 2000::/3 is accepted. This excludes loopback,
+    // link-local, unique-local, multicast, unspecified and IPv4-mapped forms.
+    return firstHextet < 0x2000 || firstHextet > 0x3fff || normalized.startsWith("2001:db8:");
+  }
+  return true;
+}
+
+async function assertSafeUrl(raw: string) {
   const url = new URL(raw);
   if (!["http:", "https:"].includes(url.protocol)) throw new Error("unsupported_protocol");
-  if (officialOnly && !domainAllowed(url.hostname)) throw new Error("domain_not_allowed");
-  const host = url.hostname.toLowerCase();
-  if (host === "localhost" || host.endsWith(".localhost") || host === "metadata.google.internal")
-    throw new Error("private_host");
-  if (isIP(host)) throw new Error("ip_literal_blocked");
-  const addresses = await lookup(host, { all: true });
+  if (url.username || url.password) throw new Error("url_credentials_blocked");
+  const expectedPort = url.protocol === "https:" ? "443" : "80";
+  if (url.port && url.port !== expectedPort) throw new Error("blocked_port");
+
+  const host = url.hostname
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "")
+    .toLowerCase();
   if (
-    addresses.some(({ address }) =>
-      /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1|fc|fd)/i.test(address),
-    )
+    !host ||
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".test") ||
+    host === "metadata.google.internal" ||
+    isIP(host)
   )
+    throw new Error("private_host");
+
+  const addresses = await lookup(host, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some(({ address }) => isNonPublicAddress(address)))
     throw new Error("private_address");
   return url;
 }
 
-async function fetchText(url: string, officialOnly = false, timeoutMs = 8000) {
-  await assertSafeUrl(url, officialOnly);
+async function readBoundedText(response: Response): Promise<string> {
+  const declaredLength = Number(response.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_RESPONSE_BYTES)
+    throw new Error("response_too_large");
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new Error("response_too_large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+async function fetchText(url: string, timeoutMs = 8000) {
+  await assertSafeUrl(url);
   const response = await fetch(url, {
     signal: AbortSignal.timeout(timeoutMs),
     redirect: "error",
-    headers: { accept: "text/html,text/plain" },
+    headers: { accept: "text/html,text/plain,application/xhtml+xml" },
   });
   if (!response.ok) throw new Error(`http_${response.status}`);
-  const text = (await response.text())
-    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, " ")
+  const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+  if (
+    contentType &&
+    !contentType.includes("text/html") &&
+    !contentType.includes("text/plain") &&
+    !contentType.includes("application/xhtml+xml")
+  )
+    throw new Error("unsupported_content_type");
+
+  const rawText = await readBoundedText(response);
+  return rawText
+    .replace(
+      /<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<iframe[\s\S]*?<\/iframe>|<[^>]+>/gi,
+      " ",
+    )
     .replace(/\s+/g, " ")
-    .trim();
-  return text.slice(0, MAX_CONTENT);
+    .trim()
+    .slice(0, MAX_CONTENT);
 }
 
 async function search(query: string, deep: boolean): Promise<Citation[]> {
-  const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
-    signal: AbortSignal.timeout(8000),
-    headers: { accept: "text/html" },
-  });
+  const normalizedQuery = query.trim().slice(0, 500);
+  if (!normalizedQuery) return [];
+  const response = await fetch(
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(normalizedQuery)}`,
+    {
+      signal: AbortSignal.timeout(8000),
+      redirect: "error",
+      headers: { accept: "text/html" },
+    },
+  );
   if (!response.ok) throw new Error(`search_${response.status}`);
-  const html = await response.text();
+  const html = await readBoundedText(response);
   const results: Citation[] = [];
   for (const match of html.matchAll(/result__a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
     const rawHref = match[1].replace(/&amp;/g, "&");
     const redirectUrl = new URL(rawHref, "https://html.duckduckgo.com");
     const target = redirectUrl.searchParams.get("uddg") ?? rawHref;
     try {
-      const safe = await assertSafeUrl(decodeURIComponent(target), deep);
+      // Deep research is broader, not limited to a short allowlist of documentation sites.
+      const safe = await assertSafeUrl(decodeURIComponent(target));
       results.push({
         title: match[2].replace(/<[^>]+>/g, "").trim(),
         url: safe.toString(),
-        domain: safe.hostname,
+        domain: safe.hostname.replace(/^\[|\]$/g, ""),
       });
     } catch {
       /* skip unsafe or malformed results */
@@ -139,7 +233,7 @@ export async function research(
               ...citation,
               sourceType: domainAllowed(citation.domain) ? "official" : "web",
               retrievedAt: new Date().toISOString(),
-              content: await fetchText(citation.url, mode === "deep", 8000),
+              content: await fetchText(citation.url, 8000),
             };
           } catch {
             return citation;
