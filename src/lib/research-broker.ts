@@ -51,9 +51,10 @@ function isNonPublicAddress(address: string): boolean {
       (a === 100 && b >= 64 && b <= 127) ||
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && (b === 0 || b === 2 || b === 168)) ||
+      (a === 192 && b === 0 && (c === 0 || c === 2)) ||
+      (a === 192 && b === 168) ||
       (a === 192 && b === 88 && c === 99) ||
-      (a === 198 && (b === 18 || b === 19 || b === 51)) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
       (a === 203 && b === 0 && c === 113)
     );
   }
@@ -71,7 +72,8 @@ async function assertSafeUrl(raw: string) {
   const url = new URL(raw);
   if (!["http:", "https:"].includes(url.protocol)) throw new Error("unsupported_protocol");
   if (url.username || url.password) throw new Error("url_credentials_blocked");
-  if (url.port && !["80", "443"].includes(url.port)) throw new Error("blocked_port");
+  const expectedPort = url.protocol === "https:" ? "443" : "80";
+  if (url.port && url.port !== expectedPort) throw new Error("blocked_port");
 
   const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
   if (
