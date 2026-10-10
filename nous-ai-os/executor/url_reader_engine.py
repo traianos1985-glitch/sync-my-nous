@@ -36,11 +36,11 @@ def load_json(path: Path, default: Any):
 
 
 def clean(text: str) -> str:
-    return re.sub(r"\\s+", " ", text or "").strip()
+    return re.sub(r"\s+", " ", text or "").strip()
 
 
 def extract_urls(text: str) -> list[str]:
-    return re.findall(r"https?://[^\\s]+", text or "")
+    return re.findall(r"https?://[^\s]+", text or "")
 
 
 def _validate_public_http_url(url: str) -> tuple[bool, str | None]:
@@ -152,7 +152,7 @@ def read_url(url: str, limit: int = DEFAULT_TEXT_LIMIT) -> dict[str, Any]:
         if len(text) >= 40:
             paragraphs.append(text)
 
-    page_text = "\\n".join(paragraphs)[:limit]
+    page_text = "\n".join(paragraphs)[:limit]
     result = {
         "ok": True,
         "tool": "URL Reader Engine",
@@ -196,7 +196,7 @@ def summarize_url(url: str) -> dict[str, Any]:
                 line = line[:260].rstrip() + "..."
             answer_lines.append(f"• {line}")
         answer_lines.extend(["", f"Πηγή: {url}"])
-        answer = "\\n".join(answer_lines)
+        answer = "\n".join(answer_lines)
 
     return {
         "ok": True,
