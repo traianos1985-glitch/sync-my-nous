@@ -18,6 +18,8 @@ def install_auth_guard(app):
 
     @app.before_request
     def _nous_auth_guard():
+        if request.content_length is not None and request.content_length > app.config["MAX_CONTENT_LENGTH"]:
+            return jsonify({"ok": False, "error": "request_too_large"}), 413
         if request.method == "OPTIONS" or is_public(request.path):
             return None
         try:
