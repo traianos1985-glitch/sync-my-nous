@@ -1,38 +1,27 @@
-import json
-import os
+"""Compatibility facade for SQLite memory and the legacy JSON mirror."""
 from executor.sqlite_store import save_memory, load_memories
+from executor.json_state_store import edit_list, read_list
 
 MEMORY_FILE = "data/memory.json"
 
+
 def load():
-    try:
-        mem = load_memories()
-        if mem:
-            return mem
-    except Exception:
-        pass
+    # SQLite is authoritative whenever it contains records. Integrity failures
+    # propagate instead of being hidden by an older, potentially stale mirror.
+    memories = load_memories()
+    if memories:
+        return memories
+    return read_list(MEMORY_FILE)
 
-    if not os.path.exists(MEMORY_FILE):
-        return []
-
-    try:
-        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
 
 def save(entry):
-    try:
-        save_memory(entry)
-    except Exception:
-        pass
+    if not isinstance(entry, dict):
+        raise ValueError("memory_entry_must_be_object")
 
-    mem = load()
-    mem.append(entry)
-    mem = mem[-200:]
-    try:
-        os.makedirs("data", exist_ok=True)
-        with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(mem, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    # Persist to the primary store first. If this fails, don't report a successful
+    # save or silently fall back to a potentially divergent copy.
+    save_memory(entry)
+    with edit_list(MEMORY_FILE) as memories:
+        memories.append(entry)
+        del memories[:-200]
+    return {"ok": True, "sqlite": True, "legacy_mirror": True}
