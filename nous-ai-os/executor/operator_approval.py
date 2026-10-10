@@ -1,25 +1,17 @@
-"""Single-use operator approvals with durable, cross-worker state transitions."""
-import fcntl
-import json
-import os
-import tempfile
-import time
+"Single-use operator approvals with durable, cross-worker state transitions."
+import fcntl, json, os, tempfile, time
 from contextlib import contextmanager
 
 FILE = "data/operator_approvals.json"
 FINAL_STATUSES = {"completed", "failed", "cancelled"}
 
-
 def _lock_path():
     return FILE + ".lock"
-
 
 @contextmanager
 def _edit_items():
     directory = os.path.dirname(FILE) or "."
     os.makedirs(directory, exist_ok=True)
-    # Lock a stable sidecar file: locking FILE itself is unsafe when atomic
-    # replacement swaps its inode while another worker is waiting.
     with open(_lock_path(), "a", encoding="utf-8") as lock_file:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
@@ -29,19 +21,23 @@ def _edit_items():
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
-
 def _load_unlocked():
     if not os.path.exists(FILE):
         return []
     try:
         with open(FILE, "r", encoding="utf-8") as handle:
             items = json.load(handle)
-    except (OSError, ValueError, TypeError):
-        return []
-    if not isinstance(items, list):
-        return []
-    return [item for item in items if isinstance(item, dict)]
-
+    except (OSError, ValueError, TypeError) as exc:
+        raise RuntimeError("approval_store_integrity_failure") from exc
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise RuntimeError("approval_store_integrity_failure")
+    seen = set()
+    for item in items:
+        key = str(item.get("id"))
+        if key == "None" or key in seen or not isinstance(item.get("status"), str):
+            raise RuntimeError("approval_store_integrity_failure")
+        seen.add(key)
+    return items
 
 def _save_unlocked(items):
     directory = os.path.dirname(FILE) or "."
@@ -54,97 +50,61 @@ def _save_unlocked(items):
             os.fsync(handle.fileno())
         os.replace(temp_path, FILE)
     except Exception:
-        try:
-            os.unlink(temp_path)
-        except OSError:
-            pass
+        try: os.unlink(temp_path)
+        except OSError: pass
         raise
-
 
 def request_approval(action, payload=None, reason="operator action"):
     action = str(action).strip()
-    if not action:
-        raise ValueError("action_must_not_be_empty")
-    if payload is not None and not isinstance(payload, dict):
-        raise ValueError("payload_must_be_object")
-    item = {
-        "id": int(time.time_ns()),
-        "action": action,
-        "payload": payload.copy() if payload is not None else {},
-        "reason": str(reason),
-        "status": "pending",
-        "created": time.time(),
-        "decided": None,
-    }
+    if not action: raise ValueError("action_must_not_be_empty")
+    if payload is not None and not isinstance(payload, dict): raise ValueError("payload_must_be_object")
+    item = {"id": int(time.time_ns()), "action": action, "payload": payload.copy() if payload is not None else {}, "reason": str(reason), "status": "pending", "created": time.time(), "decided": None}
     with _edit_items() as items:
-        existing_ids = {str(entry.get("id")) for entry in items}
-        while str(item["id"]) in existing_ids:
-            item["id"] += 1
+        ids = {str(entry.get("id")) for entry in items}
+        while str(item["id"]) in ids: item["id"] += 1
         items.append(item)
     return item
 
-
 def list_approvals(status=None):
-    with _edit_items() as items:
-        result = list(items)
-    if status:
-        result = [item for item in result if item.get("status") == status]
-    return result
-
+    with _edit_items() as items: result = list(items)
+    return [item for item in result if item.get("status") == status] if status else result
 
 def get_approval(approval_id):
     return next((item for item in list_approvals() if str(item.get("id")) == str(approval_id)), None)
-
 
 def approve(approval_id):
     with _edit_items() as items:
         for item in items:
             if str(item.get("id")) == str(approval_id) and item.get("status") == "pending":
-                item["status"] = "approved"
-                item["decided"] = time.time()
+                item["status"], item["decided"] = "approved", time.time()
                 return item.copy()
     return None
-
 
 def reject(approval_id):
     with _edit_items() as items:
         for item in items:
             if str(item.get("id")) == str(approval_id) and item.get("status") == "pending":
-                item["status"] = "rejected"
-                item["decided"] = time.time()
+                item["status"], item["decided"] = "rejected", time.time()
                 return item.copy()
     return None
-
 
 def claim_approved_approval(approval_id, action, payload):
-    if not isinstance(payload, dict):
-        return None
+    if not isinstance(payload, dict): return None
     with _edit_items() as items:
         for item in items:
-            if (
-                str(item.get("id")) == str(approval_id)
-                and item.get("action") == action
-                and item.get("payload") == payload
-                and item.get("status") == "approved"
-            ):
-                item["status"] = "executing"
-                item["execution_started"] = time.time()
+            if str(item.get("id")) == str(approval_id) and item.get("action") == action and item.get("payload") == payload and item.get("status") == "approved":
+                item["status"], item["execution_started"] = "executing", time.time()
                 return item.copy()
     return None
 
-
 def finish_approval(approval_id, status, result=None):
-    if status not in FINAL_STATUSES:
-        raise ValueError("invalid_final_approval_status")
+    if status not in FINAL_STATUSES: raise ValueError("invalid_final_approval_status")
     with _edit_items() as items:
         for item in items:
             if str(item.get("id")) == str(approval_id) and item.get("status") == "executing":
-                item["status"] = status
-                item["result"] = result
-                item["finished"] = time.time()
+                item.update(status=status, result=result, finished=time.time())
                 return item.copy()
     return None
-
 
 def is_approved(approval_id):
     item = get_approval(approval_id)
