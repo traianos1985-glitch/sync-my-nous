@@ -1,26 +1,26 @@
-"""Durable SQLite storage for NOUS memory records."""
+"""Durable SQLite-backed memory storage with explicit integrity checks."""
 from __future__ import annotations
 
 import json
 import os
 import sqlite3
 import time
-from typing import Any
 
 DB_PATH = "data/nous_storage.db"
-MAX_RECORDS = 500
-DEFAULT_LOAD_LIMIT = 200
+MAX_MEMORIES = 500
 
 
-def _get_connection() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
+def _get_connection():
+    directory = os.path.dirname(DB_PATH) or "."
+    os.makedirs(directory, exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=15.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout = 15000")
+    conn.execute("PRAGMA synchronous = FULL")
     return conn
 
 
-def init_db() -> None:
+def init_db():
     conn = _get_connection()
     try:
         with conn:
@@ -42,64 +42,59 @@ def init_db() -> None:
 init_db()
 
 
-def save_memory(entry: dict[str, Any]) -> dict[str, Any]:
-    """Save one JSON-serializable memory and enforce the retention limit."""
+def save_memory(entry: dict):
     if not isinstance(entry, dict):
-        raise TypeError("memory_entry_must_be_object")
+        raise ValueError("memory_entry_must_be_object")
     try:
         encoded = json.dumps(entry, ensure_ascii=False, allow_nan=False)
     except (TypeError, ValueError) as exc:
-        raise ValueError("memory_entry_not_json_serializable") from exc
+        raise ValueError("memory_entry_not_json_safe") from exc
 
     conn = _get_connection()
     try:
         with conn:
-            cursor = conn.execute(
+            conn.execute(
                 "INSERT INTO memories (timestamp, data) VALUES (?, ?)",
                 (time.time(), encoded),
             )
-            record_id = cursor.lastrowid
             conn.execute("""
-                DELETE FROM memories
-                WHERE id NOT IN (
+                DELETE FROM memories WHERE id NOT IN (
                     SELECT id FROM memories ORDER BY id DESC LIMIT ?
                 )
-            """, (MAX_RECORDS,))
-        return {"ok": True, "id": record_id}
+            """, (MAX_MEMORIES,))
     finally:
         conn.close()
 
 
-def load_memories(limit: int = DEFAULT_LOAD_LIMIT) -> list[dict[str, Any]]:
-    """Return the newest records in chronological order; never hide corrupt rows."""
-    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_RECORDS:
-        raise ValueError(f"limit_must_be_integer_between_1_and_{MAX_RECORDS}")
+def load_memories(limit=200) -> list[dict]:
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise ValueError("memory_limit_must_be_positive_integer")
+    limit = min(limit, MAX_MEMORIES)
 
     conn = _get_connection()
     try:
-        rows = conn.execute("""
-            SELECT id, data FROM (
-                SELECT id, data FROM memories ORDER BY id DESC LIMIT ?
-            )
-            ORDER BY id ASC
-        """, (limit,)).fetchall()
+        rows = conn.execute(
+            "SELECT id, data FROM memories ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
     finally:
         conn.close()
 
-    result: list[dict[str, Any]] = []
-    for row in rows:
+    # Read newest records efficiently, then return them in chronological order.
+    result = []
+    for row in reversed(rows):
         try:
             item = json.loads(row["data"])
         except (TypeError, ValueError) as exc:
-            raise RuntimeError(f"sqlite_memory_integrity_failure:invalid_json:id={row['id']}") from exc
+            raise RuntimeError(f"memory_store_integrity_failure:record:{row['id']}") from exc
         if not isinstance(item, dict):
-            raise RuntimeError(f"sqlite_memory_integrity_failure:invalid_record_shape:id={row['id']}")
+            raise RuntimeError(f"memory_store_integrity_failure:record_shape:{row['id']}")
         result.append(item)
     return result
 
 
-def inspect_sqlite_store() -> dict[str, Any]:
-    """Read-only health report suitable for diagnostics and support bundles."""
+
+def inspect_sqlite_store() -> dict:
+    """Return a read-only diagnostic summary of SQLite memory integrity."""
     conn = None
     try:
         conn = _get_connection()
@@ -115,9 +110,8 @@ def inspect_sqlite_store() -> dict[str, Any]:
                     malformed += 1
             except (TypeError, ValueError):
                 malformed += 1
-        ok = integrity == "ok" and malformed == 0
         return {
-            "ok": ok,
+            "ok": integrity == "ok" and malformed == 0,
             "database": DB_PATH,
             "integrity_check": integrity,
             "record_count": int(row["count"]),
