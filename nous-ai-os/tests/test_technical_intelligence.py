@@ -48,6 +48,20 @@ def test_version_classification_is_conservative():
     assert intelligence._update_kind("2.0.0", "1.9.9") == "current_newer_than_registry"
 
 
+def test_scan_selection_does_not_starve_python_dependencies():
+    dependencies = [
+        {"ecosystem": "npm", "name": f"npm-{index}"} for index in range(50)
+    ] + [
+        {"ecosystem": "pypi", "name": f"python-{index}"} for index in range(8)
+    ]
+
+    selected = intelligence._select_dependencies(dependencies, 40)
+
+    assert len(selected) == 40
+    assert {item["ecosystem"] for item in selected} == {"npm", "pypi"}
+    assert sum(item["ecosystem"] == "pypi" for item in selected) == 8
+
+
 def test_scan_reports_updates_and_never_claims_to_install(monkeypatch, tmp_path):
     dependencies = [
         {
@@ -84,6 +98,8 @@ def test_scan_reports_updates_and_never_claims_to_install(monkeypatch, tmp_path)
     assert report["ok"] is True
     assert report["status"] == "complete"
     assert report["update_count"] == 2
+    assert report["dependency_count"] == 2
+    assert report["scanned_count"] == 2
     assert report["major_update_count"] == 1
     assert all(item["action"] == "proposal_only" for item in report["updates"])
     assert report["safety"]["package_installs_performed"] == 0
