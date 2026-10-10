@@ -153,7 +153,9 @@ def test_backup_is_published_as_verified_zip(tmp_path, monkeypatch):
     data.mkdir()
     (data / "state.json").write_text('{"ready": true}', encoding="utf-8")
     (data / "api_tokens.json").write_text('{"secret": "never-backup"}', encoding="utf-8")
-    monkeypatch.setattr(module, "_runtime_files", lambda: ["data/state.json"])
+    private = data / "private"
+    private.mkdir()
+    (private / "credentials.json").write_text('{"secret": "nested-never-backup"}', encoding="utf-8")
 
     result = module.create_brain_backup()
     assert result["ok"] is True
@@ -163,3 +165,23 @@ def test_backup_is_published_as_verified_zip(tmp_path, monkeypatch):
     inspection = brain_restore.inspect_brain_backup(result["backup"])
     assert inspection["ok"] is True
     assert [item["path"] for item in inspection["files"]] == ["data/state.json"]
+
+
+def test_restore_rejects_nested_secret_filename_before_any_write(tmp_path, monkeypatch):
+    from executor import brain_restore
+
+    monkeypatch.chdir(tmp_path)
+    module = importlib.reload(brain_restore)
+    data = Path("data")
+    data.mkdir()
+    target = data / "ordinary.json"
+    backup = tmp_path / "nested-secret.zip"
+    _make_backup(backup, {
+        "data/ordinary.json": b'{"should_not": "apply"}',
+        "data/private/api_tokens.json": b'{"secret": true}',
+    })
+
+    result = module.restore_brain_backup(str(backup), apply=True)
+    assert result["ok"] is False
+    assert not target.exists()
+    assert any(problem["error"] == "path_not_allowed" for problem in result["inspection"]["problems"])
