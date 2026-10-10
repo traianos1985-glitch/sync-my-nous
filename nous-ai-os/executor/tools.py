@@ -35,7 +35,7 @@ from executor.planner import make_plan
 from executor.task_state import add_task, list_tasks
 from executor.source_reader import read_source
 from executor.stability import stable_point
-from executor.utility_tools import calculate, parse_conversion, current_time, text_stats, validate_json_text, sha256_text
+from executor.utility_tools import (calculate, parse_conversion, current_time, text_stats, validate_json_text, sha256_text, format_json, encode_url_component, decode_url_component)
 from executor.tool_catalog import tool_catalog
 
 def run_tool(intent, context=None):
@@ -98,6 +98,27 @@ def run_tool(intent, context=None):
                 value = value[len(prefix):]
                 break
         return sha256_text(value)
+
+    if action == "json_format":
+        value = command
+        for prefix in ("json format ", "format json ", "μορφοποίηση json "):
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return format_json(value)
+
+    if action in {"url_encode", "url_decode"}:
+        value = command
+        prefixes = (
+            ("url encode ", "κωδικοποίησε url ")
+            if action == "url_encode"
+            else ("url decode ", "αποκωδικοποίησε url ")
+        )
+        for prefix in prefixes:
+            if value.lower().startswith(prefix):
+                value = value[len(prefix):]
+                break
+        return encode_url_component(value) if action == "url_encode" else decode_url_component(value)
     if action == "plugin":
         return "Plugins: " + ", ".join(list_plugins())
 
