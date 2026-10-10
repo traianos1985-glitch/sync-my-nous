@@ -1,28 +1,10 @@
-"""Καθολικό auth guard για το Flask app.
-
-Πριν από αυτό, 216 από τα 351 endpoints δεν έλεγχαν καθόλου token
-(π.χ. /read-file, /upload, /remote/tunnel/start, /larmor/inject-*).
-Ο guard κλείνει τα πάντα εξ ορισμού και αφήνει ανοιχτά μόνο όσα
-είναι όντως δημόσια.
-"""
-
+"""Global fail-closed authentication and baseline HTTP hardening."""
 from flask import jsonify, request
-
 from executor.security import check_token
 
-# Δημόσια paths (dashboard + health checks για load balancers)
-PUBLIC_PATHS = {
-    "/",
-    "/health",
-    "/favicon.ico",
-    "/robots.txt",
-}
-
-# Prefixes που κάνουν τον δικό τους (πιο ειδικό) έλεγχο ή είναι static
-PUBLIC_PREFIXES = (
-    "/static/",
-    "/token/",  # χρησιμοποιεί check_admin_token με bootstrap λογική
-)
+PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/robots.txt"}
+PUBLIC_PREFIXES = ("/static/", "/token/")
+MAX_REQUEST_BYTES = 16 * 1024 * 1024
 
 
 def is_public(path: str) -> bool:
@@ -30,31 +12,33 @@ def is_public(path: str) -> bool:
 
 
 def install_auth_guard(app):
-    """Προσθέτει fail-closed before_request έλεγχο σε όλο το API."""
+    """Install auth, request-size bounds, and conservative response headers."""
+    app.config.setdefault("MAX_CONTENT_LENGTH", MAX_REQUEST_BYTES)
 
     @app.before_request
     def _nous_auth_guard():
-        if request.method == "OPTIONS":
+        if request.method == "OPTIONS" or is_public(request.path):
             return None
-
-        if is_public(request.path):
+        try:
+            authenticated = check_token(request)
+        except Exception:
+            app.logger.exception("NOUS authentication check failed")
+            authenticated = False
+        if authenticated:
             return None
+        return jsonify({"ok": False, "error": "unauthorized",
+                        "hint": "Στείλε X-NOUS-TOKEN ή Authorization: Bearer ..."}), 401
 
-        if check_token(request):
-            return None
-
-        return (
-            jsonify(
-                {
-                    "ok": False,
-                    "error": "unauthorized",
-                    "hint": (
-                        "Στείλε header X-NOUS-TOKEN (ή Authorization: Bearer ...). "
-                        "Τοπικά: όρισε NOUS_TOKEN ή NOUS_ALLOW_ANONYMOUS=1."
-                    ),
-                }
-            ),
-            401,
-        )
+    @app.after_request
+    def _nous_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        if request.path.startswith(("/api/", "/remote/", "/token/")):
+            response.headers["Cache-Control"] = "no-store"
+        if request.is_secure:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+        return response
 
     return app
