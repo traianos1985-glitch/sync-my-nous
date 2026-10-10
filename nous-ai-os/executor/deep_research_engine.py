@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -90,7 +91,7 @@ def _synthesize_from_sources(query: str, pages: list[dict[str, Any]]) -> str | N
     if not isinstance(answer, str) or not answer.strip():
         return None
 
-    citations = [int(number) for number in __import__("re").findall(r"\\[(\\d+)\\]", answer)]
+    citations = [int(number) for number in re.findall(r"\\[(\\d+)\\]", answer)]
     source_count = len(pages[:5])
     if not citations or any(number < 1 or number > source_count for number in citations):
         return None
