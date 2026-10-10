@@ -3,6 +3,27 @@ def detect_intent(text):
     t = str(text).lower().strip()
     t = t.strip("?.!,;:·…")
 
+    if t in {"/tools", "tools", "tool catalog", "εργαλεία", "διαθέσιμα εργαλεία"}:
+        return {"type": "tool", "action": "tool_catalog"}
+
+    if t.startswith(("calculate ", "calc ", "υπολόγισε ")):
+        return {"type": "tool", "action": "calculate"}
+
+    if t.startswith(("convert ", "μετατροπή ")):
+        return {"type": "tool", "action": "convert"}
+
+    if t in {"time", "time now", "ώρα", "ώρα τώρα", "τι ώρα είναι"} or t.startswith("time "):
+        return {"type": "tool", "action": "current_time"}
+
+    if t.startswith(("text stats ", "ανάλυση κειμένου ")):
+        return {"type": "tool", "action": "text_stats"}
+
+    if t.startswith(("json validate ", "έλεγχος json ")):
+        return {"type": "tool", "action": "json_validate"}
+
+    if t.startswith(("sha256 ", "hash ")):
+        return {"type": "tool", "action": "sha256"}
+
     if t in ["/status", "status", "κατάσταση"]:
         return {"type": "system", "action": "status"}
 
