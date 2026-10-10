@@ -21,7 +21,10 @@ def test_payload_requires_json_object_and_rejects_unsupported_values():
 
 def test_payload_limits_depth_size_and_non_finite_numbers():
     with pytest.raises(ActionPayloadError, match="payload_too_deep"):
-        validate_action_payload({"a": {"b": {"c": {"d": {"e": {"f": {"g": {"h": {"i": 1}}}}}}}})
+        payload = {"leaf": 1}
+        for _ in range(9):
+            payload = {"nested": payload}
+        validate_action_payload(payload)
     with pytest.raises(ActionPayloadError, match="payload_string_too_long"):
         validate_action_payload({"value": "x" * 9000})
     with pytest.raises(ActionPayloadError, match="payload_non_finite_number"):
@@ -45,7 +48,6 @@ def test_result_success_requires_no_explicit_failure():
 def test_real_action_gate_has_explicit_allowlist_and_truthful_result(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     from executor import real_action_gate as gate
-    from executor import agent_journal
 
     gate = importlib.reload(gate)
     monkeypatch.setattr(gate, "reality_status", lambda: {
@@ -57,7 +59,7 @@ def test_real_action_gate_has_explicit_allowlist_and_truthful_result(tmp_path, m
         "app_factory": {"real": True},
     })
     monkeypatch.setattr(gate, "code_health", lambda: {"ok": False, "error": "test_failure"})
-    monkeypatch.setattr(agent_journal, "write_journal", lambda *_a, **_k: {"ok": True})
+    monkeypatch.setattr(gate, "write_journal", lambda *_a, **_k: {"ok": True})
 
     unknown = gate.run_real_action("time", {})
     failed = gate.run_real_action("code_health", {"api_key": "secret-value"})
