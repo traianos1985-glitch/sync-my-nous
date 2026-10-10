@@ -96,7 +96,15 @@ def propose_release_evidence_plans(limit=5):
 
     # Import locally to keep the general upgrade planner independent at startup.
     from executor.release_triage import triage_latest_releases
+    from executor.technical_sources import OFFICIAL_SOURCES
 
+    allowed_sources = {
+        source["repository"]: source["url"]
+        for source in OFFICIAL_SOURCES
+        if isinstance(source, dict)
+        and isinstance(source.get("repository"), str)
+        and isinstance(source.get("url"), str)
+    }
     queue = triage_latest_releases(limit=25)
     candidates = [
         item for item in queue.get("items", [])
@@ -118,7 +126,12 @@ def propose_release_evidence_plans(limit=5):
         if not all(isinstance(value, str) and value.strip()
                    for value in (repository, tag, source_url)):
             continue
-        # Evidence has already passed the official-source allowlist in triage.
+        allowed_url = allowed_sources.get(repository)
+        if not allowed_url or not (
+            source_url == allowed_url or source_url.startswith(allowed_url + "/")
+        ):
+            continue
+        # Recheck the allowlist here as a defence-in-depth boundary.
         existing = next((
             plan for plan in items
             if isinstance(plan, dict)
