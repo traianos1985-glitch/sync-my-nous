@@ -13,7 +13,7 @@ def detect_intent(text):
         return {"type": "tool", "action": "convert"}
 
     if t in {"time", "time now", "ώρα", "ώρα τώρα", "τι ώρα είναι"} or t.startswith("time "):
-        return {"type": "tool", "action": "time"}
+        return {"type": "tool", "action": "current_time"}
 
     if t.startswith(("text stats ", "ανάλυση κειμένου ")):
         return {"type": "tool", "action": "text_stats"}
