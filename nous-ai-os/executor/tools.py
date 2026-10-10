@@ -69,7 +69,7 @@ def run_tool(intent, context=None):
             if zone.lower().startswith(prefix):
                 zone = zone[len(prefix):].strip()
                 break
-        if zone.lower() in {"time", "time now", "ώρα", "ώρα τώρα", "τι ώρα είναι"}:
+        if zone.lower() in {"time", "now", "time now", "ώρα", "ώρα τώρα", "τι ώρα είναι"}:
             zone = ""
         return current_time(zone)
 
