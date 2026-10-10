@@ -79,7 +79,7 @@ def test_mission_payloads_are_bounded_and_invalid_payloads_rejected(tmp_path, mo
     )
 
     assert too_large["ok"] is False
-    assert too_large["error"] == "payload_too_large"
+    assert too_large["error"] == "payload_string_too_long"
     assert too_many["ok"] is False
     assert too_many["error"] == "too_many_mission_tasks"
 
