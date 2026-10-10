@@ -3905,6 +3905,64 @@ function signsQuick(q){
   signsSearch(q);
 }
 
+let nousToolCatalog = [];
+
+async function loadToolbox(){
+  const status = document.getElementById("toolboxStatus");
+  if(status) status.textContent = "Φόρτωση καταλόγου από το backend…";
+  const data = await getJson("/api/tools/catalog");
+  if(!data || data.ok !== true || !Array.isArray(data.tools)){
+    if(status) status.textContent = "Δεν ήταν δυνατή η φόρτωση του καταλόγου. Έλεγξε σύνδεση/API και ανανέωσε.";
+    const list = document.getElementById("toolboxList");
+    if(list) list.innerHTML = "";
+    return;
+  }
+  nousToolCatalog = data.tools;
+  if(status) status.textContent = "Ενεργά καταχωρισμένα εργαλεία: " + data.count + " · Οι ενέργειες εκτελούνται μέσω Chat/API.";
+  renderToolbox();
+}
+
+function renderToolbox(){
+  const list = document.getElementById("toolboxList");
+  if(!list) return;
+  const filter = (document.getElementById("toolboxFilter")?.value || "").trim().toLowerCase();
+  const items = nousToolCatalog.filter(item =>
+    [item.name,item.category,item.description,item.command,item.risk].some(value => String(value || "").toLowerCase().includes(filter))
+  );
+  if(!items.length){
+    list.innerHTML = '<div class="card">Δεν βρέθηκαν εργαλεία που να ταιριάζουν στην αναζήτηση.</div>';
+    return;
+  }
+  list.innerHTML = items.map(item => {
+    const approval = item.approval_required === true || item.approval_required === "depends_on_action";
+    const label = approval ? "Έλεγχος/έγκριση ανά ενέργεια" : "Χωρίς επιπλέον έγκριση";
+    return '<div class="card toolbox-card">' +
+      '<div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;">' +
+      '<h3 style="margin:0;">' + escHtml(item.name) + '</h3><span class="pill">' + escHtml(item.category) + '</span></div>' +
+      '<p style="font-size:13px;line-height:1.5;color:var(--muted);">' + escHtml(item.description) + '</p>' +
+      '<div class="small">Εντολή: <code>' + escHtml(item.command) + '</code></div>' +
+      '<div class="small" style="margin-top:5px;">Κίνδυνος: ' + escHtml(item.risk) + ' · ' + escHtml(label) + '</div>' +
+      '<button type="button" class="miniBtn toolbox-run" data-command="' + escHtml(item.command) + '">Άνοιγμα / Εκτέλεση στο Chat</button></div>';
+  }).join("");
+  list.querySelectorAll(".toolbox-run").forEach(button => {
+    button.addEventListener("click", () => toolboxRun(button.dataset.command || ""));
+  });
+}
+
+function toolboxRun(command){
+  const placeholder = command.match(/<([^>]+)>/);
+  if(placeholder){
+    const value = prompt("Συμπλήρωσε: " + placeholder[1]);
+    if(value === null) return;
+    command = command.replace(placeholder[0], value);
+  }
+  showSection("chat");
+  const input = document.getElementById("prompt");
+  if(!input){ alert("Δεν βρέθηκε το πεδίο συνομιλίας."); return; }
+  input.value = command;
+  sendPrompt();
+}
+
 async function boot(){
   try{await getJson("/health");document.getElementById("healthBadge").textContent="healthy";document.getElementById("healthBadge").className="badge ok"}catch(e){document.getElementById("healthBadge").textContent="offline";document.getElementById("healthBadge").className="badge bad"}
   await loadHome();
