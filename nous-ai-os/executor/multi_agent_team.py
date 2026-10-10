@@ -1,5 +1,6 @@
 """Governed multi-agent coordination with explicit outcomes and fail-closed policy gates."""
 import time
+import uuid
 from typing import Any, Callable
 
 from executor.master_agent import master_state, choose_master_priority
@@ -9,6 +10,7 @@ from executor.code_assistant import code_health, code_advice
 from executor.app_factory_v2 import app_factory_status
 from executor.guardian_policy import check_action
 from executor.agent_journal import write_journal
+from executor.agent_protocol import build_cycle_contract, validate_cycle_contract
 
 
 def planner_agent(goal=""):
@@ -78,6 +80,7 @@ def _policy_action(action):
 
 
 def team_cycle(real_research=False):
+    cycle_id = uuid.uuid4().hex
     priority = choose_master_priority()
     action = priority.get("action") if isinstance(priority, dict) else None
     effective_action = _policy_action(action)
@@ -86,6 +89,7 @@ def team_cycle(real_research=False):
     allowed = policy_result.get("status") == "completed" and isinstance(policy, dict) and policy.get("allowed") is True
 
     output = {
+        "cycle_id": cycle_id,
         "time": time.time(),
         "priority": priority,
         "effective_action": effective_action,
@@ -120,6 +124,8 @@ def team_cycle(real_research=False):
         }
 
     output["reviewer"] = _run_role("reviewer", reviewer_agent)
+    output["protocol_contract"] = build_cycle_contract(output)
+    output["protocol_validation"] = validate_cycle_contract(output["protocol_contract"], output)
     try:
         write_journal("multi_agent_team_cycle", output)
     except Exception as exc:
