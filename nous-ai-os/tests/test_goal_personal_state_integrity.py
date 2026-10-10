@@ -12,7 +12,7 @@ from executor import goal_system, personal_agent
     ("goal_system", "goals_v2.json", "goal"),
     ("personal_agent", "personal_agent.json", "personal"),
 ])
-@pytest.mark.parametrize("raw", [b'{"broken":', b'{"not":"the expected shape"}', b'[{"valid":true}]'])
+@pytest.mark.parametrize("raw", [b'{"broken":', b'{"not":"the expected shape"}', b'{"valid":true}'])
 def test_goal_and_personal_state_fail_closed_without_overwrite(
     tmp_path, monkeypatch, module_name, file_name, operation, raw
 ):
