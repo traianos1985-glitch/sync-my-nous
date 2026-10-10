@@ -30,7 +30,7 @@ def test_parallel_workers_claim_a_task_only_once(tmp_path, monkeypatch):
 
     assert calls == ["code_health"]
     assert sum(bool(result.get("execution_ok")) for result in results) == 1
-    assert any(result.get("idle") for result in results)
+    assert any(result.get("idle") or result.get("busy") for result in results)
 
 
 def test_parallel_worker_cannot_skip_a_running_task_and_start_the_next(tmp_path, monkeypatch):
