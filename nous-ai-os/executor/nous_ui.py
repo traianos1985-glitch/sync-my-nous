@@ -332,6 +332,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
       <div class="navDivider"></div>
       <div class="navSection">Εργαλεία</div>
       <button class="navItem" data-sec="documents" onclick="showSection('documents')"><span class="ni">📚</span> Documents</button>
+      <button class="navItem" data-sec="toolbox" onclick="showSection('toolbox');loadToolbox()"><span class="ni">🧰</span> Tool Library</button>
       <button class="navItem" data-sec="scheduler" onclick="showSection('scheduler')"><span class="ni">⏱</span> Scheduler</button>
       <button class="navItem" data-sec="deploy" onclick="showSection('deploy')"><span class="ni">🚀</span> Deploy</button>
       <button class="navItem" data-sec="backup" onclick="showSection('backup')"><span class="ni">☁</span> Backup</button>
@@ -426,6 +427,21 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
             <div style="color:var(--muted);">Φόρτωση αναφοράς…</div>
           </div>
         </div>
+      </section>
+
+      <section id="toolbox" class="section">
+        <div class="hero">
+          <h1>🧰 NOUS Tool Library</h1>
+          <p>Κατάλογος εργαλείων που εκθέτει το backend. Κάθε εκτέλεση περνά από την κανονική διαδρομή συνομιλίας του NOUS.</p>
+        </div>
+        <div class="card">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="toolboxFilter" type="search" placeholder="Αναζήτηση εργαλείου ή κατηγορίας…" oninput="renderToolbox()" style="flex:1;min-width:180px;">
+            <button class="miniBtn" onclick="loadToolbox()">↻ Ανανέωση καταλόγου</button>
+          </div>
+          <div id="toolboxStatus" class="small" style="margin-top:8px;">Φόρτωση εργαλείων…</div>
+        </div>
+        <div id="toolboxList" class="grid"></div>
       </section>
 
       <section id="chat" class="section">
@@ -1663,7 +1679,7 @@ function showSection(id){
     const adv=document.getElementById("advancedNav");
     if(adv && adv.contains(btn)) adv.classList.add("open");
   }
-  const labels={home:"Dashboard",chat:"Chat",goals:"Goals",missions:"Missions",planner:"Planner",brain:"Brain & Memory",appbuilder:"App Builder","remote-access":"Remote Access",documents:"Documents",scheduler:"Scheduler",deploy:"Deploy",backup:"Backup",settings:"Settings",autoexec:"Auto Exec",loopv3:"Agent Loop",autoscheduler:"AutoSched",diagnosis:"Diagnosis",repair:"Repair",selfheal:"Self Heal",intelligence:"Intelligence",learning:"Learning",system:"System",command:"Command",approvals:"Approvals",audit:"Audit",patchapply:"PatchApply",loopv2:"Loop v2",companion:"Companion",pending:"Pending",graphs:"Graphs",analyst:"Analyst",upgrades:"Upgrades",mega:"Mega"};
+  const labels={toolbox:"Tool Library",home:"Dashboard",chat:"Chat",goals:"Goals",missions:"Missions",planner:"Planner",brain:"Brain & Memory",appbuilder:"App Builder","remote-access":"Remote Access",documents:"Documents",scheduler:"Scheduler",deploy:"Deploy",backup:"Backup",settings:"Settings",autoexec:"Auto Exec",loopv3:"Agent Loop",autoscheduler:"AutoSched",diagnosis:"Diagnosis",repair:"Repair",selfheal:"Self Heal",intelligence:"Intelligence",learning:"Learning",system:"System",command:"Command",approvals:"Approvals",audit:"Audit",patchapply:"PatchApply",loopv2:"Loop v2",companion:"Companion",pending:"Pending",graphs:"Graphs",analyst:"Analyst",upgrades:"Upgrades",mega:"Mega"};
   document.getElementById("title").textContent="NOUS — "+(labels[id]||id.charAt(0).toUpperCase()+id.slice(1));
   refreshSection(id);
 }
@@ -1675,6 +1691,7 @@ function toggleAdvancedNav(){
 }
 
 async function refreshSection(id){
+  if(id==="toolbox") return loadToolbox();
   if(id==="home") return loadHome();
   if(id==="brain") return loadBrain();
   if(id==="goals") return loadGoals();
