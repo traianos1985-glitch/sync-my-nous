@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 QUEUE = Path("data/app_builder_queue.json")
+APP_DIR = os.environ.get("NOUS_GENERATED_APPS_DIR", "data/generated_apps")
 APPS_DIR = Path(APP_DIR)
 REGISTRY = "data/apps.json"
-APP_DIR = os.environ.get("NOUS_GENERATED_APPS_DIR", "data/generated_apps")
 
 
 def now_iso() -> str:
