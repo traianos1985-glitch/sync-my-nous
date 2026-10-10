@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -80,11 +81,14 @@ def _sha256(path):
 
 
 def create_brain_backup():
+    """Create a complete archive off to the side, then publish it atomically."""
     os.makedirs(BACKUP_DIR, exist_ok=True)
     save_brain_state()
 
-    ts = int(time.time())
-    out = f"{BACKUP_DIR}/nous_brain_backup_{ts}.zip"
+    stamp = time.time_ns()
+    out = os.path.join(BACKUP_DIR, f"nous_brain_backup_{stamp}.zip")
+    fd, temp_path = tempfile.mkstemp(prefix=".nous-backup-", suffix=".tmp", dir=BACKUP_DIR)
+    os.close(fd)
     manifest = {
         "created": time.time(),
         "type": "NOUS_BRAIN_BACKUP",
@@ -92,29 +96,54 @@ def create_brain_backup():
         "files": [],
     }
 
-    total_size = 0
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
-        for path in _runtime_files():
-            try:
-                with open(path, "rb") as source:
-                    data = source.read(MAX_FILE_BYTES + 1)
-                size = len(data)
-                if size > MAX_FILE_BYTES or total_size + size > MAX_BACKUP_BYTES:
+    try:
+        total_size = 0
+        with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as archive:
+            for path in _runtime_files():
+                try:
+                    with open(path, "rb") as source:
+                        data = source.read(MAX_FILE_BYTES + 1)
+                    size = len(data)
+                    if size > MAX_FILE_BYTES or total_size + size > MAX_BACKUP_BYTES:
+                        continue
+                    digest = hashlib.sha256(data).hexdigest()
+                    archive.writestr(path, data)
+                except OSError:
+                    # Runtime files may be updated or removed while a backup is running.
                     continue
-                digest = hashlib.sha256(data).hexdigest()
-                archive.writestr(path, data)
-            except OSError:
-                # Runtime files may be updated or removed while a backup is running.
-                continue
-            total_size += size
-            manifest["files"].append({"path": path, "sha256": digest, "size": size})
-        archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+                total_size += size
+                manifest["files"].append({"path": path, "sha256": digest, "size": size})
+            archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2, allow_nan=False))
+
+        with open(temp_path, "rb") as completed:
+            os.fsync(completed.fileno())
+        # A final archive becomes visible only after ZIP central-directory closure.
+        with zipfile.ZipFile(temp_path, "r") as check:
+            bad_member = check.testzip()
+            if bad_member is not None:
+                raise RuntimeError(f"backup_archive_verification_failed:{bad_member}")
+        os.replace(temp_path, out)
+        try:
+            dir_fd = os.open(BACKUP_DIR, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
 
     return {
         "ok": True,
         "backup": out,
         "manifest": manifest,
         "size": os.path.getsize(out),
+        "sha256": _sha256(out),
     }
 
 
