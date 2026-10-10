@@ -81,7 +81,7 @@ from executor.patch_generator import patch_generator_status, list_patch_proposal
 from executor.cleanup_engine import cleanup_status, list_cleanup_reports, run_cleanup_preview, apply_cleanup
 from executor.goal_manager_v2 import goal_manager_status, generate_projects_from_goals, update_project_progress, list_goal_projects
 from executor.executive_memory_v3 import executive_memory_status, search_executive_memory, learn_from_recent_state
-from executor.upgrade_planner import upgrade_planner_status, list_upgrade_plans, propose_upgrade_plan, approve_upgrade_plan, reject_upgrade_plan, get_plan as upgrade_get_plan
+from executor.upgrade_planner import upgrade_planner_status, list_upgrade_plans, propose_upgrade_plan, propose_release_evidence_plans, approve_upgrade_plan, reject_upgrade_plan, get_plan as upgrade_get_plan
 from executor.nous_drive import (
     think as nous_drive_think, status as nous_drive_status,
     list_pending as nous_drive_pending, list_proposals as nous_drive_proposals,
@@ -2678,6 +2678,16 @@ def remote_technical_sources_report_route():
 def remote_technical_sources_triage_route():
     limit = request.args.get("limit", default=25, type=int)
     return jsonify(triage_latest_releases(limit=limit))
+
+
+@app.route("/remote/technical-sources/propose-upgrades", methods=["POST"])
+def remote_technical_sources_propose_upgrades_route():
+    if not check_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    limit = data.get("limit", 5)
+    result = propose_release_evidence_plans(limit=limit)
+    return jsonify(result), (200 if result.get("ok") else 400)
 
 
 @app.route("/remote/technical-sources/scan", methods=["POST"])
