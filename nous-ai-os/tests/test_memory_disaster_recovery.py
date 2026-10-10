@@ -30,7 +30,7 @@ def test_sqlite_memory_rejects_invalid_limits(tmp_path, monkeypatch, limit):
     monkeypatch.chdir(tmp_path)
     store = importlib.reload(sqlite_store)
     monkeypatch.setattr(store, "DB_PATH", "data/memory.db")
-    with pytest.raises(ValueError, match="limit_must_be_integer"):
+    with pytest.raises(ValueError, match="memory_limit_must_be_positive_integer"):
         store.load_memories(limit)
 
 
