@@ -67,7 +67,7 @@ def _runtime_files():
                 except OSError:
                     continue
                 found.add(path)
-    found.update(path for path in FILES if os.path.isfile(path) and not _is_excluded(path))
+    found.update(path for path in FILES if os.path.isfile(path) and not os.path.islink(path) and not _is_excluded(path))
     return sorted(found)
 
 
@@ -96,11 +96,13 @@ def create_brain_backup():
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in _runtime_files():
             try:
-                size = os.path.getsize(path)
-                if total_size + size > MAX_BACKUP_BYTES:
+                with open(path, "rb") as source:
+                    data = source.read(MAX_FILE_BYTES + 1)
+                size = len(data)
+                if size > MAX_FILE_BYTES or total_size + size > MAX_BACKUP_BYTES:
                     continue
-                digest = _sha256(path)
-                archive.write(path, path)
+                digest = hashlib.sha256(data).hexdigest()
+                archive.writestr(path, data)
             except OSError:
                 # Runtime files may be updated or removed while a backup is running.
                 continue
