@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.12,<5",
     "flask>=3.0,<4",
-    "gunicorn>=22.0,<24",
+    "gunicorn>=22.0,<27",
     "psutil>=5.9,<7",
     "psycopg[binary]>=3.2,<4",
     "pyngrok>=7.2,<8",
