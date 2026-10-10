@@ -2,6 +2,13 @@
 from __future__ import annotations
 
 
+class _DependsOnRuntimeApproval:
+    pass
+
+
+DependsOnRuntimeApproval = _DependsOnRuntimeApproval()
+
+
 TOOLS = (
     {
         "name": "calculate",
