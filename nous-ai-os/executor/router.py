@@ -590,7 +590,7 @@ def health():
 
 SAFE_UI_TOOL_ACTIONS = {
     "tool_catalog", "calculate", "convert", "time", "text_stats", "json_validate", "sha256",
-    "plugin", "memory", "memory_summary", "tasks", "personal_state", "web_search",
+    "plugin", "memory", "memory_summary", "tasks", "personal_state", "web_search", "research", "cloud_info",
     "research", "sysinfo", "snapshot", "compile", "git_status", "daily_brief",
     "battery_guard", "next_action", "action_log", "list_apps", "list_schedules",
     "recall", "agent_review", "autonomy_status", "repair_advice",
