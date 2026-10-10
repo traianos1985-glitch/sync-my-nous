@@ -1,32 +1,67 @@
-import json
-import os
-import time
-import secrets
-import hashlib
-import threading
+"""Concurrent-safe API token store with fail-closed corruption handling."""
+from __future__ import annotations
+import fcntl, hashlib, json, os, secrets, tempfile, threading, time
+from contextlib import contextmanager
 
 FILE = "data/api_tokens.json"
 _LOCK = threading.Lock()
-# Γράφουμε το last_used το πολύ μία φορά ανά token / 60s (λιγότερο disk I/O
-# και λιγότερα races όταν έρχονται πολλά requests μαζί).
 _LAST_USED_THROTTLE = 60.0
+MAX_TOKENS = 500
 
 
-def _load():
+@contextmanager
+def _store_lock():
+    """Serialize token-store operations across threads and worker processes."""
+    directory = os.path.dirname(FILE) or "."
+    os.makedirs(directory, exist_ok=True)
+    with _LOCK:
+        with open(FILE + ".lock", "a", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _load_unlocked():
     if not os.path.exists(FILE):
         return []
     try:
-        return json.load(open(FILE, "r", encoding="utf-8"))
+        with open(FILE, "r", encoding="utf-8") as handle:
+            items = json.load(handle)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("api_token_store_corrupt") from exc
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise RuntimeError("api_token_store_corrupt")
+    if any(not isinstance(item.get("token_hash"), str) or not item["token_hash"] for item in items):
+        raise RuntimeError("api_token_store_corrupt")
+    return items
+
+
+def _save_unlocked(tokens):
+    directory = os.path.dirname(FILE) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(prefix=".api_tokens.", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(tokens, handle, ensure_ascii=False, indent=2, allow_nan=False)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, FILE)
+        try:
+            dir_fd = os.open(directory, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
     except Exception:
-        return []
-
-
-def _save(tokens):
-    os.makedirs("data", exist_ok=True)
-    tmp = FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(tokens, fh, ensure_ascii=False, indent=2)
-    os.replace(tmp, FILE)  # atomic write: δεν χάνονται tokens σε crash
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
 
 
 def _hash(token):
@@ -34,91 +69,77 @@ def _hash(token):
 
 
 def active_tokens():
-    return [t for t in _load() if not t.get("revoked")]
+    with _store_lock():
+        return [item for item in _load_unlocked() if not item.get("revoked")]
 
 
 def has_active_tokens():
-    return len(active_tokens()) > 0
+    return bool(active_tokens())
 
 
 def token_stats():
-    tokens = _load()
-    return {
-        "total": len(tokens),
-        "active": len([t for t in tokens if not t.get("revoked")]),
-        "revoked": len([t for t in tokens if t.get("revoked")]),
-    }
+    with _store_lock():
+        tokens = _load_unlocked()
+        return {"total": len(tokens), "active": sum(not x.get("revoked") for x in tokens),
+                "revoked": sum(bool(x.get("revoked")) for x in tokens)}
 
 
 def create_token(name="remote"):
-    token = "nous_" + secrets.token_urlsafe(32)
-    item = {
-        "id": int(time.time_ns()),
-        "name": str(name).strip() or "remote",
-        "token_hash": _hash(token),
-        "created": time.time(),
-        "revoked": False,
-        "last_used": None,
-    }
-
-    tokens = _load()
-    tokens.append(item)
-    _save(tokens)
-
-    return {
-        "id": item["id"],
-        "name": item["name"],
-        "token": token,
-        "created": item["created"],
-    }
+    safe_name = str(name).strip()[:80] or "remote"
+    with _store_lock():
+        tokens = _load_unlocked()
+        if len(tokens) >= MAX_TOKENS:
+            raise RuntimeError("api_token_limit_reached")
+        token = "nous_" + secrets.token_urlsafe(32)
+        item = {"id": int(time.time_ns()), "name": safe_name, "token_hash": _hash(token),
+                "created": time.time(), "revoked": False, "last_used": None}
+        existing_ids = {str(value.get("id")) for value in tokens}
+        while str(item["id"]) in existing_ids:
+            item["id"] += 1
+        tokens.append(item)
+        _save_unlocked(tokens)
+    return {"id": item["id"], "name": item["name"], "token": token, "created": item["created"]}
 
 
 def list_tokens():
-    return [
-        {
-            "id": item.get("id"),
-            "name": item.get("name"),
-            "created": item.get("created"),
-            "revoked": item.get("revoked", False),
-            "last_used": item.get("last_used"),
-        }
-        for item in _load()
-    ]
+    with _store_lock():
+        tokens = _load_unlocked()
+        return [{"id": x.get("id"), "name": x.get("name"), "created": x.get("created"),
+                 "revoked": x.get("revoked", False), "last_used": x.get("last_used")} for x in tokens]
 
 
 def revoke_token(token_id):
-    tokens = _load()
-    found = False
-
-    for item in tokens:
-        if str(item.get("id")) == str(token_id):
-            item["revoked"] = True
-            found = True
-
-    _save(tokens)
+    with _store_lock():
+        tokens = _load_unlocked()
+        found = False
+        for item in tokens:
+            if str(item.get("id")) == str(token_id) and not item.get("revoked"):
+                item["revoked"] = True
+                found = True
+        if found:
+            _save_unlocked(tokens)
     return {"revoked": found, "id": token_id}
 
 
 def token_allowed(token):
     if not token:
         return False
-
-    h = _hash(str(token))
+    candidate_hash = _hash(str(token))
     now = time.time()
-
-    with _LOCK:
-        tokens = _load()
-
+    with _store_lock():
+        tokens = _load_unlocked()
+        changed = False
+        allowed = False
         for item in tokens:
             if item.get("revoked"):
                 continue
-
-            stored = str(item.get("token_hash") or "")
-            if len(stored) == len(h) and secrets.compare_digest(stored, h):
-                last = item.get("last_used") or 0
-                if now - float(last) > _LAST_USED_THROTTLE:
+            stored = item["token_hash"]
+            if len(stored) == len(candidate_hash) and secrets.compare_digest(stored, candidate_hash):
+                allowed = True
+                if now - float(item.get("last_used") or 0) > _LAST_USED_THROTTLE:
                     item["last_used"] = now
-                    _save(tokens)
-                return True
-
-    return False
+                    changed = True
+                break
+        if changed:
+            _save_unlocked(tokens)
+        return allowed
