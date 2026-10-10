@@ -3936,20 +3936,24 @@ function renderToolbox(){
   list.innerHTML = items.map(item => {
     const approval = item.approval_required === true || item.approval_required === "depends_on_action";
     const label = approval ? "Έλεγχος/έγκριση ανά ενέργεια" : "Χωρίς επιπλέον έγκριση";
+    const canRun = item.executable_from_tool_library === true;
+    const actionControl = canRun
+      ? '<button type="button" class="miniBtn toolbox-run" data-command="' + escHtml(item.command) + '">Εκτέλεση ασφαλούς εργαλείου</button>'
+      : '<div class="small" style="margin-top:10px;color:var(--warn);">Εκτέλεση μόνο από την ειδική ροή του NOUS — δεν εκτελείται από αυτό το πάνελ.</div>';
     return '<div class="card toolbox-card">' +
       '<div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;">' +
       '<h3 style="margin:0;">' + escHtml(item.name) + '</h3><span class="pill">' + escHtml(item.category) + '</span></div>' +
       '<p style="font-size:13px;line-height:1.5;color:var(--muted);">' + escHtml(item.description) + '</p>' +
       '<div class="small">Εντολή: <code>' + escHtml(item.command) + '</code></div>' +
       '<div class="small" style="margin-top:5px;">Κίνδυνος: ' + escHtml(item.risk) + ' · ' + escHtml(label) + '</div>' +
-      '<button type="button" class="miniBtn toolbox-run" data-command="' + escHtml(item.command) + '">Άνοιγμα / Εκτέλεση στο Chat</button></div>';
+      actionControl + '</div>';
   }).join("");
   list.querySelectorAll(".toolbox-run").forEach(button => {
     button.addEventListener("click", () => toolboxRun(button.dataset.command || ""));
   });
 }
 
-function toolboxRun(command){
+async function toolboxRun(command){
   const placeholder = command.match(/<([^>]+)>/);
   if(placeholder){
     const value = prompt("Συμπλήρωσε: " + placeholder[1]);
@@ -3957,10 +3961,20 @@ function toolboxRun(command){
     command = command.replace(placeholder[0], value);
   }
   showSection("chat");
-  const input = document.getElementById("prompt");
-  if(!input){ alert("Δεν βρέθηκε το πεδίο συνομιλίας."); return; }
-  input.value = command;
-  sendPrompt();
+  addMsg("Εργαλείο: " + command, "user");
+  nousShowTyping(true);
+  try{
+    const result = await postJson("/api/tools/run", {command: command});
+    addMsg(result && result.ok ? result.result : {
+      ok: false,
+      error: (result && (result.error || result.message)) || "tool_execution_failed",
+      details: result && result.details
+    }, "bot");
+  }catch(error){
+    addMsg("Σφάλμα εκτέλεσης εργαλείου: " + String(error), "bot");
+  }finally{
+    nousShowTyping(false);
+  }
 }
 
 async function boot(){
