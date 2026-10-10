@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 QUEUE = Path("data/app_builder_queue.json")
-APPS_DIR = Path("apps")
+APPS_DIR = Path(APP_DIR)
 REGISTRY = "data/apps.json"
-APP_DIR = "generated_apps"
+APP_DIR = os.environ.get("NOUS_GENERATED_APPS_DIR", "data/generated_apps")
 
 
 def now_iso() -> str:
@@ -224,6 +224,9 @@ def approve_and_write(plan_id: str) -> dict[str, Any]:
             if not chk.get("ok") and not chk.get("skipped"):
                 errors.append({"file": str(resolved_target), "error": chk.get("error")})
 
+    entrypoints = {"main.py", "app.py", "run.py", "server.py"}
+    entrypoint = next((target for target, _ in prepared if target.name in entrypoints), APPS_DIR / app_name / "main.py")
+    plan["run_command"] = f"python {entrypoint}"
     plan["status"] = "approved"
     plan["approved_at"] = now_iso()
     plan["written_files"] = written
