@@ -54,16 +54,12 @@ def _valid_release(release: Any) -> bool:
     url = release.get("url")
     if not isinstance(repository, str) or not isinstance(url, str):
         return False
-    if not any(
-        repository == allowed_repo and url.startswith(allowed_url + "/")
+    # The watcher may use the canonical releases URL as a safe fallback.
+    return any(
+        repository == allowed_repo
+        and (url == allowed_url or url.startswith(allowed_url + "/"))
         for allowed_repo, allowed_url in _ALLOWED
-    ):
-        # The watcher uses the canonical releases URL as a safe fallback.
-        return not any(
-            repository == allowed_repo and url == allowed_url
-            for allowed_repo, allowed_url in _ALLOWED
-        )
-    return True
+    )
 
 
 def triage_release(release: dict) -> dict:
