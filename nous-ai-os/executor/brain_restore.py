@@ -293,7 +293,7 @@ def restore_status():
         "allowed_prefix": ALLOWED_PREFIX,
         "blocked": sorted(BLOCKED),
         "safety_backups": sorted(
-            name for name in os.listdir(RESTORE_DIR)
-            if name != ".restore.lock"
-        , reverse=True),
+            (name for name in os.listdir(RESTORE_DIR) if name != ".restore.lock"),
+            reverse=True,
+        ),
     }
