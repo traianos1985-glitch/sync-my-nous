@@ -55,6 +55,18 @@ def _save_unlocked(items):
         raise
 
 
+def _load():
+    """Compatibility wrapper for existing diagnostics and tests."""
+    with _locked():
+        return _load_unlocked()
+
+
+def _save(items):
+    """Compatibility wrapper; callers still get serialized atomic writes."""
+    with _locked():
+        _save_unlocked(items)
+
+
 def _digest(event, data, previous):
     payload = {"event": event, "data": data, "previous": previous}
     encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
