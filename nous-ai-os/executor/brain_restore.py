@@ -17,7 +17,10 @@ BLOCKED = {
     "data/secrets.json",
     "data/credentials.json",
 }
-BLOCKED_NAMES = {".env", ".env.local", ".env.production"}
+BLOCKED_NAMES = {
+    ".env", ".env.local", ".env.production",
+    "api_tokens.json", "secrets.json", "credentials.json",
+}
 BLOCKED_DIR_NAMES = {"brain_backups", "brain_restores", "__pycache__", ".cache"}
 MAX_BACKUP_BYTES = 256 * 1024 * 1024
 MAX_FILE_BYTES = 64 * 1024 * 1024
@@ -55,6 +58,9 @@ def _safe_backup_path(value: object) -> str | None:
 
 
 def _inside_data_dir(relative_path: str) -> str | None:
+    # Do not treat a redirected data/ root as an in-project restore destination.
+    if os.path.islink("data"):
+        return None
     data_root = os.path.realpath("data")
     target = os.path.realpath(os.path.join(data_root, relative_path.removeprefix("data/")))
     try:
@@ -90,7 +96,12 @@ def inspect_brain_backup(path):
             manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
             if not isinstance(manifest, dict) or not isinstance(manifest.get("files"), list):
                 return {"ok": False, "error": "invalid_manifest", "path": path}
-            if manifest.get("type") != "NOUS_BRAIN_BACKUP" or manifest.get("version") not in (1, 2):
+            if (
+                manifest.get("type") != "NOUS_BRAIN_BACKUP"
+                or isinstance(manifest.get("version"), bool)
+                or not isinstance(manifest.get("version"), int)
+                or manifest.get("version") not in (1, 2)
+            ):
                 return {"ok": False, "error": "unsupported_backup_format", "path": path}
 
             files = []
