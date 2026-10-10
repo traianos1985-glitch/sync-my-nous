@@ -332,7 +332,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
       <div class="navDivider"></div>
       <div class="navSection">Εργαλεία</div>
       <button class="navItem" data-sec="documents" onclick="showSection('documents')"><span class="ni">📚</span> Documents</button>
-      <button class="navItem" data-sec="toolbox" onclick="showSection('toolbox');loadToolbox()"><span class="ni">🧰</span> Tool Library</button>
+      <button class="navItem" data-sec="toolbox" onclick="showSection('toolbox')"><span class="ni">🧰</span> Tool Library</button>
       <button class="navItem" data-sec="scheduler" onclick="showSection('scheduler')"><span class="ni">⏱</span> Scheduler</button>
       <button class="navItem" data-sec="deploy" onclick="showSection('deploy')"><span class="ni">🚀</span> Deploy</button>
       <button class="navItem" data-sec="backup" onclick="showSection('backup')"><span class="ni">☁</span> Backup</button>
