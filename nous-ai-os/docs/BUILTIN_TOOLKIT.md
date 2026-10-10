@@ -13,14 +13,14 @@ The catalog returns tool names, categories, descriptions, command examples, risk
 
 ## Commands
 
-| Command | Example | Purpose |
-| --- | --- | --- |
-| `calculate` / `calc` / `υπολόγισε` | `calculate sqrt(81) + 2*pi` | Safe arithmetic and approved math functions; never uses Python `eval`. |
-| `convert` / `μετατροπή` | `convert 12 km to miles` | Length, mass, volume, speed, and temperature conversion. |
-| `time` | `time Europe/Athens` | Local time by default, or time in an IANA timezone, plus UTC. |
-| `text stats` | `text stats hello world` | Character, word, line, and paragraph counts. |
-| `json validate` | `json validate {"ok": true}` | JSON syntax validation, top-level type, and parse location. |
-| `sha256` | `sha256 NOUS` | SHA-256 checksum of supplied UTF-8 text. |
+| Command                            | Example                      | Purpose                                                                |
+| ---------------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| `calculate` / `calc` / `υπολόγισε` | `calculate sqrt(81) + 2*pi`  | Safe arithmetic and approved math functions; never uses Python `eval`. |
+| `convert` / `μετατροπή`            | `convert 12 km to miles`     | Length, mass, volume, speed, and temperature conversion.               |
+| `time`                             | `time Europe/Athens`         | Local time by default, or time in an IANA timezone, plus UTC.          |
+| `text stats`                       | `text stats hello world`     | Character, word, line, and paragraph counts.                           |
+| `json validate`                    | `json validate {"ok": true}` | JSON syntax validation, top-level type, and parse location.            |
+| `sha256`                           | `sha256 NOUS`                | SHA-256 checksum of supplied UTF-8 text.                               |
 
 Greek aliases are supported for calculation, conversion, text statistics, and JSON validation.
 
