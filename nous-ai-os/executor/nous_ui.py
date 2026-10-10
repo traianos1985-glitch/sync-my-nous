@@ -432,11 +432,12 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
       <section id="toolbox" class="section">
         <div class="hero">
           <h1>🧰 NOUS Tool Library</h1>
-          <p>Κατάλογος εργαλείων που εκθέτει το backend. Κάθε εκτέλεση περνά από την κανονική διαδρομή συνομιλίας του NOUS.</p>
+          <p>Ζωντανός κατάλογος εργαλείων από το backend. Οι ασφαλείς τοπικοί υπολογισμοί εκτελούνται από περιορισμένο API allowlist· οι υπόλοιπες λειτουργίες χρησιμοποιούν τις ειδικές ροές του NOUS.</p>
         </div>
         <div class="card">
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input id="toolboxFilter" type="search" placeholder="Αναζήτηση εργαλείου ή κατηγορίας…" oninput="renderToolbox()" style="flex:1;min-width:180px;">
+            <select id="toolboxCategory" onchange="renderToolbox()" style="min-width:150px;padding:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;"><option value="">Όλες οι κατηγορίες</option></select>
             <button class="miniBtn" onclick="loadToolbox()">↻ Ανανέωση καταλόγου</button>
           </div>
           <div id="toolboxStatus" class="small" style="margin-top:8px;">Φόρτωση εργαλείων…</div>
@@ -3918,15 +3919,28 @@ async function loadToolbox(){
     return;
   }
   nousToolCatalog = data.tools;
-  if(status) status.textContent = "Ενεργά καταχωρισμένα εργαλεία: " + data.count + " · Οι ενέργειες εκτελούνται μέσω Chat/API.";
+  const category = document.getElementById("toolboxCategory");
+  if(category){
+    const selected = category.value;
+    const categories = Array.isArray(data.categories) ? data.categories : [...new Set(nousToolCatalog.map(item=>item.category).filter(Boolean))];
+    category.innerHTML = '<option value="">Όλες οι κατηγορίες</option>' + categories.map(value=>'<option value="'+toolboxEscapeAttr(value)+'">'+escHtml(value)+'</option>').join("");
+    if(categories.includes(selected)) category.value = selected;
+  }
+  if(status) status.textContent = "Καταχωρισμένα εργαλεία backend: " + data.count + " · Οι λειτουργίες με κουμπί εκτέλεσης είναι allowlisted και περιορισμένες.";
   renderToolbox();
+}
+
+function toolboxEscapeAttr(value){
+  return String(value == null ? '' : value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function renderToolbox(){
   const list = document.getElementById("toolboxList");
   if(!list) return;
   const filter = (document.getElementById("toolboxFilter")?.value || "").trim().toLowerCase();
+  const category = document.getElementById("toolboxCategory")?.value || "";
   const items = nousToolCatalog.filter(item =>
+    (!category || item.category === category) &&
     [item.name,item.category,item.description,item.command,item.risk].some(value => String(value || "").toLowerCase().includes(filter))
   );
   if(!items.length){
