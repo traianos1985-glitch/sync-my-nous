@@ -24,6 +24,15 @@ def detect_intent(text):
     if t.startswith(("sha256 ", "hash ")):
         return {"type": "tool", "action": "sha256"}
 
+    if t.startswith(("json format ", "format json ", "μορφοποίηση json ")):
+        return {"type": "tool", "action": "json_format"}
+
+    if t.startswith(("url encode ", "κωδικοποίησε url ")):
+        return {"type": "tool", "action": "url_encode"}
+
+    if t.startswith(("url decode ", "αποκωδικοποίησε url ")):
+        return {"type": "tool", "action": "url_decode"}
+
     if t in ["/status", "status", "κατάσταση"]:
         return {"type": "system", "action": "status"}
 

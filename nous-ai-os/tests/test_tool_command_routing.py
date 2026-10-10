@@ -10,6 +10,9 @@ def test_new_utility_commands_route_to_real_tools():
         "text stats hello world": "text_stats",
         'json validate {"ok":true}': "json_validate",
         "sha256 NOUS": "sha256",
+        'json format {"ok":true}': "json_format",
+        "url encode hello world": "url_encode",
+        "url decode hello%20world": "url_decode",
         "tools": "tool_catalog",
         "εργαλεία": "tool_catalog",
     }
@@ -24,6 +27,9 @@ def test_new_utility_commands_execute_via_existing_tool_dispatch():
     assert run_tool(detect_intent("text stats hello world"), {"command": "text stats hello world"})["words"] == 2
     assert run_tool(detect_intent('json validate {"ok":true}'), {"command": 'json validate {"ok":true}'})["valid"] is True
     assert len(run_tool(detect_intent("sha256 NOUS"), {"command": "sha256 NOUS"})["sha256"]) == 64
+    assert run_tool(detect_intent('json format {"ok":true}'), {"command": 'json format {"ok":true}'})["formatted"] == '{\n  "ok": true\n}'
+    assert run_tool(detect_intent("url encode hello world"), {"command": "url encode hello world"})["encoded"] == "hello%20world"
+    assert run_tool(detect_intent("url decode hello%20world"), {"command": "url decode hello%20world"})["decoded"] == "hello world"
 
 
 def test_tool_catalog_includes_new_and_legacy_tool_entries():

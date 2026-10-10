@@ -137,6 +137,7 @@ def api_tool_run():
     intent = detect_intent(command)
     allowed_actions = {
         "calculate", "convert", "current_time", "text_stats", "json_validate", "sha256",
+        "json_format", "url_encode", "url_decode",
     }
     if intent.get("type") != "tool" or intent.get("action") not in allowed_actions:
         return jsonify({

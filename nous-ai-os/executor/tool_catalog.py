@@ -169,6 +169,9 @@ TOOLS = (
     {"name": "research", "category": "research", "description": "Research a topic using the existing search workflow.", "command": "research <topic>", "risk": "external_read", "approval_required": False},
     {"name": "internet", "category": "system", "description": "Legacy placeholder only; it does not provide a working internet gateway.", "command": "internet", "risk": "not_implemented", "approval_required": True},
     {"name": "web", "category": "research", "description": "Legacy direct URL fetch command; unavailable from Tool Library due to URL safety restrictions.", "command": "web https://example.com", "risk": "restricted_external_read", "approval_required": True},
+    {"name": "json_format", "category": "data", "description": "Validate and pretty-print JSON without changing its data.", "command": 'json format {"ok":true}', "risk": "local_computation", "executable_from_tool_library": True, "approval_required": False},
+    {"name": "url_encode", "category": "data", "description": "Percent-encode text as one URL component.", "command": "url encode hello world", "risk": "local_computation", "executable_from_tool_library": True, "approval_required": False},
+    {"name": "url_decode", "category": "data", "description": "Decode a percent-encoded URL component.", "command": "url decode hello%20world", "risk": "local_computation", "executable_from_tool_library": True, "approval_required": False},
     {"name": "cmd", "category": "system", "description": "Generic command execution is intentionally unavailable from Tool Library.", "command": "cmd <command>", "risk": "restricted_command_execution", "approval_required": True},
 
 )

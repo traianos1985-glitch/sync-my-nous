@@ -67,3 +67,22 @@ def test_sha256_is_stable_and_tool_catalog_is_machine_readable():
     assert get_tool("calculate")["approval_required"] is False
     assert get_tool("agent_solve")["approval_required"] == "depends_on_action"
     assert get_tool("does_not_exist") is None
+
+
+def test_json_format_is_pretty_and_rejects_invalid_or_oversized_input():
+    formatted = utility_tools.format_json('{"name":"ΝΟΥΣ","ok":true}')
+    assert formatted["ok"] is True
+    assert '"name": "ΝΟΥΣ"' in formatted["formatted"]
+    assert formatted["type"] == "dict"
+    assert utility_tools.format_json('{"broken":}')["error"] == "invalid_json"
+    assert utility_tools.format_json(" " * 10_001)["error"] == "json_empty_or_too_long"
+
+
+def test_url_component_encoding_round_trips_unicode_and_spaces():
+    encoded = utility_tools.encode_url_component("γειά σου / NOUS")
+    assert encoded["ok"] is True
+    assert "%20" in encoded["encoded"] and "%2F" in encoded["encoded"]
+    decoded = utility_tools.decode_url_component(encoded["encoded"])
+    assert decoded == {"ok": True, "decoded": "γειά σου / NOUS"}
+    assert utility_tools.decode_url_component("%FF")["error"] == "invalid_url_encoding"
+    assert utility_tools.encode_url_component("x" * 10_001)["error"] == "text_too_long"
