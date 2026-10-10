@@ -33,6 +33,7 @@ EXCLUDED_DIR_NAMES = {
     ".cache",
 }
 MAX_FILE_BYTES = 64 * 1024 * 1024
+MAX_BACKUP_BYTES = 256 * 1024 * 1024
 
 
 def _is_excluded(path: str) -> bool:
@@ -91,15 +92,19 @@ def create_brain_backup():
         "files": [],
     }
 
+    total_size = 0
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in _runtime_files():
             try:
                 size = os.path.getsize(path)
+                if total_size + size > MAX_BACKUP_BYTES:
+                    continue
                 digest = _sha256(path)
                 archive.write(path, path)
             except OSError:
                 # Runtime files may be updated or removed while a backup is running.
                 continue
+            total_size += size
             manifest["files"].append({"path": path, "sha256": digest, "size": size})
         archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
 
@@ -141,6 +146,5 @@ def brain_backup_status():
             "Regular runtime files under data/ including JSON, uploads and generated apps; "
             "excludes token/credential files, symlinks, caches and backup/restore archives"
         ),
-        "skipped_oversized_files": [],
         "existing": list_brain_backups(),
     }
