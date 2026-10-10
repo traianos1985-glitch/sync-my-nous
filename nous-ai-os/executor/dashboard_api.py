@@ -33,6 +33,7 @@ from executor.mission_system import (
 )
 from executor.task_queue import list_queue, update_task
 from executor.upload_processing_engine import UPLOADS, process_uploaded_file
+from executor.tool_catalog import tool_catalog
 
 dashboard_api_bp = Blueprint("dashboard_api", __name__, url_prefix="/api")
 
@@ -112,6 +113,15 @@ def _map_job(item: dict) -> dict:
         "createdAt": _iso(item.get("created")),
         "completedAt": _iso(item.get("finished")) or None,
     }
+
+
+# ---------------------------------------------------------------- tool catalog
+
+@dashboard_api_bp.get("/tools/catalog")
+def api_tool_catalog():
+    """Live discoverable catalog of built-in tools and supported command examples."""
+    category = request.args.get("category", "")
+    return jsonify(tool_catalog(category))
 
 
 # ---------------------------------------------------------------- status
