@@ -57,3 +57,20 @@ def test_recent_approved_plan_deduplicates(monkeypatch, tmp_path):
     assert result["ok"] is True
     assert result["deduped"] is True
     assert result["plan"]["id"] == "recent"
+
+
+def test_legacy_implementing_plan_is_migrated_to_review_only(monkeypatch, tmp_path):
+    path = tmp_path / "plans.json"
+    monkeypatch.setattr(planner, "FILE", str(path))
+    path.write_text(
+        json.dumps([{"id": "legacy", "status": "implementing", "execution_log": []}]),
+        encoding="utf-8",
+    )
+
+    loaded = planner._load()
+
+    assert loaded[0]["status"] == "approved"
+    assert loaded[0]["execution_mode"] == "proposal_only"
+    assert "Legacy plan migrated to review-only state; automatic execution is disabled." in loaded[0]["execution_log"]
+    persisted = json.loads(path.read_text(encoding="utf-8"))
+    assert persisted[0]["status"] == "approved"
