@@ -31,6 +31,10 @@ def app(tmp_path, monkeypatch):
     def secret():
         return {"ok": True, "secret": True}
 
+    @application.route("/remote/upload", methods=["POST"])
+    def upload():
+        return {"ok": True}
+
     auth_guard.install_auth_guard(application)
     return application
 
@@ -117,7 +121,20 @@ def test_authenticated_responses_have_security_headers_and_no_store(app, monkeyp
 def test_oversized_request_is_rejected(app, monkeypatch):
     monkeypatch.setenv("NOUS_TOKEN", "safe-test-token")
     response = app.test_client().post(
-        "/remote/secret", data=b"x" * (16 * 1024 * 1024 + 1),
+        "/remote/upload", data=b"x" * (16 * 1024 * 1024 + 1),
         headers={"X-NOUS-TOKEN": "safe-test-token", "Content-Type": "application/octet-stream"},
     )
     assert response.status_code == 413
+
+
+def test_concurrent_token_creation_preserves_every_token(app):
+    from concurrent.futures import ThreadPoolExecutor
+    from executor import api_tokens
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        created = list(pool.map(lambda index: api_tokens.create_token(f"worker-{index}"), range(20)))
+
+    assert len({item["id"] for item in created}) == 20
+    assert len({item["token"] for item in created}) == 20
+    assert api_tokens.token_stats()["active"] == 20
+    assert all(api_tokens.token_allowed(item["token"]) for item in created)
