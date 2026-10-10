@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from executor.ops_console import run_ops_action
 from executor.agent_journal import write_journal
 from executor.learning_memory import record_lesson
+from executor.mission_contracts import build_plan_contract, verify_plan_contract, build_execution_evidence
 
 FILE = "data/missions.json"
 
@@ -148,6 +149,7 @@ def create_mission(title, description="", tasks=None):
         existing_ids = {str(item.get("id")) for item in items if isinstance(item, dict)}
         while str(mission["id"]) in existing_ids:
             mission["id"] += 1
+        mission["plan_contract"] = build_plan_contract(mission["tasks"])
         items.append(mission)
     write_journal("mission_created", {"id": mission["id"], "title": mission["title"], "task_count": len(mission["tasks"])})
     return mission
@@ -238,6 +240,24 @@ def run_next_mission_task(mission_id):
             return {"ok": False, "error": "mission_not_active", "mission": mission}
 
         tasks = mission.get("tasks", [])
+        if not isinstance(mission.get("plan_contract"), dict):
+            # Safe one-time migration for untouched legacy missions only. A partially
+            # executed legacy mission has no trustworthy baseline and must be reviewed.
+            untouched_legacy = all(
+                task.get("status") == "pending"
+                and not task.get("execution_id")
+                and task.get("result") is None
+                for task in tasks
+            )
+            if untouched_legacy:
+                mission["plan_contract"] = build_plan_contract(tasks)
+                mission["plan_contract_migrated"] = time.time()
+        plan_check = verify_plan_contract(mission.get("plan_contract"), tasks)
+        if not plan_check.get("ok"):
+            mission["status"] = "blocked"
+            mission["result"] = "mission_plan_integrity_failure"
+            mission["updated"] = time.time()
+            return {"ok": False, "blocked": True, "error": "mission_plan_integrity_failure", "plan_check": plan_check, "mission": mission}
         # Missions are sequential. Do not let a second worker start task N+1
         # while task N is still executing outside the state lock.
         if any(task.get("status") == "running" for task in tasks):
@@ -301,6 +321,7 @@ def run_next_mission_task(mission_id):
         task["result"] = result
         task["status"] = "done" if execution_ok else "failed"
         task["execution_ok"] = execution_ok
+        task["execution_evidence"] = build_execution_evidence(task, result, claim_id)
         if not execution_ok:
             mission["status"] = "blocked"
             mission["result"] = "task_execution_failed"
