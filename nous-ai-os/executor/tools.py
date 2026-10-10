@@ -108,7 +108,12 @@ def run_tool(intent, context=None):
         return "notification_sent"
 
     if action == "internet":
-        return "Internet gateway module installed"
+        return {
+            "ok": False,
+            "available": False,
+            "error": "internet_gateway_not_implemented",
+            "message": "Το παλιό internet command είναι placeholder και δεν εκτελεί πραγματική σύνδεση στο διαδίκτυο.",
+        }
 
 
     if action == "web":
