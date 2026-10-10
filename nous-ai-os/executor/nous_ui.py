@@ -331,6 +331,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
 
       <div class="navDivider"></div>
       <div class="navSection">Εργαλεία</div>
+      <button class="navItem" data-sec="tools" onclick="showSection('tools');toolCatalogLoad()"><span class="ni">🧰</span> Tool Library</button>
       <button class="navItem" data-sec="documents" onclick="showSection('documents')"><span class="ni">📚</span> Documents</button>
       <button class="navItem" data-sec="toolbox" onclick="showSection('toolbox')"><span class="ni">🧰</span> Tool Library</button>
       <button class="navItem" data-sec="scheduler" onclick="showSection('scheduler')"><span class="ni">⏱</span> Scheduler</button>
@@ -4057,6 +4058,31 @@ boot();
 })();
 </script>
 
+
+<section id="tools" class="section">
+  <div class="workspace" style="max-width:1200px;margin:auto;">
+    <div class="hero">
+      <h1>🧰 NOUS Tool Library</h1>
+      <p>Κατάλογος από τα εργαλεία που δηλώνει το backend, μαζί με τις νέες τοπικές λειτουργίες. Οι ενέργειες ανοίγουν στο Chat για να βλέπεις και να ελέγχεις την εντολή πριν την εκτελέσεις.</p>
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <input id="toolSearch" type="text" placeholder="Αναζήτηση εργαλείου, κατηγορίας ή εντολής…" oninput="renderToolCatalog()" style="flex:1;min-width:190px;padding:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;">
+        <select id="toolCategory" onchange="renderToolCatalog()" style="min-width:150px;padding:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;">
+          <option value="">Όλες οι κατηγορίες</option>
+        </select>
+        <button class="miniBtn" style="width:auto;padding:10px 14px;" onclick="toolCatalogLoad()">↻ Ανανέωση</button>
+      </div>
+      <div id="toolCatalogMeta" class="small" style="margin-top:10px;">Φόρτωση καταλόγου…</div>
+      <div id="toolCatalogError" class="small" style="display:none;color:var(--bad);margin-top:8px;"></div>
+    </div>
+    <div id="toolCatalogList" class="grid"></div>
+    <div class="card">
+      <h3>Σημείωση ασφάλειας</h3>
+      <p class="small">Η κάρτα περιγράφει το εργαλείο που καταγράφει ο κώδικας· δεν εγγυάται ότι κάθε εξωτερική υπηρεσία ή συσκευή είναι διαθέσιμη. Οι ενέργειες με παραμέτρους όπως &lt;goal&gt; είναι πρότυπα και χρειάζονται επεξεργασία στο Chat. Ενέργειες υψηλού κινδύνου πρέπει να ελέγχονται ξεχωριστά.</p>
+    </div>
+  </div>
+</section>
 
 <section id="documents" class="section">
   <div class="hero">
