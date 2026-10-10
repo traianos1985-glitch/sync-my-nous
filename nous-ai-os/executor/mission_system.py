@@ -230,7 +230,81 @@ def reject_task(mission_id, task_id):
         return {"ok": False, "error": "task_not_found"}
 
 
+
+def recover_interrupted_missions(stale_after=900, now=None):
+    """Quarantine stale running tasks after a process crash; never replay them.
+
+    A timed-out action may already have changed an external system. Recovery
+    therefore marks it for operator review rather than retrying it automatically.
+    """
+    try:
+        stale_after = float(stale_after)
+    except (TypeError, ValueError, OverflowError):
+        stale_after = 900.0
+    if stale_after < 1:
+        stale_after = 1.0
+    now = time.time() if now is None else float(now)
+    recovered = []
+    with _edit_missions() as items:
+        for mission in items:
+            if not isinstance(mission, dict):
+                continue
+            tasks = mission.get("tasks", [])
+            if not isinstance(tasks, list):
+                continue
+            changed = False
+            for task in tasks:
+                if not isinstance(task, dict) or task.get("status") != "running":
+                    continue
+                try:
+                    started = float(task.get("started"))
+                except (TypeError, ValueError, OverflowError):
+                    started = 0.0
+                # A future timestamp is clock skew, not proof of a stale task.
+                if started > now or (started > 0 and now - started < stale_after):
+                    continue
+                recovery_record = {
+                    "reason": "execution_interrupted_or_timed_out",
+                    "detected_at": now,
+                    "started_at": started if started > 0 else None,
+                    "execution_id": task.get("execution_id"),
+                    "automatic_retry": False,
+                    "operator_review_required": True,
+                }
+                task["status"] = "needs_review"
+                task["finished"] = now
+                task["recovery_evidence"] = recovery_record
+                task["completion_verification"] = {
+                    "status": "needs_review",
+                    "ok": False,
+                    "reason": "execution_interrupted_outcome_unknown",
+                }
+                mission["status"] = "blocked"
+                mission["result"] = "interrupted_task_requires_review"
+                mission["updated"] = now
+                recovered.append({
+                    "mission_id": mission.get("id"),
+                    "task_id": task.get("id"),
+                    "execution_id": task.get("execution_id"),
+                    "reason": recovery_record["reason"],
+                })
+                changed = True
+            if changed:
+                mission.setdefault("recovery_events", []).extend(
+                    event for event in recovered if event["mission_id"] == mission.get("id")
+                )
+    return {
+        "ok": True,
+        "recovered_count": len(recovered),
+        "recovered": recovered,
+        "automatic_retries": 0,
+        "time": now,
+    }
+
+
 def run_next_mission_task(mission_id):
+    # Recover only genuinely stale claims. A stale side effect is never replayed.
+    recovery = recover_interrupted_missions()
     # Claim the task while holding the state lock, then release the lock before
     # calling external operations. A second worker will see "running", not pending.
     with _edit_missions() as items:
@@ -259,6 +333,20 @@ def run_next_mission_task(mission_id):
             mission["result"] = "mission_plan_integrity_failure"
             mission["updated"] = time.time()
             return {"ok": False, "blocked": True, "error": "mission_plan_integrity_failure", "plan_check": plan_check, "mission": mission}
+        # An interrupted/uncertain task requires explicit operator review. Do not
+        # proceed to later tasks or repeat the potentially side-effecting action.
+        if any(task.get("status") == "needs_review" for task in tasks):
+            mission["status"] = "blocked"
+            mission["result"] = "interrupted_task_requires_review"
+            mission["updated"] = time.time()
+            return {
+                "ok": False,
+                "blocked": True,
+                "needs_review": True,
+                "error": "task_outcome_unknown_requires_review",
+                "recovery": recovery,
+                "mission": mission,
+            }
         # Missions are sequential. Do not let a second worker start task N+1
         # while task N is still executing outside the state lock.
         if any(task.get("status") == "running" for task in tasks):
