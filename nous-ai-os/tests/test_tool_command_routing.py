@@ -6,7 +6,7 @@ def test_new_utility_commands_route_to_real_tools():
     cases = {
         "calculate 2 + 2": "calculate",
         "convert 12 km to miles": "convert",
-        "time Europe/Athens": "time",
+        "time Europe/Athens": "current_time",
         "text stats hello world": "text_stats",
         'json validate {"ok":true}': "json_validate",
         "sha256 NOUS": "sha256",
