@@ -13,7 +13,8 @@ def is_public(path: str) -> bool:
 
 def install_auth_guard(app):
     """Install auth, request-size bounds, and conservative response headers."""
-    app.config.setdefault("MAX_CONTENT_LENGTH", MAX_REQUEST_BYTES)
+    if app.config.get("MAX_CONTENT_LENGTH") is None:
+        app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 
     @app.before_request
     def _nous_auth_guard():
