@@ -240,6 +240,18 @@ def run_next_mission_task(mission_id):
             return {"ok": False, "error": "mission_not_active", "mission": mission}
 
         tasks = mission.get("tasks", [])
+        if not isinstance(mission.get("plan_contract"), dict):
+            # Safe one-time migration for untouched legacy missions only. A partially
+            # executed legacy mission has no trustworthy baseline and must be reviewed.
+            untouched_legacy = all(
+                task.get("status") == "pending"
+                and not task.get("execution_id")
+                and task.get("result") is None
+                for task in tasks
+            )
+            if untouched_legacy:
+                mission["plan_contract"] = build_plan_contract(tasks)
+                mission["plan_contract_migrated"] = time.time()
         plan_check = verify_plan_contract(mission.get("plan_contract"), tasks)
         if not plan_check.get("ok"):
             mission["status"] = "blocked"

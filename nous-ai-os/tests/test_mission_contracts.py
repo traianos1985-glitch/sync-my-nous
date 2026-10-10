@@ -82,3 +82,38 @@ def test_successful_mission_task_has_verifiable_execution_evidence(tmp_path, mon
     evidence = result["task"]["execution_evidence"]
     assert result["execution_ok"] is True
     assert verify_execution_evidence(evidence)["ok"] is True
+
+
+
+def test_untouched_legacy_mission_gets_one_time_plan_contract(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    import executor.mission_system as mission_module
+    missions = importlib.reload(mission_module)
+    calls = []
+    monkeypatch.setattr(missions, "run_ops_action", lambda action, payload=None: calls.append(action) or {"ok": True})
+    mission = missions.create_mission("Legacy", tasks=[{"title": "health", "action": "code_health"}])
+    stored = missions.list_missions()[0]
+    stored.pop("plan_contract", None)
+    missions._save([stored])
+    result = missions.run_next_mission_task(mission["id"])
+    assert result["execution_ok"] is True
+    assert result["mission"].get("plan_contract_migrated") is not None
+    assert calls == ["code_health"]
+
+
+def test_partially_executed_legacy_mission_fails_closed_without_baseline(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    import executor.mission_system as mission_module
+    missions = importlib.reload(mission_module)
+    calls = []
+    monkeypatch.setattr(missions, "run_ops_action", lambda action, payload=None: calls.append(action) or {"ok": True})
+    mission = missions.create_mission("Legacy partial", tasks=[{"title": "health", "action": "code_health"}])
+    stored = missions.list_missions()[0]
+    stored.pop("plan_contract", None)
+    stored["tasks"][0]["status"] = "done"
+    stored["tasks"][0]["result"] = {"ok": True}
+    missions._save([stored])
+    result = missions.run_next_mission_task(mission["id"])
+    assert result["ok"] is False
+    assert result["error"] == "mission_plan_integrity_failure"
+    assert calls == []
