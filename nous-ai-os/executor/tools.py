@@ -65,10 +65,13 @@ def run_tool(intent, context=None):
 
     if action == "time":
         zone = command.strip()
-        for prefix in ("time", "/time", "ώρα"):
-            if zone.lower().startswith(prefix):
-                zone = zone[len(prefix):].strip()
-                break
+        if zone.lower() in {"ώρα", "ώρα τώρα", "τι ώρα είναι", "time", "time now"}:
+            zone = ""
+        else:
+            for prefix in ("time", "/time", "ώρα"):
+                if zone.lower().startswith(prefix):
+                    zone = zone[len(prefix):].strip()
+                    break
         return current_time(zone)
 
     if action == "text_stats":
