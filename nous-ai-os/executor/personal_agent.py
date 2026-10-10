@@ -1,42 +1,49 @@
-import json, os, time
+import time
+
 from executor.llm_core import ask
+from executor.json_object_store import edit_object, read_object, write_object
 
 DB = "data/personal_agent.json"
 
+
 def load_db():
-    if not os.path.exists(DB):
-        return {"profile": {}, "goals": [], "projects": [], "decisions": []}
-    try:
-        return json.load(open(DB, "r", encoding="utf-8"))
-    except:
-        return {"profile": {}, "goals": [], "projects": [], "decisions": []}
+    return read_object(DB)
+
 
 def save_db(db):
-    os.makedirs("data", exist_ok=True)
-    json.dump(db, open(DB, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    return write_object(DB, db)
+
 
 def remember_fact(text):
-    db = load_db()
-    db["profile"][str(int(time.time()))] = text
-    save_db(db)
+    with edit_object(DB) as db:
+        key = str(int(time.time_ns()))
+        db["profile"][key] = text
     return {"saved": True, "fact": text}
 
+
 def add_goal(text):
-    db = load_db()
-    item = {"id": int(time.time()), "goal": text, "status": "active"}
-    db["goals"].append(item)
-    save_db(db)
+    with edit_object(DB) as db:
+        item = {"id": int(time.time_ns()), "goal": text, "status": "active"}
+        used = {str(existing.get("id")) for existing in db["goals"]}
+        while str(item["id"]) in used:
+            item["id"] += 1
+        db["goals"].append(item)
     return item
 
+
 def add_project(text):
-    db = load_db()
-    item = {"id": int(time.time()), "project": text, "status": "active", "steps": []}
-    db["projects"].append(item)
-    save_db(db)
+    with edit_object(DB) as db:
+        item = {"id": int(time.time_ns()), "project": text, "status": "active", "steps": []}
+        used = {str(existing.get("id")) for existing in db["projects"]}
+        while str(item["id"]) in used:
+            item["id"] += 1
+        db["projects"].append(item)
     return item
+
 
 def list_state():
     return load_db()
+
 
 def plan_goal(text):
     db = load_db()
