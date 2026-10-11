@@ -8,6 +8,7 @@ def _authenticate(monkeypatch, allowed=True):
     # The app-level guard and the route both enforce authentication.
     monkeypatch.setattr(auth_guard, "check_token", lambda request: allowed)
     monkeypatch.setattr(router, "check_token", lambda request: allowed)
+    monkeypatch.setattr(router, "check_admin_token", lambda request: allowed)
 
 
 def test_release_proposal_route_rejects_unauthenticated_requests(monkeypatch):
