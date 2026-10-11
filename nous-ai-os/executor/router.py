@@ -3821,6 +3821,8 @@ def remote_document_chat_ask_route():
 
 @app.route("/remote/document/upload", methods=["POST"])
 def remote_document_upload_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         if "file" not in request.files:
             return jsonify({"ok": False, "error": "missing_file"}), 400
