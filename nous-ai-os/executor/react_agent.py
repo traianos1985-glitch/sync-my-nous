@@ -2,7 +2,6 @@
 Provides a structured Thought -> Action -> Observation -> Reflection loop with a secure,
 extensible dynamic tool registry.
 """
-import os
 import json
 import time
 from pathlib import Path
