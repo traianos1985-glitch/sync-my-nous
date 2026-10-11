@@ -3272,14 +3272,48 @@ def app_builder_diagnose_route():
             "diagnosis": diagnosis,
             "human_review_required": True,
         }), 502
+    from executor.app_repair_review import save_repair_proposal
+
+    stored = save_repair_proposal(app_name.strip(), APPS_DIR, diagnosis)
+    if not stored.get("ok"):
+        return jsonify({
+            "ok": False,
+            "status": "proposal_storage_failed",
+            "diagnosis": diagnosis,
+            "storage_error": stored.get("error"),
+            "human_review_required": True,
+        }), 500
     return jsonify({
         "ok": True,
         "status": "diagnosis_ready",
         "test_result": test_result,
         "diagnosis": diagnosis,
-        "message": "Η πρόταση είναι μόνο για έλεγχο· δεν άλλαξε κανένα αρχείο.",
+        "repair_id": stored["repair_id"],
+        "proposal_storage": stored,
+        "message": "Η πρόταση αποθηκεύτηκε για στατικό προέλεγχο· δεν άλλαξε κανένα αρχείο.",
         "human_review_required": True,
     }), 200
+
+
+@app.route("/remote/app-builder/repair-review", methods=["POST"])
+def app_builder_repair_review_route():
+    """Statically review a stored repair proposal without applying or executing it."""
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_request_body"}), 400
+    repair_id = data.get("repair_id")
+    if not isinstance(repair_id, str) or not repair_id.strip():
+        return jsonify({"ok": False, "error": "repair_id_required"}), 400
+    from executor.app_builder import APPS_DIR
+    from executor.app_repair_review import review_repair_proposal
+
+    result = review_repair_proposal(repair_id.strip(), APPS_DIR)
+    if not result.get("ok"):
+        status_code = 404 if result.get("error") in {"repair_not_found", "app_not_found"} else 400
+        return jsonify(result), status_code
+    return jsonify(result), 200
 
 
 @app.route("/remote/app-builder/reject", methods=["POST"])
