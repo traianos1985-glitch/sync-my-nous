@@ -14,7 +14,8 @@ def _component(name: str, check: Callable[[], dict[str, Any]]) -> dict[str, Any]
             return {"name": name, "status": "unavailable", "error": "invalid_check_result"}
         return {"name": name, **result}
     except Exception as exc:
-        return {"name": name, "status": "unavailable", "error": f"{type(exc).__name__}: {str(exc)[:240]}"}
+        # Exception text can contain paths, request data or secrets.
+        return {"name": name, "status": "unavailable", "error": type(exc).__name__}
 
 
 def _disk_check() -> dict[str, Any]:
