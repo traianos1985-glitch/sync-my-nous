@@ -34,7 +34,30 @@ def deploy():
 
 @agent_environments_bp.get("/previews")
 def previews():
-    return jsonify(preview_catalog())
+    """Return launch links enriched with a read-only compatibility estimate for the current workspace."""
+    catalog = preview_catalog()
+    preflight_result = inspect_preview_compatibility(".")
+    catalog["preflight_ok"] = bool(preflight_result.get("ok"))
+    if preflight_result.get("ok"):
+        fits = {item["id"]: item for item in preflight_result.get("providers", [])}
+        for item in catalog.get("previews", []):
+            fit = fits.get(item.get("id"))
+            if not fit:
+                continue
+            item["compatibility"] = {
+                "fit": fit.get("fit", "unknown"),
+                "recommended": bool(fit.get("recommended")),
+                "reasons": fit.get("reasons", []),
+            }
+            status = "Καλή αντιστοίχιση" if fit.get("fit") == "good" else "Χρειάζεται έλεγχο"
+            item["description"] = (str(item.get("description") or "").rstrip() +
+                                   f" · Preflight: {status}.")
+        catalog["preflight"] = {
+            "project_types": preflight_result.get("project_types", []),
+            "detected": preflight_result.get("detected", {}),
+            "limitations": preflight_result.get("limitations", []),
+        }
+    return jsonify(catalog)
 
 
 @agent_environments_bp.post("/preflight")
