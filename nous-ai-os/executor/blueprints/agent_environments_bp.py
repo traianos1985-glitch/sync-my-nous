@@ -9,6 +9,12 @@ from executor.provider_runtime import deploy_provider, probe_provider, provider_
 agent_environments_bp = Blueprint("agent_environments", __name__, url_prefix="/api/agent-environments")
 
 
+def _json_object():
+    """Accept only JSON objects for mutation/probe endpoints; reject arrays/scalars."""
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else None
+
+
 @agent_environments_bp.get("")
 def inventory():
     return jsonify(provider_inventory())
@@ -16,7 +22,9 @@ def inventory():
 
 @agent_environments_bp.post("/probe")
 def probe():
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"ok": False, "error": "json_object_required"}), 400
     result = probe_provider(str(data.get("provider") or "").strip())
     return jsonify(result), (200 if result.get("ok") else 400)
 
@@ -25,7 +33,9 @@ def probe():
 def deploy():
     if not check_admin_token(request):
         return jsonify({"ok": False, "error": "admin_scope_required"}), 403
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"ok": False, "error": "json_object_required"}), 400
     result = deploy_provider(
         provider=data.get("provider"), project_path=data.get("project_path", "."),
         mode=data.get("mode", "preview"), confirmation=data.get("confirmation", ""),
@@ -67,6 +77,8 @@ def previews():
 @agent_environments_bp.post("/preflight")
 def preflight():
     """Read-only compatibility check; never installs, builds, or provisions a sandbox."""
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"ok": False, "error": "json_object_required"}), 400
     result = inspect_preview_compatibility(str(data.get("project_path") or "."))
     return jsonify(result), (200 if result.get("ok") else 400)
