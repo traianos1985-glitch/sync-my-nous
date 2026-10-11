@@ -365,6 +365,9 @@ function Dashboard() {
     }>
   >([]);
   const [knowledgeUpload, setKnowledgeUpload] = useState("idle");
+  const [knowledgeLoadStatus, setKnowledgeLoadStatus] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
   const [evaluationMetrics, setEvaluationMetrics] = useState<{
     total: number;
     positive: number;
@@ -386,11 +389,14 @@ function Dashboard() {
   } | null>(null);
 
   const loadKnowledgeDocuments = async () => {
+    setKnowledgeLoadStatus("loading");
     try {
       const data = await nousFetch<{ documents: typeof knowledgeDocuments }>("/api/knowledge");
+      if (!Array.isArray(data.documents)) throw new Error("Invalid knowledge response");
       setKnowledgeDocuments(data.documents);
+      setKnowledgeLoadStatus("idle");
     } catch {
-      setKnowledgeDocuments([]);
+      setKnowledgeLoadStatus("error");
     }
   };
 
@@ -2083,6 +2089,19 @@ function Dashboard() {
                     >
                       Ανανέωση knowledge vault
                     </button>
+                    {knowledgeLoadStatus === "error" && (
+                      <p role="alert" className="text-sm text-destructive">
+                        Αποτυχία φόρτωσης εγγράφων. Δοκίμασε ξανά.
+                      </p>
+                    )}
+                    {knowledgeLoadStatus === "loading" && (
+                      <p className="text-sm text-muted-foreground">Φόρτωση εγγράφων…</p>
+                    )}
+                    {knowledgeLoadStatus === "idle" && knowledgeDocuments.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        Δεν υπάρχουν αποθηκευμένα έγγραφα.
+                      </p>
+                    )}
                     <div className="space-y-2">
                       {knowledgeDocuments.map((document) => (
                         <div

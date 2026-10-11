@@ -556,6 +556,8 @@ def larmor_em_calculator():
 @app.route("/larmor/inject-knowledge", methods=["POST"])
 def larmor_inject_knowledge():
     """Inject all Larmor/NMR domain knowledge into the NOUS brain."""
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     from executor.knowledge_memory_engine import remember_knowledge
     chunks = get_knowledge_chunks()
     stored, skipped = 0, 0
@@ -577,6 +579,8 @@ def larmor_inject_knowledge():
 @app.route("/larmor/inject-guerrilla-knowledge", methods=["POST"])
 def inject_guerrilla_knowledge():
     """Inject guerrilla signs, military maps & Byzantine/Ottoman symbols knowledge into NOUS."""
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     from executor.knowledge_memory_engine import remember_knowledge
     from executor.guerrilla_signs_knowledge import get_guerrilla_signs_chunks
     chunks = get_guerrilla_signs_chunks()
@@ -605,6 +609,8 @@ def inject_guerrilla_knowledge():
 @app.route("/larmor/inject-cache-knowledge", methods=["POST"])
 def inject_cache_knowledge():
     """Inject US Army SF Caching Techniques (ST 31-205) knowledge into NOUS brain."""
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     from executor.knowledge_memory_engine import remember_knowledge
     from executor.cache_knowledge import get_cache_knowledge_chunks
     chunks = get_cache_knowledge_chunks()
@@ -667,6 +673,8 @@ def tunnel_status_route():
 
 @app.route("/remote/tunnel/start", methods=["POST"])
 def tunnel_start_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     authtoken = data.get("authtoken", "").strip() or None
     result = start_tunnel(port=5000, authtoken=authtoken)
@@ -674,10 +682,14 @@ def tunnel_start_route():
 
 @app.route("/remote/tunnel/stop", methods=["POST"])
 def tunnel_stop_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(stop_tunnel())
 
 @app.route("/remote/tunnel/save-token", methods=["POST"])
 def tunnel_save_token_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     token = data.get("authtoken", "").strip()
     if not token:
@@ -805,6 +817,8 @@ def cloud_status_route():
 
 @app.route("/backup")
 def backup_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(create_backup())
 
 from executor.file_reader import save_upload, read_text
@@ -818,7 +832,9 @@ def upload():
 
 @app.route("/read-file", methods=["POST"])
 def read_file_route():
-    data = request.get_json()
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
     path = data.get("path", "")
     return jsonify({"content": read_text(path)})
 
@@ -834,7 +850,9 @@ def upload_image():
 
 @app.route("/image-preview", methods=["POST"])
 def image_preview_route():
-    data = request.get_json()
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
     path = data.get("path", "")
     return jsonify(image_preview(path))
 
@@ -1288,6 +1306,8 @@ def remote_nous_drive_proposals():
 
 @app.route("/remote/nous-drive/approve", methods=["POST"])
 def remote_nous_drive_approve():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(nous_drive_approve(data.get("proposal_id")))
 
@@ -1300,6 +1320,8 @@ def remote_nous_drive_get_proposal(proposal_id):
 
 @app.route("/remote/nous-drive/reject", methods=["POST"])
 def remote_nous_drive_reject():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(nous_drive_reject(data.get("proposal_id"), data.get("reason","User rejected")))
 
@@ -1744,7 +1766,7 @@ def remote_mission_planner_propose():
 
 @app.route("/remote/mission-planner/approve", methods=["POST"])
 def remote_mission_planner_approve():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(approve_mission_proposal(data.get("proposal_id")))
@@ -1752,7 +1774,7 @@ def remote_mission_planner_approve():
 
 @app.route("/remote/mission-planner/reject", methods=["POST"])
 def remote_mission_planner_reject():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(reject_mission_proposal(
@@ -2031,7 +2053,7 @@ def remote_goals_v2_refresh_route():
 
 @app.route("/remote/goals-v2/create-mission", methods=["POST"])
 def remote_goals_v2_create_mission_route():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(create_goal_mission(
@@ -2054,6 +2076,8 @@ def remote_executive_plan_route():
 
 @app.route("/remote/executive/run", methods=["POST"])
 def remote_executive_run_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(executive_run(
         data.get("prompt", ""),
@@ -3578,6 +3602,8 @@ def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
 @app.route("/remote/app-builder/run-app", methods=["POST"])
 def app_builder_run_app_route():
     """Start an app from apps/<app_name>/ with autonomous self-repair on failure."""
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     from pathlib import Path as _P
     global _running_apps
 
@@ -3689,6 +3715,8 @@ def app_builder_app_log_route():
 @app.route("/remote/app-builder/stop-app", methods=["POST"])
 def app_builder_stop_app_route():
     """Terminate a running app subprocess."""
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     global _running_apps
     data = request.get_json(silent=True) or {}
     app_name = data.get("app", "").strip()
