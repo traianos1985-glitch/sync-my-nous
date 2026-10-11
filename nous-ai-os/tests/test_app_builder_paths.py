@@ -106,3 +106,19 @@ def test_app_launch_rejects_entrypoint_outside_app_directory(tmp_path):
         assert str(exc) == "app_entrypoint_outside_app_directory"
     else:
         raise AssertionError("expected app entrypoint path rejection")
+
+
+
+def test_autorepair_still_repairs_json_artifact_inside_app(tmp_path):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    artifact = app_dir / "main.py"
+    artifact.write_text(
+        '{"files": [{"content": "def repaired():\\n    return True"}]}',
+        encoding="utf-8",
+    )
+
+    result = router._try_autorepair_app(app_dir)
+
+    assert result["repaired"] is True
+    assert artifact.read_text(encoding="utf-8") == "def repaired():\n    return True"
