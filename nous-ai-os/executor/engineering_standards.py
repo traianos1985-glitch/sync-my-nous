@@ -95,8 +95,10 @@ def validate_app_plan(plan: Any) -> list[str]:
             errors.append(f"missing_{field}")
 
     files = plan.get("files")
-    if not isinstance(files, list) or not 2 <= len(files) <= _MAX_FILES:
-        return errors + ["files_must_contain_2_to_80_entries"]
+    if not isinstance(files, list):
+        return errors + ["files_must_be_list"]
+    if not 2 <= len(files) <= _MAX_FILES:
+        errors.append("files_must_contain_2_to_80_entries")
 
     seen: set[str] = set()
     paths: set[str] = set()
