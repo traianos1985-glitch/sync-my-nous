@@ -83,6 +83,21 @@ checks found no blockers. Review all warnings and the complete diff, then apply 
 change through a separate human-controlled workflow and run the project's full
 test suite. The repair proposal store is runtime state under `data/app_builder_repairs.json`. It retains at most the 100 most recent proposals; export any review record needed for long-term audit before it is rotated out.
 
+## App Builder UI/API contract audit
+
+An administrator can call `POST /remote/app-builder/contract-audit` or use the
+App Builder UI action to compare the UI's configured App Builder endpoint paths
+and expected HTTP methods with the Flask route declarations in
+`src/components/nous/section-configs.ts` and `nous-ai-os/executor/router.py`.
+The check is also covered by automated regression tests, so an obvious route or
+GET/POST mismatch should be caught in CI before merge.
+
+This is a deliberately narrow, static source audit. It does not make HTTP requests,
+validate request/response schemas, prove authorization behavior, or confirm that a
+deployed frontend and backend are running the same revision. Dynamically registered
+routes and routes outside `router.py` may not be discovered. A passing result is
+useful contract evidence, not full integration-test coverage.
+
 ## Upgrading NOUS itself
 
 Every proposed source-code change should include:
