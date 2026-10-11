@@ -17,7 +17,6 @@ from executor.field_engine import add_entry, list_entries, delete_entry, get_map
 from executor.remote_llm import ask_with_image, check_gemini
 from executor.nous_ui import nous_dashboard_html
 from executor.kernel import handle
-from executor.tool_catalog import tool_catalog
 from executor.security import check_token, check_admin_token, validate_startup_security
 from executor.auth_guard import install_auth_guard
 from executor.api_tokens import create_token, list_tokens, revoke_token, token_stats
@@ -628,6 +627,7 @@ SAFE_UI_TOOL_ACTIONS = {
 def api_tool_catalog():
     """Read-only inventory of tools exposed by the NOUS command runtime."""
     from executor.tool_catalog import tool_catalog
+
     catalog = tool_catalog(request.args.get("category", ""))
     for item in catalog.get("tools", []):
         item["executable_from_tool_library"] = item.get("name") in SAFE_UI_TOOL_ACTIONS

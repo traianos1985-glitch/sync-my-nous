@@ -1,6 +1,6 @@
 import json
 import time
-from flask import Blueprint, Response, request
+from flask import Blueprint, Response
 from executor.agent_journal import list_journal
 
 events_bp = Blueprint("events_sse", __name__, url_prefix="/api")

@@ -1,8 +1,6 @@
-import pytest
 from executor.vector_memory import (
     store_vector_memory,
     search_vector_memory,
-    generate_embedding,
     get_vector_stats
 )
 from executor.react_agent import run_react_task, GLOBAL_TOOL_REGISTRY

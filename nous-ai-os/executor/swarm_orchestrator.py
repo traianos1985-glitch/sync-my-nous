@@ -8,7 +8,6 @@ Coordinates specialized autonomous agents:
 """
 import time
 from typing import Any, Dict, List, Optional
-from executor.react_agent import GLOBAL_TOOL_REGISTRY
 
 class AgentRole:
     ARCHITECT = "architect"

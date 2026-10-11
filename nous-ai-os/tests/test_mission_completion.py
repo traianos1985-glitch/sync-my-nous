@@ -5,7 +5,7 @@ from executor.mission_completion import (
     verify_mission_completion,
     verify_task_completion,
 )
-from executor.mission_contracts import build_execution_evidence, build_plan_contract
+from executor.mission_contracts import build_execution_evidence
 
 
 def _task(task_id=1, action="code_health", payload=None, result=None, status="done"):
