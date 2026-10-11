@@ -35,7 +35,6 @@ This checklist separates repository CI success from end-to-end runtime validatio
 ## Shared private memory and persistent records
 
 - A user-scoped token must receive HTTP 401 for shared brain state/load, backup lists, queue and project state, mission/goal lists and approvals, repair/patch/upgrade proposals, operator approvals, and generated App Builder plans/files/logs/downloads.
-
 - A user-scoped token must receive HTTP 401 for shared executive/decision memory searches, document chat, knowledge/lesson/error-learning searches, GPS mutations, field record create/delete/image analysis, and persisted Larmor history writes.
 - A user-scoped token must receive HTTP 401 for shared goal/project progress, patch/rollback history, cleanup reports, executive/technical reports and proposals, learned research records, field listings, and Larmor history reads.
 - Confirm the admin/master token still supports these dashboard workflows.
@@ -52,11 +51,13 @@ This checklist separates repository CI success from end-to-end runtime validatio
 
 1. Build and install the debug APK on a test device.
 2. Enable the accessibility service manually and verify the app reports whether the service is connected.
-3. Through the existing ADB bridge, issue `state`, `ui_tree`, `back`, `home`, and a harmless in-bounds `tap`; verify truthful results.
-4. Confirm unknown commands and invalid/non-finite coordinates are rejected.
-5. Verify UI-tree text is not written to logcat. UI trees can contain private on-screen text, so treat returned snapshots as sensitive.
-6. On Android 14+, verify broadcasts from an ordinary third-party app are rejected by sender UID. On older Android versions, the platform does not expose the same sender UID check through this API; do not treat the exported ADB receiver as protected against arbitrary local apps on those versions.
-7. Test the actual supported Android versions; a successful APK build does not prove runtime behavior across OEMs or accessibility settings.
+3. Copy the pairing token from the app and send a harmless `state` command through the explicit ADB broadcast contract documented in `nous-ai-os/android_companion/spec/API.md`.
+4. Verify a missing, malformed, or incorrect pairing token is rejected without changing the last command/result state.
+5. Through the paired ADB bridge, issue `state`, `ui_tree`, `back`, `home`, and a harmless in-bounds `tap`; verify truthful results.
+6. Confirm unknown commands and invalid/non-finite coordinates are rejected.
+7. Verify UI-tree text and pairing tokens are never written to logcat. UI trees can contain private on-screen text, so treat returned snapshots as sensitive.
+8. On Android 14+, verify broadcasts from an ordinary third-party app are rejected by sender UID. On older Android versions, verify the per-install pairing token is required; do not treat the exported receiver as protected by UID checks on those versions.
+9. Reinstall the app and verify the token rotates. Test actual supported Android versions; a successful APK build does not prove runtime behavior across OEMs or accessibility settings.
 
 ## Cost-bearing and resource-intensive endpoints
 
