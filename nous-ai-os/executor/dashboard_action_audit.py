@@ -38,7 +38,7 @@ def _run_action(app, action, headers):
     return client.get(action["path"], headers=headers)
 
 
-def _entry(action, status, error, ok=False, protected_ok=False, is_json=False):
+def _entry(action, status, error, ok=False, protected_ok=False, is_json=False, skipped=False):
     return {
         "name": action["name"],
         "method": action["method"],
@@ -48,42 +48,39 @@ def _entry(action, status, error, ok=False, protected_ok=False, is_json=False):
         "ok": ok,
         "protected_ok": protected_ok,
         "json": is_json,
+        "skipped": skipped,
         "error": error,
     }
 
 
 def dashboard_action_audit(app, token=""):
-    """Τρέχει όλα τα dashboard actions και επιστρέφει το score τους.
+    """Probe read-only dashboard routes without triggering state-changing actions.
 
-    Στο Render κάθε sub-request παίρνει δευτερόλεπτα και τα authenticated
-    actions κάνουν πραγματική δουλειά, οπότε η σειριακή εκτέλεση έσπαγε το
-    gunicorn timeout (120s) και το endpoint απαντούσε 500. Τρέχουμε
-    συγχρόνισμα με αυστηρό συνολικό budget κάτω από αυτό το όριο, και ό,τι δεν
-    προλαβαίνει σημειώνεται ρητά ως timeout/budget_exhausted — δεν κρύβεται.
+    POST entries in ACTIONS are deliberately reported as skipped. Even with a
+    valid owner token, an audit must not create backups, propose missions, start
+    schedulers, or otherwise mutate the running NOUS instance.
     """
-    # 75s ανά action και ΟΛΑ τα actions ξεκινούν ταυτόχρονα: τα βαριά
-    # (remote/status ~28s, scheduler run-once ~59s στο Render) δεν πρέπει να
-    # περιμένουν σειρά, αλλιώς κόβονται τεχνητά. Συνολικό budget 90s < 120s
-    # του gunicorn, άρα το endpoint δεν σκοτώνεται ποτέ.
     action_timeout = 75.0
     budget = 90.0
     started = time.time()
     deadline = started + budget
 
-    pool = ThreadPoolExecutor(max_workers=len(ACTIONS))
+    results = [
+        _entry(action, 0, "skipped_non_read_only", skipped=True)
+        for action in ACTIONS
+        if action["method"].upper() != "GET"
+    ]
+    read_only_actions = [action for action in ACTIONS if action["method"].upper() == "GET"]
+    pool = ThreadPoolExecutor(max_workers=max(1, len(read_only_actions)))
     futures = []
     try:
-        for action in ACTIONS:
+        for action in read_only_actions:
             headers = {}
-            # Το fail-closed guard απαιτεί token σε ΟΛΑ τα endpoints (όχι μόνο σε
-            # όσα έχουν auth=True), αλλιώς τα περισσότερα actions αποτυγχάνουν με
-            # 401 και το audit αναφέρει ψεύτικα σφάλματα.
             if token:
                 headers["X-NOUS-Token"] = token
                 headers["Authorization"] = "Bearer " + token
             futures.append((action, pool.submit(_run_action, app, action, headers)))
 
-        results = []
         for action, future in futures:
             remaining = deadline - time.time()
             if remaining <= 0:
@@ -99,7 +96,7 @@ def dashboard_action_audit(app, token=""):
             except CancelledError:
                 results.append(_entry(action, 0, "cancelled"))
                 continue
-            except Exception as exc:  # noqa: BLE001 - το audit δεν πρέπει να πέφτει ποτέ
+            except Exception as exc:  # noqa: BLE001 - the audit itself should not crash
                 results.append(_entry(action, 0, f"error:{type(exc).__name__}"))
                 continue
 
@@ -108,26 +105,26 @@ def dashboard_action_audit(app, token=""):
                 data = response.get_json()
             except Exception:
                 data = None
-            protected_ok = action.get("auth", False) and not token and response.status_code == 401
             results.append(
                 _entry(
                     action,
                     response.status_code,
                     data.get("error") if isinstance(data, dict) else None,
-                    ok=(response.status_code < 400) or protected_ok,
-                    protected_ok=protected_ok,
+                    ok=response.status_code < 400,
                     is_json=response.is_json,
                 )
             )
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
 
+    evaluated = [item for item in results if not item["skipped"]]
     return {
-        "ok": all(x["ok"] for x in results if not x["requires_auth"]),
+        "ok": all(item["ok"] for item in evaluated),
         "time": time.time(),
         "durationMs": int((time.time() - started) * 1000),
         "total": len(results),
-        "passed": len([x for x in results if x["ok"]]),
-        "failed": len([x for x in results if not x["ok"]]),
+        "passed": sum(item["ok"] for item in evaluated),
+        "failed": sum(not item["ok"] for item in evaluated),
+        "skipped": sum(item["skipped"] for item in results),
         "results": results,
     }
