@@ -122,8 +122,9 @@ def test_recommendation_parser_bounds_and_validates_model_output():
     assert len(parsed) == 1
     assert parsed[0]["title"] == "Improve observability"
     assert parsed[0]["priority"] == "high"
-    assert parsed[0]["safe_to_automate"] is True
-    assert parsed[0]["requires_human_approval"] is False
+    # The model cannot override the host's review-only execution policy.
+    assert parsed[0]["safe_to_automate"] is False
+    assert parsed[0]["requires_human_approval"] is True
 
 
 def test_status_returns_not_started_when_report_does_not_exist(tmp_path, monkeypatch):
@@ -217,3 +218,82 @@ def test_source_map_indexes_python_routes_and_tests_without_source_contents(tmp_
     assert all(".env" not in item["path"] for item in result["files"])
 
 
+
+
+
+def test_gemini_probe_sends_api_key_in_header_not_url(monkeypatch):
+    import requests
+    from executor import remote_llm
+
+    secret = "BOOTSTRAP_TEST_GEMINI_SECRET"
+    monkeypatch.setattr(remote_llm, "_api_key", lambda: secret)
+    monkeypatch.setattr(remote_llm, "configured_models", lambda: ["gemini-test"])
+    monkeypatch.setattr(remote_llm, "GEMINI_API_BASE", "https://example.invalid/v1beta/models")
+    captured = {}
+
+    class Response:
+        status_code = 200
+        ok = True
+
+        @staticmethod
+        def json():
+            return {"candidates": [{"content": {"parts": [{"text": "NOUS_BOOTSTRAP_OK"}]}}]}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    result = bootstrap._probe_gemini()
+
+    assert result["connected"] is True
+    assert captured["headers"]["x-goog-api-key"] == secret
+    assert "params" not in captured
+    assert secret not in captured["url"]
+
+
+def test_ai_assessment_rejects_non_string_model_response():
+    report = {
+        "gemini": {"connected": True},
+        "runtime": {},
+        "capabilities": {},
+        "modules": {},
+        "manifest_inventory": {},
+        "source_map": {},
+        "checks": {},
+        "findings": [],
+        "safe_repairs_applied": [],
+    }
+
+    result = bootstrap._ai_assessment(
+        report,
+        ask_llm=lambda _prompt: {"success": True, "response": {"recommendations": []}},
+    )
+
+    assert result == {"status": "invalid_response", "recommendations": []}
+
+
+def test_ai_assessment_rejects_oversized_model_response():
+    report = {
+        "gemini": {"connected": True},
+        "runtime": {},
+        "capabilities": {},
+        "modules": {},
+        "manifest_inventory": {},
+        "source_map": {},
+        "checks": {},
+        "findings": [],
+        "safe_repairs_applied": [],
+    }
+
+    result = bootstrap._ai_assessment(
+        report,
+        ask_llm=lambda _prompt: {
+            "success": True,
+            "response": "x" * (bootstrap._MAX_AI_RESPONSE_CHARS + 1),
+        },
+    )
+
+    assert result == {"status": "response_too_large", "recommendations": []}
