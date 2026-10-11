@@ -5,10 +5,10 @@ The authenticated `POST /api/agent-environments/preflight` endpoint estimates wh
 Example request:
 
 ```json
-{"project_path":"."}
+{ "project_path": "." }
 ```
 
-The path is resolved inside `NOUS_WORKSPACE_ROOT` (or the process working directory when unset). The response reports detected project types, lockfiles, framework names, script *names*, and heuristic fit/recommendation fields for StackBlitz, CodeSandbox, v0, Bolt.new, and Railway Sandboxes.
+The path is resolved inside `NOUS_WORKSPACE_ROOT` (or the process working directory when unset). The response reports detected project types, lockfiles, framework names, script _names_, and heuristic fit/recommendation fields for StackBlitz, CodeSandbox, v0, Bolt.new, and Railway Sandboxes.
 
 ## Safety and limitations
 
