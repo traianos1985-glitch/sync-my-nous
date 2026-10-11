@@ -446,8 +446,8 @@ function Dashboard() {
     const refreshMissions = async (): Promise<boolean> => {
       try {
         const data = await nousFetch<
-          Array<{ id: string; title?: string; name?: string; status?: string }> |
-          { missions?: Array<{ id: string; title?: string; name?: string; status?: string }> }
+          | Array<{ id: string; title?: string; name?: string; status?: string }>
+          | { missions?: Array<{ id: string; title?: string; name?: string; status?: string }> }
         >("/remote/missions");
         const missions = Array.isArray(data) ? data : (data.missions ?? []);
         setLiveMissions(
