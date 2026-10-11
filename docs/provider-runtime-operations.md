@@ -27,6 +27,8 @@ A Lovable or Replit marker does not prove access to a provider account. The adap
 
 The /api/agent-environments/previews endpoint returns safe launch links for StackBlitz, CodeSandbox, v0, Bolt.new, and Railway sandbox documentation. If the configured workspace has a GitHub origin, only the validated owner/repository slug is used to build provider links; remote URLs containing embedded credentials are rejected.
 
+The preview endpoint now also attaches a read-only project compatibility estimate to existing provider cards. It inspects bounded manifests, framework names, lockfiles, and script names, then provides heuristic provider-fit metadata. It does not run project scripts, install dependencies, access the network, or create a sandbox. See [preview project preflight](preview-project-preflight.md) for its request shape and safety limits.
+
 - StackBlitz and CodeSandbox receive direct GitHub import/preview links.
 - v0 and Bolt open their official workspace pages and show the detected repository URL for copy/import.
 - Railway is documented as an isolated sandbox option, but this UI does not provision a Railway sandbox. Provisioning can consume resources and needs a separately configured, owner-authorized integration.
