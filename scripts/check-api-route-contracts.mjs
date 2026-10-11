@@ -74,7 +74,6 @@ requireMatch(
   "Mission updates must refresh every three seconds while connected.",
 );
 
-
 // Mutating dashboard actions require an admin-scoped token, not just any valid
 // user token accepted by the global request guard.
 for (const handler of ["api_job_update", "api_approval_resolve", "api_tool_execute"]) {
@@ -85,7 +84,6 @@ for (const handler of ["api_job_update", "api_approval_resolve", "api_tool_execu
     errors.push(`Dashboard mutation handler ${handler} must require an admin token.`);
   }
 }
-
 
 const privilegedRouterHandlers = [
   "tunnel_start_route",
