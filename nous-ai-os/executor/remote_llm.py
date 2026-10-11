@@ -1,4 +1,6 @@
 import os
+import random
+import time
 
 import requests
 
@@ -53,7 +55,7 @@ def _call_gemini(
     try:
         response = requests.post(
             f"{GEMINI_API_BASE}/{selected_model}:generateContent",
-            params={"key": key},
+            headers={"x-goog-api-key": key},
             json=payload,
             timeout=TIMEOUT,
         )
@@ -93,13 +95,30 @@ def _can_fallback(result: dict) -> bool:
     )
 
 
+def _should_retry(result: dict) -> bool:
+    """Retry only transient provider failures; never retry malformed requests."""
+    error = str(result.get("error", "")).lower()
+    return error == "gemini_request_failed" or any(
+        f"gemini_http_{status}" in error for status in (408, 429, 500, 502, 503, 504)
+    )
+
+
 def _call_gemini_with_fallback(contents: list, system: str, max_tokens: int = 4096) -> dict:
     models = configured_models()
-    result = _call_gemini(contents, system, max_tokens, model=models[0])
-    for model in models[1:]:
-        if result.get("success") or not _can_fallback(result):
-            break
+    result = {"success": False, "error": "gemini_request_failed", "provider": "gemini"}
+    for model in models:
         result = _call_gemini(contents, system, max_tokens, model=model)
+        if result.get("success"):
+            return result
+        if _should_retry(result):
+            # One bounded retry with a small jitter; fall back to the next configured
+            # model if the transient failure persists.
+            time.sleep(random.uniform(0.05, 0.2))
+            result = _call_gemini(contents, system, max_tokens, model=model)
+            if result.get("success"):
+                return result
+        if not _can_fallback(result):
+            return result
     return result
 
 
