@@ -95,7 +95,6 @@ This checklist separates repository CI success from end-to-end runtime validatio
 - Non-string and oversized model responses must be rejected before parsing or storing recommendations.
 - Verify the bootstrap report and request logs contain no API-key value.
 
-
 ## Runtime diagnostics resilience
 
 - Queue diagnostics tolerate malformed persisted entries and cap a single scan at 2,000 tasks; truncated scans report degraded status.
