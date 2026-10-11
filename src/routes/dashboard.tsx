@@ -1033,7 +1033,7 @@ function Dashboard() {
           <span className="text-primary">
             {hasSessionToken
               ? "· αποθηκευμένο σε αυτόν τον browser"
-              : "· ρυθμισμένο α��ό το περιβάλλον"}
+              : "· ρυθμισμένο από το περιβάλλον"}
           </span>
         ) : (
           <span className="text-warn">· δεν έχει οριστεί</span>
@@ -2061,7 +2061,7 @@ function Dashboard() {
                 <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
                   {initiativesState === "loading"
                     ? "Φόρτωση…"
-                    : "Δεν υπάρχουν εκκρεμείς προτάσεις."}
+                    : "Δεν υπάρχουν εκκρεμε��ς προτάσεις."}
                 </div>
               ) : (
                 <div className="mt-4 space-y-2">
