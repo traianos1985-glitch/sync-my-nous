@@ -87,6 +87,22 @@ security sandbox και δεν αποκλείει την πρόσβαση στο
 
 Δες το [Engineering-Grade Development Guide](docs/ENGINEERING_GRADE_DEVELOPMENT.md).
 
+## Environment-aware startup bootstrap
+
+After the first authenticated request, NOUS starts background diagnostics of the
+runtime, required Python modules, project manifests, writable data directories,
+disk space, source-control revision, and Gemini connectivity. View the latest
+report at `GET /remote/environment/bootstrap/status`; administrators can start a
+fresh run with `POST /remote/environment/bootstrap/run`.
+
+The bootstrap may create only known runtime data directories. It never installs
+packages, changes tokens or API keys, edits source code, or executes AI-generated
+commands. If Gemini is available, it can add bounded, review-only recommendations
+based on sanitized environment metadata. The report is saved to
+`data/environment_bootstrap_report.json` and does not contain secret values.
+A successful bootstrap is a readiness signal, not proof that every NOUS feature
+works in the deployed environment.
+
 ## Development
 
 ```bash
