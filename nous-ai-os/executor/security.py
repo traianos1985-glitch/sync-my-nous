@@ -66,7 +66,7 @@ def check_token(request):
         return False
     if not _env_token() and not _store_has_active_tokens():
         # Explicit anonymous mode is still blocked behind a proxy/public tunnel.
-        return _is_local(request) and (allow_anonymous() or _is_local(request))
+        return _is_local(request)
     return False
 
 
