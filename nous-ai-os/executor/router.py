@@ -825,6 +825,8 @@ from executor.file_reader import save_upload, read_text
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     f = request.files.get("file")
     if not f:
         return jsonify({"error": "no_file"})
@@ -843,6 +845,8 @@ from executor.image_reader import save_image, image_preview
 
 @app.route("/upload-image", methods=["POST"])
 def upload_image():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     f = request.files.get("file")
     if not f:
         return jsonify({"error": "no_image"})
@@ -1297,6 +1301,8 @@ def remote_nous_drive_status():
 
 @app.route("/remote/nous-drive/think", methods=["POST"])
 def remote_nous_drive_think():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(nous_drive_think(force=data.get("force", True)))
 
@@ -1382,29 +1388,58 @@ def nous_web_search():
 # ── NOUS Capabilities: Cron Scheduler ─────────────────────────────────────────
 @app.route("/nous/cron/status")
 def nous_cron_status_route():
-    return jsonify(cron_status())
+    result = cron_status()
+    return jsonify(result), (200 if result.get("ok") else 503)
 
 @app.route("/nous/cron/jobs")
 def nous_cron_jobs():
-    return jsonify({"ok": True, "jobs": cron_list_jobs()})
+    try:
+        return jsonify({"ok": True, "jobs": cron_list_jobs()})
+    except (OSError, ValueError):
+        return jsonify({"ok": False, "error": "schedule_store_unavailable"}), 503
 
 @app.route("/nous/cron/add", methods=["POST"])
 def nous_cron_add():
-    data = request.get_json(silent=True) or {}
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_json_object"}), 400
     if not data.get("name") or not data.get("action"):
         return jsonify({"ok": False, "error": "name and action required"}), 400
-    job = cron_add_job(data["name"], data["action"], int(data.get("hour",8)), int(data.get("minute",0)), data.get("days"))
+    try:
+        job = cron_add_job(data["name"], data["action"], data.get("hour", 8), data.get("minute", 0), data.get("days"))
+    except (OSError, ValueError):
+        return jsonify({"ok": False, "error": "schedule_store_unavailable"}), 503
+    if isinstance(job, dict) and job.get("ok") is False:
+        return jsonify(job), 400
     return jsonify({"ok": True, "job": job})
 
 @app.route("/nous/cron/remove", methods=["POST"])
 def nous_cron_remove():
-    data = request.get_json(silent=True) or {}
-    return jsonify(cron_remove_job(str(data.get("job_id",""))))
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_json_object"}), 400
+    try:
+        result = cron_remove_job(str(data.get("job_id", "")))
+    except (OSError, ValueError):
+        return jsonify({"ok": False, "error": "schedule_store_unavailable"}), 503
+    return jsonify(result), (200 if result.get("ok") else 404)
 
 @app.route("/nous/cron/toggle", methods=["POST"])
 def nous_cron_toggle():
-    data = request.get_json(silent=True) or {}
-    return jsonify(cron_toggle_job(str(data.get("job_id","")), bool(data.get("enabled", True))))
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_json_object"}), 400
+    try:
+        result = cron_toggle_job(str(data.get("job_id", "")), bool(data.get("enabled", True)))
+    except (OSError, ValueError):
+        return jsonify({"ok": False, "error": "schedule_store_unavailable"}), 503
+    return jsonify(result), (200 if result.get("ok") else 404)
 
 
 @app.route("/remote/nous-initiatives/act", methods=["POST"])
@@ -1737,6 +1772,8 @@ def remote_self_diagnosis_apply_fix():
 
 @app.route("/remote/self-diagnosis/ai-analyze", methods=["POST"])
 def remote_self_diagnosis_ai_analyze():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     from executor.self_diagnosis import ai_analyze_diagnosis
     return jsonify(ai_analyze_diagnosis())
 
@@ -2100,6 +2137,8 @@ def remote_workspace_plan_route():
 
 @app.route("/remote/workspace/create-mission", methods=["POST"])
 def remote_workspace_create_mission_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(create_workspace_mission(data.get("prompt", "")))
 
@@ -3782,6 +3821,8 @@ def remote_document_chat_ask_route():
 
 @app.route("/remote/document/upload", methods=["POST"])
 def remote_document_upload_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         if "file" not in request.files:
             return jsonify({"ok": False, "error": "missing_file"}), 400
@@ -3926,6 +3967,8 @@ def remote_knowledge_search_route():
 
 @app.route("/remote/knowledge/remember", methods=["POST"])
 def remote_knowledge_remember_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(remember_knowledge(
         question=data.get("question", ""),
