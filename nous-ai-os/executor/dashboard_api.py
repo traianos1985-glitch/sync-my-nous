@@ -39,6 +39,20 @@ from executor.tools import run_tool
 
 dashboard_api_bp = Blueprint("dashboard_api", __name__, url_prefix="/api")
 
+TOOL_LIBRARY_ALLOWED_ACTIONS = frozenset(
+    {
+        "calculate",
+        "convert",
+        "current_time",
+        "text_stats",
+        "json_validate",
+        "sha256",
+        "json_format",
+        "url_encode",
+        "url_decode",
+    }
+)
+
 FEEDBACK_FILE = Path("data/feedback.json")
 _UPLOAD_PREFIX = re.compile(r"^\d{8}_\d{6}_")
 _TRUTHY = {"1", "true", "yes", "on"}
@@ -121,9 +135,11 @@ def _map_job(item: dict) -> dict:
 
 @dashboard_api_bp.get("/tools/catalog")
 def api_tool_catalog():
-    """Live discoverable catalog of built-in tools and supported command examples."""
-    category = request.args.get("category", "")
-    return jsonify(tool_catalog(category))
+    """Live catalog with an explicit marker for Tool Library executable utilities."""
+    catalog = tool_catalog(request.args.get("category", ""))
+    for item in catalog.get("tools", []):
+        item["executable_from_tool_library"] = item.get("name") in TOOL_LIBRARY_ALLOWED_ACTIONS
+    return jsonify(catalog)
 
 
 @dashboard_api_bp.post("/tools/run")
@@ -135,10 +151,7 @@ def api_tool_run():
         return jsonify({"ok": False, "error": "command_empty_or_too_long"}), 400
 
     intent = detect_intent(command)
-    allowed_actions = {
-        "calculate", "convert", "current_time", "text_stats", "json_validate", "sha256",
-        "json_format", "url_encode", "url_decode",
-    }
+    allowed_actions = TOOL_LIBRARY_ALLOWED_ACTIONS
     if intent.get("type") != "tool" or intent.get("action") not in allowed_actions:
         return jsonify({
             "ok": False,
