@@ -335,6 +335,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
       <button class="navItem" data-sec="toolbox" onclick="showSection('toolbox')"><span class="ni">🧰</span> Tool Library</button>
       <button class="navItem" data-sec="scheduler" onclick="showSection('scheduler')"><span class="ni">⏱</span> Scheduler</button>
       <button class="navItem" data-sec="deploy" onclick="showSection('deploy')"><span class="ni">🚀</span> Deploy</button>
+      <button class="navItem" data-sec="agent-environments" onclick="showSection('agent-environments');loadAgentEnvironments()"><span class="ni">🧩</span> Agent Environments</button>
       <button class="navItem" data-sec="backup" onclick="showSection('backup')"><span class="ni">☁</span> Backup</button>
       <button class="navItem" data-sec="larmor" onclick="showSection('larmor');larmorLoadHistory()"><span class="ni">🧲</span> Larmor Monitor</button>
       <button class="navItem" data-sec="field" onclick="showSection('field');fieldDiaryLoad();fieldMarkersLoad()"><span class="ni">🔍</span> Πεδίο & Χάρτης</button>
@@ -570,6 +571,46 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
             <button class="miniBtn" onclick="ops('deploy_vercel_test_app')">Deploy Test App</button>
           </div>
           <div class="card"><h3>Vercel</h3><div id="deployStatus">Loading...</div></div>
+        </div>
+      </section>
+
+      <section id="agent-environments" class="section">
+        <div class="hero">
+          <h1>🧩 Agent Environments</h1>
+          <p>Αναγνώριση περιβάλλοντος, ζωντανοί έλεγχοι παρόχων και ελεγχόμενες αναπτύξεις.</p>
+        </div>
+        <div class="card">
+          <h3>Workspace & Provider Inventory</h3>
+          <button class="miniBtn" onclick="loadAgentEnvironments()">Refresh Inventory</button>
+          <button class="miniBtn" onclick="probeAgentProvider()">Run Live Probe</button>
+          <div id="agentProviderCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px;">Loading...</div>
+          <pre id="agentEnvironmentInventory" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px;">Loading...</pre>
+        </div>
+        <div class="card">
+          <h3>Provider Operation</h3>
+          <p style="color:var(--muted);font-size:13px;">Οι probes είναι read-only. Η ανάπτυξη αλλάζει πραγματικό εξωτερικό project και απαιτεί ρητή επιβεβαίωση.</p>
+          <label for="agentProviderSelect">Provider</label>
+          <select id="agentProviderSelect" style="display:block;width:100%;max-width:420px;padding:10px;margin:6px 0 12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;">
+            <option value="vercel">Vercel</option>
+            <option value="render">Render</option>
+            <option value="replit">Replit (workspace probe only)</option>
+            <option value="lovable">Lovable (Git sync probe only)</option>
+            <option value="codespaces">GitHub Codespaces (workspace probe only)</option>
+          </select>
+          <button class="miniBtn" onclick="probeAgentProvider()">Probe Selected Provider</button>
+          <div style="height:1px;background:var(--line);margin:16px 0;"></div>
+          <h3>Deploy (Vercel / Render)</h3>
+          <label for="agentProjectPath">Project path inside NOUS_WORKSPACE_ROOT</label>
+          <input id="agentProjectPath" value="." maxlength="500" style="display:block;width:100%;max-width:520px;padding:10px;margin:6px 0 12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;">
+          <label for="agentDeployMode">Vercel deployment mode</label>
+          <select id="agentDeployMode" style="display:block;width:100%;max-width:420px;padding:10px;margin:6px 0 12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;">
+            <option value="preview">Preview deployment</option>
+            <option value="production">Production deployment</option>
+          </select>
+          <label for="agentDeployConfirm">Type DEPLOY to authorize the requested deployment</label>
+          <input id="agentDeployConfirm" placeholder="DEPLOY" autocomplete="off" maxlength="20" style="display:block;width:100%;max-width:420px;padding:10px;margin:6px 0 12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;">
+          <button class="miniBtn" onclick="deployAgentProvider()">🚀 Deploy with Selected Provider</button>
+          <pre id="agentProviderOperationResult" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px;">No operation run yet.</pre>
         </div>
       </section>
 
@@ -5458,6 +5499,75 @@ function _refreshMapMarkers(){
       .bindPopup(`<b>${escHtml(m.icon)} ${escHtml(m.title)}</b><br/><small style="color:#888;">${m.ts}</small>${m.note?`<br/><small>${escHtml(m.note)}</small>`:""}`)
       .addTo(_fieldMap);
   });
+}
+
+
+
+// ── Agent Environment provider integrations ──
+async function loadAgentEnvironments(){
+  const inventoryEl=document.getElementById("agentEnvironmentInventory");
+  const cardsEl=document.getElementById("agentProviderCards");
+  if(!inventoryEl||!cardsEl)return;
+  inventoryEl.textContent="Loading provider inventory…";
+  try{
+    const d=await getJson("/api/agent-environments");
+    if(!d||d.ok!==true){
+      inventoryEl.textContent=JSON.stringify(d,null,2);
+      cardsEl.textContent="Inventory unavailable";
+      return;
+    }
+    cardsEl.innerHTML=(d.providers||[]).map(function(p){
+      return '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;">'
+        +'<div style="font-weight:800;">'+escHtml(p.label)+'</div>'
+        +'<div style="font-size:12px;color:var(--muted);margin-top:5px;">Detected: '+(p.detected?'yes':'no')+' · Configured: '+(p.configured?'yes':'no')+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:5px;">'+escHtml(p.operation||'inventory')+'</div>'
+        +'<a href="'+escHtml(p.documentation||'#')+'" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--accent2);">Provider docs ↗</a></div>';
+    }).join("");
+    inventoryEl.textContent=JSON.stringify({workspace:d.workspace,environment:d.environment,notes:d.notes},null,2);
+  }catch(e){
+    inventoryEl.textContent="Provider inventory failed: "+String(e);
+    cardsEl.textContent="Inventory unavailable";
+  }
+}
+
+async function probeAgentProvider(){
+  const provider=document.getElementById("agentProviderSelect")?.value||"vercel";
+  const resultEl=document.getElementById("agentProviderOperationResult");
+  if(resultEl)resultEl.textContent="Running bounded read-only probe for "+provider+"…";
+  try{
+    const result=await postJson("/api/agent-environments/probe",{provider:provider});
+    if(resultEl)resultEl.textContent=JSON.stringify(result,null,2);
+    await loadAgentEnvironments();
+  }catch(e){
+    if(resultEl)resultEl.textContent="Probe failed: "+String(e);
+  }
+}
+
+async function deployAgentProvider(){
+  const provider=document.getElementById("agentProviderSelect")?.value||"vercel";
+  const confirmation=(document.getElementById("agentDeployConfirm")?.value||"").trim();
+  const project_path=(document.getElementById("agentProjectPath")?.value||".").trim();
+  const mode=document.getElementById("agentDeployMode")?.value||"preview";
+  const resultEl=document.getElementById("agentProviderOperationResult");
+  if(["vercel","render"].indexOf(provider)<0){
+    alert("Ο συγκεκριμένος provider διαθέτει μόνο workspace/Git probe εδώ· δεν υπάρχει υποστηριζόμενη λειτουργία deploy.");
+    return;
+  }
+  if(confirmation!=="DEPLOY"){
+    alert("Για να συνεχίσεις, γράψε ακριβώς DEPLOY στο πεδίο επιβεβαίωσης.");
+    return;
+  }
+  const target=provider==="render"?"Render service (production)":"Vercel "+mode;
+  if(!confirm("Επιβεβαιώνεις πραγματική ανάπτυξη μέσω "+target+"; Η ενέργεια μπορεί να αλλάξει εξωτερικό περιβάλλον."))return;
+  if(resultEl)resultEl.textContent="Deployment request submitted; waiting for provider response…";
+  try{
+    const result=await postJson("/api/agent-environments/deploy",{provider:provider,project_path:project_path,mode:mode,confirmation:confirmation});
+    if(resultEl)resultEl.textContent=JSON.stringify(result,null,2);
+    if(result&&result.ok)document.getElementById("agentDeployConfirm").value="";
+    await loadAgentEnvironments();
+  }catch(e){
+    if(resultEl)resultEl.textContent="Deployment failed: "+String(e);
+  }
 }
 
 </script>
