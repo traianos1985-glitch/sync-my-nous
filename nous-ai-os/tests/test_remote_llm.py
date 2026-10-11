@@ -124,7 +124,7 @@ def test_image_analysis_sends_inline_image_to_gemini():
 
 def test_gemini_errors_never_return_key_or_fall_back_to_openrouter():
     with (
-        patch.dict(os.environ, {"GEMINI_API_KEY": "secret-key"}, clear=True),
+        patch.dict(os.environ, {"GEMINI_API_KEY": "secret-key", "GEMINI_MODEL": "gemini-primary", "GEMINI_FALLBACK_MODELS": ""}, clear=True),
         patch.object(remote_llm.requests, "post", side_effect=remote_llm.requests.Timeout()) as post,
         patch.object(remote_llm.time, "sleep"),
         patch.object(remote_llm, "ask_ollama", return_value={"ok": False}),
