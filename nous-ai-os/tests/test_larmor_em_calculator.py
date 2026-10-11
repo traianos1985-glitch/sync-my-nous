@@ -53,5 +53,5 @@ def test_knowledge_chunks_do_not_repeat_legacy_hz_values() -> None:
     answers = " ".join(item["answer"] for item in get_knowledge_chunks())
     assert "545Hz" not in answers
     assert "78.1Hz" not in answers
-    assert "545.4 kHz" in answers
+    assert "545.5 kHz" in answers
     assert "not a validated" in answers or "δεν αποδεικνύουν" in answers
