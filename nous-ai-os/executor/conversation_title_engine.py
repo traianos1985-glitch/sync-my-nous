@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from executor.conversation_manager import get_conversation, rename_conversation, load_json, INDEX
+from executor.conversation_manager import get_conversation, rename_conversation, load_json, normalize_limit, INDEX
 
 
 def clean(text: str) -> str:
@@ -102,7 +102,8 @@ def generate_conversation_title(conversation_id: str) -> dict[str, Any]:
 def auto_title_recent_conversations(limit: int = 80) -> dict[str, Any]:
     index = load_json(INDEX, [])
     if not isinstance(index, list):
-        index = []
+        raise ValueError(f"Invalid conversation index structure in {INDEX}")
+    bounded_limit = normalize_limit(limit, default=80, maximum=80)
 
     updated = []
 
@@ -111,7 +112,7 @@ def auto_title_recent_conversations(limit: int = 80) -> dict[str, Any]:
         "συνομιλ", "αποθ", "κευσης", "μιλο", "σαμε"
     ]
 
-    for item in index[:limit]:
+    for item in index[:bounded_limit]:
         if not isinstance(item, dict):
             continue
 
