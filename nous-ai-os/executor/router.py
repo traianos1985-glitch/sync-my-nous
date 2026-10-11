@@ -949,6 +949,8 @@ def remote_browser_read_route():
 
 @app.route("/remote/goals/progress")
 def remote_goals_progress_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_goal_progress())
 
 
@@ -961,6 +963,8 @@ def remote_goals_refresh_route():
 
 @app.route("/remote/goals/summary")
 def remote_goals_summary_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(goal_progress_summary())
 
 @app.route("/remote/progress/snapshot")
@@ -1031,6 +1035,8 @@ def remote_patch_apply_status():
 
 @app.route("/remote/patch-apply/history")
 def remote_patch_apply_history():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_patch_apply_history())
 
 @app.route("/remote/patch-apply/apply", methods=["POST"])
@@ -1046,6 +1052,8 @@ def remote_rollback_status():
 
 @app.route("/remote/rollback/history")
 def remote_rollback_history():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_rollbacks())
 
 @app.route("/remote/rollback/apply", methods=["POST"])
@@ -1093,6 +1101,8 @@ def remote_cleanup_status():
 
 @app.route("/remote/cleanup/reports")
 def remote_cleanup_reports():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_cleanup_reports())
 
 
@@ -1117,6 +1127,8 @@ def remote_goal_manager_v2_status():
 
 @app.route("/remote/goal-manager-v2/projects")
 def remote_goal_manager_v2_projects():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_goal_projects())
 
 
@@ -1961,6 +1973,8 @@ def remote_executive_intelligence_status():
 
 @app.route("/remote/executive-intelligence/report")
 def remote_executive_intelligence_report():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(executive_intelligence_report())
 
 @app.route("/remote/lessons/status")
@@ -2820,11 +2834,15 @@ def remote_technical_intelligence_status_route():
 
 @app.route("/remote/technical-intelligence/report")
 def remote_technical_intelligence_report_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(technical_intelligence_report())
 
 
 @app.route("/remote/technical-intelligence/proposals")
 def remote_technical_intelligence_proposals_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(technical_intelligence_proposals())
 
 
@@ -2845,6 +2863,8 @@ def remote_technical_sources_status_route():
 
 @app.route("/remote/technical-sources/report")
 def remote_technical_sources_report_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(latest_source_report())
 
 
@@ -2883,6 +2903,8 @@ def remote_real_research_status_route():
 
 @app.route("/remote/research/learned")
 def remote_real_research_learned_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(learned_items())
 
 
@@ -4281,6 +4303,8 @@ def field_add_route():
 
 @app.route("/field/list", methods=["GET"])
 def field_list_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         limit = int(request.args.get("limit", 80))
         entry_type = request.args.get("type", None) or None
@@ -4315,6 +4339,8 @@ def field_markers_route():
 
 @app.route("/larmor/history", methods=["GET"])
 def larmor_history_load():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     """Load persisted Larmor chat history from disk."""
     try:
         import json as _json
@@ -4363,6 +4389,8 @@ def remote_daily_brief_route():
 # ─── PROJECT HEALTH SNAPSHOT ──────────────────────────────────────────────────
 @app.route("/remote/project-health", methods=["GET"])
 def remote_project_health_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         from executor.project_health_snapshot import run_project_health_snapshot
         return jsonify(run_project_health_snapshot())
