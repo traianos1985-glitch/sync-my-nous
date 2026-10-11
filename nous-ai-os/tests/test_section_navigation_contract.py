@@ -13,12 +13,12 @@ CUSTOM_SECTIONS = {"chat", "home", "documents", "control", "settings"}
 
 def _navigation_ids():
     source = NAV_PATH.read_text(encoding="utf-8")
-    return set(re.findall(r"""\\bid:\\s*["']([^"']+)["']""", source))
+    return set(re.findall(r"""\bid:\s*["']([^"']+)["']""", source))
 
 
 def _configured_sections():
     source = CONFIG_PATH.read_text(encoding="utf-8")
-    return set(re.findall(r"(?m)^  ([a-z][a-z0-9-]*): \\{", source))
+    return set(re.findall(r"(?m)^  ([a-z][a-z0-9-]*): \{", source))
 
 
 def test_every_navigation_item_has_a_rendered_section():
