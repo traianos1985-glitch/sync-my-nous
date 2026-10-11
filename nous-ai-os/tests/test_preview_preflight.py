@@ -2,7 +2,6 @@ import json
 
 from flask import Flask
 
-from executor import blueprints
 from executor.blueprints import agent_environments_bp as agent_environment_routes
 from executor.preview_preflight import inspect_preview_compatibility
 
