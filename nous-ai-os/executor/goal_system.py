@@ -3,6 +3,7 @@ import time
 from executor.json_state_store import edit_list, read_list, write_list
 from executor.mission_system import list_missions, create_mission
 from executor.agent_journal import write_journal
+from executor.id_compat import find_by_id, new_runtime_id
 
 FILE = "data/goals_v2.json"
 
@@ -33,7 +34,7 @@ def goal_status():
 def _new_goal(title, description="", priority=3):
     now = time.time()
     return {
-        "id": int(time.time_ns()),
+        "id": new_runtime_id(),
         "title": title,
         "description": description,
         "priority": int(priority),
@@ -59,10 +60,7 @@ def create_goal(title, description="", priority=3):
 
 
 def _find_goal(items, goal_id):
-    for goal in items:
-        if str(goal.get("id")) == str(goal_id):
-            return goal
-    return None
+    return find_by_id(items, goal_id)
 
 
 def add_goal_note(goal_id, note):
