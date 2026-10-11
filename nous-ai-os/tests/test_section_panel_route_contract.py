@@ -116,3 +116,17 @@ def test_home_runtime_overview_is_rendered_by_the_home_dashboard():
     assert home_panel < home_end, (
         "Home section config exists but is not rendered in the Home dashboard"
     )
+
+def test_every_navigation_section_has_a_config_or_explicit_custom_renderer():
+    root = Path(__file__).resolve().parents[2]
+    nav_source = (root / "src" / "components" / "nous" / "nav.ts").read_text(encoding="utf-8")
+    nav_ids = set(re.findall(r'id: "([^"]+)"', nav_source))
+    config_source = (root / "src" / "components" / "nous" / "section-configs.ts").read_text(encoding="utf-8")
+    config_ids = {
+        line.strip().removesuffix(": {").strip('"')
+        for line in config_source.splitlines()
+        if line.startswith("  ") and line.rstrip().endswith(": {")
+    }
+    custom_sections = {"chat", "home", "documents", "control", "settings"}
+    missing = sorted(nav_ids - config_ids - custom_sections)
+    assert not missing, f"Navigation sections without a panel or custom renderer: {missing}"
