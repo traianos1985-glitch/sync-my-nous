@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 import time
 
@@ -21,10 +22,14 @@ SAFE_MODULES = [
 
 
 def run_cmd(cmd):
+    """Run a command as argv; never ask a shell to interpret command text."""
     try:
+        argv = shlex.split(cmd) if isinstance(cmd, str) else list(cmd)
+        if not argv:
+            return {"ok": False, "error": "empty_command"}
         p = subprocess.run(
-            cmd,
-            shell=True,
+            argv,
+            shell=False,
             text=True,
             capture_output=True,
             timeout=30,
@@ -44,10 +49,10 @@ def code_health():
 
     for path in SAFE_MODULES:
         if os.path.exists(path):
-            results[path] = run_cmd(f"python -m py_compile {path}")
+            results[path] = run_cmd(["python", "-m", "py_compile", path])
 
     try:
-        git = run_cmd("git --no-optional-locks status --short")
+        git = run_cmd(["git", "--no-optional-locks", "status", "--short"])
     except Exception as e:
         git = {"ok": False, "error": str(e)}
 

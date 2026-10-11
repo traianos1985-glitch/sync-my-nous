@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 import time
 
@@ -66,10 +67,13 @@ def ask_local(prompt, timeout=60):
         }
 
     try:
+        command = shlex.split(CONFIG["command"])
+        if not command:
+            return {"ok": False, "error": "local_llm_command_empty"}
         p = subprocess.run(
-            CONFIG["command"],
+            command,
             input=str(prompt),
-            shell=True,
+            shell=False,
             text=True,
             capture_output=True,
             timeout=int(timeout),
