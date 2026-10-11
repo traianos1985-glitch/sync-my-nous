@@ -4,5 +4,5 @@ beautifulsoup4>=4.12,<5
 psutil>=5.9,<7
 pyngrok>=7.2,<8
 python-dotenv>=1.2.4,<2
-gunicorn>=22.0,<24
+gunicorn>=26.2.0,<27
 psycopg[binary]>=3.2,<4
