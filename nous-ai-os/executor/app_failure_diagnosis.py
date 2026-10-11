@@ -54,9 +54,10 @@ def collect_project_context(app_name: str, apps_root: str | Path) -> dict[str, A
             if path.stat().st_size > 48000:
                 truncated = True
                 continue
-            raw_source = path.read_text(encoding="utf-8")[:min(12000, 60000-total)]
+            original_bytes = path.read_bytes()
+            baseline_hashes[path.relative_to(root).as_posix()] = hashlib.sha256(original_bytes).hexdigest()
+            raw_source = original_bytes.decode("utf-8")[:min(12000, 60000-total)]
             source = _redact_source(raw_source)
-            baseline_hashes[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
         except (OSError, UnicodeError, ValueError):
             continue
         if not source:
