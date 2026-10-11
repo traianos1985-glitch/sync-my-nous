@@ -321,11 +321,9 @@ function Index() {
               </h2>
               <p className="mt-4 max-w-md leading-relaxed text-muted-foreground">
                 Το React/TanStack frontend παρέχει το workspace και τις δικές του server routes σε
-                full-stack hosting.
-                Το Flask service (
+                full-stack hosting. Το Flask service (
                 <code className="font-mono text-primary">executor.router:app</code>) παρέχει το NOUS
-                backend API και agents.
-                Ο φάκελος{" "}
+                backend API και agents. Ο φάκελος{" "}
                 <code className="font-mono text-primary">data/</code> κρατά την κατάσταση και μένει
                 εκτός Git.
               </p>
