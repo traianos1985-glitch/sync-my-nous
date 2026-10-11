@@ -646,8 +646,14 @@ def health():
 @app.route("/api/gemini-check", methods=["POST"])
 @app.route("/gemini-check", methods=["POST"])
 def gemini_check_route():
-    data = request.get_json(silent=True) or {}
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
     prompt = str(data.get("prompt") or data.get("message") or "Απάντησε ακριβώς με GEMINI_OK").strip()
+    if len(prompt) > 500:
+        return jsonify({"ok": False, "error": "prompt_too_long", "max_length": 500}), 400
     result = check_gemini(prompt)
     if not result.get("success"):
         return jsonify(
@@ -2109,8 +2115,15 @@ def remote_executive_status_route():
 
 @app.route("/remote/executive/plan", methods=["POST"])
 def remote_executive_plan_route():
-    data = request.get_json(silent=True) or {}
-    return jsonify(executive_plan(data.get("prompt", "")))
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_json_object"}), 400
+    prompt = str(data.get("prompt") or "").strip()
+    if not prompt or len(prompt) > 2000:
+        return jsonify({"ok": False, "error": "prompt_empty_or_too_long", "max_length": 2000}), 400
+    return jsonify(executive_plan(prompt))
 
 
 @app.route("/remote/executive/run", methods=["POST"])
@@ -3992,8 +4005,22 @@ def remote_code_lessons_search_route():
 
 @app.route("/remote/quality-gate/run", methods=["POST"])
 def remote_quality_gate_run_route():
-    data = request.get_json(silent=True) or {}
-    return jsonify(quality_gate(data.get("files") or None, data.get("label", "remote")))
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_json_object"}), 400
+    label = str(data.get("label") or "remote").strip()
+    if len(label) > 80:
+        return jsonify({"ok": False, "error": "label_too_long", "max_length": 80}), 400
+    files = data.get("files") or None
+    if files is not None and (
+        not isinstance(files, list)
+        or len(files) > 50
+        or any(not isinstance(path, str) or len(path) > 300 for path in files)
+    ):
+        return jsonify({"ok": False, "error": "invalid_files_list"}), 400
+    return jsonify(quality_gate(files, label))
 
 
 @app.route("/remote/error-learning/status", methods=["GET"])
