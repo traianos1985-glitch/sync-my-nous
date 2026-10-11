@@ -61,12 +61,24 @@ def run_project_tests(
     if not project.is_dir():
         return {"ok": False, "error": "app_not_found"}
     tests_dir = project / "tests"
-    if not tests_dir.is_dir() or not any(
-        item.is_file()
-        and (item.name.startswith("test_") or ".test." in item.name or ".spec." in item.name)
-        for item in tests_dir.rglob("*")
-    ):
+    if not tests_dir.is_dir():
         return {"ok": False, "error": "automated_tests_not_found"}
+    try:
+        tests_dir.resolve().relative_to(project)
+    except ValueError:
+        return {"ok": False, "error": "unsafe_test_path"}
+    test_files = [
+        item for item in tests_dir.rglob("*")
+        if item.is_file()
+        and (item.name.startswith("test_") or ".test." in item.name or ".spec." in item.name)
+    ]
+    if not test_files:
+        return {"ok": False, "error": "automated_tests_not_found"}
+    for test_file in test_files:
+        try:
+            test_file.resolve().relative_to(project)
+        except ValueError:
+            return {"ok": False, "error": "unsafe_test_path", "path": test_file.name}
 
     # Keep credentials and unrelated service configuration out of the test process.
     env = {
