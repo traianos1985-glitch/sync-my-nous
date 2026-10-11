@@ -164,8 +164,12 @@ function normalizeStoredChatMessage(value: unknown): ChatMessage | null {
           title: item.title.slice(0, 300),
           url: item.url.slice(0, 2_000),
           domain: item.domain.slice(0, 255),
-          ...(typeof item.sourceType === "string" ? { sourceType: item.sourceType.slice(0, 80) } : {}),
-          ...(typeof item.retrievedAt === "string" ? { retrievedAt: item.retrievedAt.slice(0, 80) } : {}),
+          ...(typeof item.sourceType === "string"
+            ? { sourceType: item.sourceType.slice(0, 80) }
+            : {}),
+          ...(typeof item.retrievedAt === "string"
+            ? { retrievedAt: item.retrievedAt.slice(0, 80) }
+            : {}),
         }))
     : undefined;
 
