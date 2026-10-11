@@ -1,12 +1,8 @@
-import os
 import time
 import ast
 
 from executor.llm_core import ask
-from executor.plugin_loader import load_plugins
-
-
-PLUGIN_DIR = "plugins"
+from executor.plugin_builder import create_plugin, validate as validate_plugin_source
 
 
 class RealEvolutionEngine:
@@ -37,12 +33,7 @@ class RealEvolutionEngine:
             return False, str(e)
 
     def validate_plugin(self, code):
-
-        if "def run" not in code:
-
-            return False, "missing run()"
-
-        return True, None
+        return validate_plugin_source(code)
 
     def generate_plugin_code(self, goal):
 
@@ -67,17 +58,7 @@ STRICT RULES:
         return self.clean_code(result.get("response", ""))
 
     def save_plugin(self, name, code):
-
-        path = os.path.join(
-            PLUGIN_DIR,
-            f"{name}.py"
-        )
-
-        with open(path, "w") as f:
-
-            f.write(code)
-
-        return path
+        return create_plugin(name, code)
 
     def evolve(self, goal):
 
@@ -113,20 +94,17 @@ STRICT RULES:
                 "code": code
             }
 
-        path = self.save_plugin(
-            plugin_name,
-            code
-        )
-
-        load_plugins()
+        created = self.save_plugin(plugin_name, code)
+        if not created.get("success"):
+            return {
+                "status": "plugin_save_failed",
+                "error": created.get("error", "plugin_creation_failed"),
+            }
 
         result = {
-
             "status": "plugin_created",
-
-            "plugin": plugin_name,
-
-            "path": path
+            "plugin": created["plugin"],
+            "path": created["path"],
         }
 
         self.history.append(result)
