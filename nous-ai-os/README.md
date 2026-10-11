@@ -64,6 +64,16 @@ deploy/              scripts για VPS, Windows/macOS/Linux autostart, ngrok, t
 tests/               pytest smoke tests
 ```
 
+## Engineering-grade development
+
+Ο App Builder εφαρμόζει πλέον κοινά πρότυπα για πολυ-αρχειακές εφαρμογές, τεκμηρίωση,
+αυτοματοποιημένες δοκιμές και ασφαλή paths πριν μπει ένα σχέδιο στην ουρά έγκρισης.
+Οι προτάσεις αλλαγών κώδικα περιλαμβάνουν επίσης checklist για root cause, regression
+coverage, validation και rollback. Οι έλεγχοι σχεδίου είναι στατικοί και δεν
+υποκαθιστούν εκτέλεση δοκιμών σε απομονωμένο περιβάλλον.
+
+Δες το [Engineering-Grade Development Guide](docs/ENGINEERING_GRADE_DEVELOPMENT.md).
+
 ## Development
 
 ```bash
