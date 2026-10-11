@@ -1,4 +1,4 @@
-from executor import code_forge, plugin_builder
+from executor import code_forge, plugin_builder, plugin_creator
 
 
 _VALID_PLUGIN = "def run():\n    return {'ok': True}\n"
@@ -65,3 +65,28 @@ def test_code_forge_cannot_overwrite_symlink_target(tmp_path, monkeypatch):
     assert result["success"] is False
     assert result["stage"] == "save_plugin"
     assert outside.read_text(encoding="utf-8") == "keep me"
+
+
+def test_legacy_plugin_creator_uses_guarded_writer(tmp_path, monkeypatch):
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    monkeypatch.setattr(plugin_builder, "PLUGIN_DIR", str(plugin_dir))
+
+    result = plugin_creator.create_plugin("legacy_safe", _VALID_PLUGIN)
+
+    assert result["success"] is True
+    assert result["created"] == "legacy_safe"
+    assert (plugin_dir / "legacy_safe.py").read_text(encoding="utf-8") == _VALID_PLUGIN
+
+
+def test_legacy_plugin_creator_cannot_overwrite_existing_file(tmp_path, monkeypatch):
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    existing = plugin_dir / "legacy_existing.py"
+    existing.write_text("ORIGINAL = True\n", encoding="utf-8")
+    monkeypatch.setattr(plugin_builder, "PLUGIN_DIR", str(plugin_dir))
+
+    result = plugin_creator.create_plugin("legacy_existing", _VALID_PLUGIN)
+
+    assert result == {"success": False, "error": "plugin_already_exists"}
+    assert existing.read_text(encoding="utf-8") == "ORIGINAL = True\n"
