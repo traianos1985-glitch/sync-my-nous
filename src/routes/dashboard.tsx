@@ -295,6 +295,8 @@ function Dashboard() {
       setMessages(stored.messages);
       setConversationId(stored.conversationId);
     }
+    setHasToken(Boolean(getNousToken()));
+    setHasSessionToken(hasStoredNousToken());
     setChatLoaded(true);
   }, []);
 
@@ -403,8 +405,9 @@ function Dashboard() {
   const [approvalStatus, setApprovalStatus] = useState<"idle" | "loading" | "error">("idle");
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [tokenDraft, setTokenDraft] = useState("");
-  const [hasToken, setHasToken] = useState(() => Boolean(getNousToken()));
-  const [hasSessionToken, setHasSessionToken] = useState(() => hasStoredNousToken());
+  // Read browser-only session storage after hydration so the server and first client render match.
+  const [hasToken, setHasToken] = useState(false);
+  const [hasSessionToken, setHasSessionToken] = useState(false);
   const [geminiTestState, setGeminiTestState] = useState<"idle" | "testing" | "ok" | "error">(
     "idle",
   );
