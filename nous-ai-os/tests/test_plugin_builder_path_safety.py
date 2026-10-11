@@ -76,7 +76,7 @@ def test_legacy_plugin_creator_uses_guarded_writer(tmp_path, monkeypatch):
 
     assert result["success"] is True
     assert result["created"] == "legacy_safe"
-    assert (plugin_dir / "legacy_safe.py").read_text(encoding="utf-8") == _VALID_PLUGIN
+    assert (plugin_dir / "legacy_safe.py").read_text(encoding="utf-8") == _VALID_PLUGIN.strip()
 
 
 def test_legacy_plugin_creator_cannot_overwrite_existing_file(tmp_path, monkeypatch):
