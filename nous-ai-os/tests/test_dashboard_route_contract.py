@@ -63,12 +63,12 @@ def test_every_configured_section_is_reachable_from_navigation():
     configured_sections = {
         quoted or bare
         for quoted, bare in re.findall(
-            r"^\\s{2}(?:\\"([^\\"]+)\\"|([A-Za-z_$][\\w$]*))\\s*:\\s*\\{",
+            r'^  (?:"([^"]+)"|([A-Za-z_$][\w$]*)): *[{]',
             config_body,
             flags=re.MULTILINE,
         )
     }
-    nav_sections = set(re.findall(r"\\bid\\s*:\\s*['\\"]([^'\\"]+)['\\"]", nav_source))
+    nav_sections = set(re.findall(r"""id\s*:\s*['"]([^'"]+)['"]""", nav_source))
     unreachable = sorted(configured_sections - nav_sections)
 
     assert not unreachable, (
