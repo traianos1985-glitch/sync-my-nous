@@ -6,7 +6,7 @@ from flask import jsonify, request
 from executor.security import check_token
 
 PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/robots.txt"}
-PUBLIC_PREFIXES = ("/static/", "/token/")
+PUBLIC_PREFIXES = ("/static/",)
 MAX_REQUEST_BYTES = 16 * 1024 * 1024
 AUTH_FAILURE_LIMIT = 10
 AUTH_FAILURE_WINDOW_SECONDS = 300
