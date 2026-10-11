@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 PLUGIN_DIR = "executor/plugins"
-_PLUGIN_NAME = re.compile(r"[A-Za-z0-9_-]{1,80}\\Z")
+_PLUGIN_NAME = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 
 
 def clean_code(code):
