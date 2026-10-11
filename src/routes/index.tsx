@@ -45,7 +45,7 @@ const REPO = "https://github.com/traianos1985-glitch/Nous-AI-OS";
 const stats = [
   { value: "~300", label: "modules στο executor" },
   { value: "351", label: "HTTP routes" },
-  { value: "1", label: "service για όλα" },
+  { value: "2", label: "frontend + backend" },
   { value: "fail-closed", label: "auth by default" },
 ];
 
@@ -160,7 +160,7 @@ function Index() {
         <div className="relative mx-auto max-w-6xl px-6 py-24 md:py-32">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-xs text-primary">
             <span className="size-1.5 animate-pulse rounded-full bg-primary" />
-            status: online · fail-closed auth
+            architecture: frontend + backend · fail-closed auth
           </div>
 
           <h1 className="mt-8 font-display text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
@@ -170,7 +170,7 @@ function Index() {
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
             Αυτόνομος AI agent σε Python και Flask που λειτουργεί σαν λειτουργικό σύστημα:
             σκέφτεται, θυμάται, φτιάχνει εφαρμογές, επισκευάζει τον εαυτό του και χειρίζεται browser
-            και κινητό — όλα από ένα service.
+            και κινητό — με frontend workspace και backend API.
           </p>
 
           <div className="mt-10 flex flex-wrap gap-3">
@@ -320,9 +320,9 @@ function Index() {
                 Αρχιτεκτονική
               </h2>
               <p className="mt-4 max-w-md leading-relaxed text-muted-foreground">
-                Ένα Flask service (
-                <code className="font-mono text-primary">executor.router:app</code>) σηκώνει API,
-                dashboard και όλους τους agents. Ο φάκελος{" "}
+                Το React/TanStack frontend παρέχει το workspace και τις δικές του server routes σε full-stack hosting.
+                Το Flask service (
+                <code className="font-mono text-primary">executor.router:app</code>) παρέχει το NOUS backend API και agents. Ο φάκελος{" "}
                 <code className="font-mono text-primary">data/</code> κρατά την κατάσταση και μένει
                 εκτός Git.
               </p>
