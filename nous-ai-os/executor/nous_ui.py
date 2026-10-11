@@ -600,7 +600,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
           <button class="miniBtn" onclick="probeAgentProvider()">Probe Selected Provider</button>
           <div style="height:1px;background:var(--line);margin:16px 0;"></div>
           <h3>Deploy (Vercel / Render)</h3>
-          <label for="agentProjectPath">Project path inside NOUS_WORKSPACE_ROOT</label>
+          <label for="agentProjectPath">Project path inside NOUS_WORKSPACE_ROOT (used by Vercel; Render deploys its configured service)</label>
           <input id="agentProjectPath" value="." maxlength="500" style="display:block;width:100%;max-width:520px;padding:10px;margin:6px 0 12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;">
           <label for="agentDeployMode">Vercel deployment mode</label>
           <select id="agentDeployMode" style="display:block;width:100%;max-width:420px;padding:10px;margin:6px 0 12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;">
