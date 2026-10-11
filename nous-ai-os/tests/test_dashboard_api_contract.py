@@ -34,27 +34,18 @@ def test_every_section_panel_path_has_a_real_backend_or_frontend_route():
     assert not missing, "SectionPanel paths without a registered route: " + ", ".join(missing)
 
 
-def test_frontend_owned_api_paths_are_not_sent_to_the_flask_base_url():
+def test_dashboard_api_paths_are_sent_to_the_flask_base_url():
     source = (ROOT / "src" / "lib" / "nous-api.ts").read_text(encoding="utf-8")
-    for path in (
-        "/api/approvals",
-        "/api/audit",
-        "/api/evaluation",
-        "/api/feedback",
-        "/api/jobs",
-        "/api/knowledge",
-        "/api/missions",
-        "/api/observability",
-        "/api/security-audit",
-        "/api/security-lessons",
-        "/api/status",
-        "/api/tools/execute",
-        "/api/chat/stream",
-    ):
-        assert f'"{path}"' in source
-    assert "function requestUrl(path: string)" in source
+    dashboard = (ROOT / "src" / "routes" / "dashboard.tsx").read_text(encoding="utf-8")
+    assert "FRONTEND_API_PREFIXES" not in source
+    assert "isFrontendApiPath" not in source
+    assert "requestUrl(path: string)" in source
+    assert "resolvePath(path)" in source
+    assert '"/api/chat": "/chat"' in source
+    assert '"/api/health": "/health"' in source
     assert source.count("fetch(requestUrl(path), request)") == 4
-
+    assert 'nousStream("/api/missions/stream")' not in dashboard
+    assert '("/remote/missions")' in dashboard
 
 def _action_arrays(source):
     arrays = []

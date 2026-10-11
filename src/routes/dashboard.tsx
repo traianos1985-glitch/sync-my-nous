@@ -32,7 +32,6 @@ import {
   hasConfiguredNousApi,
   hasStoredNousToken,
   nousFetch,
-  nousStream,
   setNousToken,
 } from "@/lib/nous-api";
 
@@ -259,6 +258,7 @@ function Dashboard() {
     setVoiceSupported(Boolean(Recognition && "speechSynthesis" in window));
     return () => {
       window.clearInterval(statusTimer);
+      if (missionPollRef.current !== null) window.clearInterval(missionPollRef.current);
       recognitionRef.current?.stop();
       chatAbortRef.current?.abort();
       window.speechSynthesis?.cancel();
@@ -433,35 +433,49 @@ function Dashboard() {
     }
   };
 
+  const missionPollRef = useRef<number | null>(null);
+
   const connectMissionStream = async () => {
-    if (liveStatus === "connecting" || liveStatus === "connected") return;
+    if (liveStatus === "connecting") return;
+    if (missionPollRef.current !== null) {
+      window.clearInterval(missionPollRef.current);
+      missionPollRef.current = null;
+    }
     setLiveStatus("connecting");
-    try {
-      const response = await nousStream("/api/missions/stream");
-      if (!response.body) throw new Error("stream unavailable");
-      setLiveStatus("connected");
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split("\n\n");
-        buffer = events.pop() ?? "";
-        for (const event of events) {
-          const line = event.split("\n").find((item) => item.startsWith("data: "));
-          if (!line) continue;
-          const data = JSON.parse(line.slice(6)) as
-            { missions?: typeof liveMissions } | typeof liveMissions;
-          // Tolerate both {missions: [...]} and a bare array payload.
-          setLiveMissions(Array.isArray(data) ? data : (data.missions ?? []));
-        }
+
+    const refreshMissions = async (): Promise<boolean> => {
+      try {
+        const data = await nousFetch<
+          | Array<{ id: string; title?: string; name?: string; status?: string }>
+          | { missions?: Array<{ id: string; title?: string; name?: string; status?: string }> }
+        >("/remote/missions");
+        const missions = Array.isArray(data) ? data : (data.missions ?? []);
+        setLiveMissions(
+          missions.map((mission) => ({
+            id: String(mission.id),
+            title: String(mission.title ?? mission.name ?? "Untitled mission"),
+            status: String(mission.status ?? "unknown"),
+          })),
+        );
+        setLiveStatus("connected");
+        return true;
+      } catch {
+        setLiveStatus("idle");
+        return false;
       }
-      // Stream ended normally: allow the user to reconnect.
-      setLiveStatus("idle");
-    } catch {
-      setLiveStatus("idle");
+    };
+
+    if (await refreshMissions()) {
+      // Flask exposes a regular authenticated JSON endpoint, not SSE. Poll the
+      // real backend every three seconds instead of connecting to a dead Pages route.
+      missionPollRef.current = window.setInterval(() => {
+        void refreshMissions().then((ok) => {
+          if (!ok && missionPollRef.current !== null) {
+            window.clearInterval(missionPollRef.current);
+            missionPollRef.current = null;
+          }
+        });
+      }, 3_000);
     }
   };
 
@@ -1414,7 +1428,7 @@ function Dashboard() {
                       <div>
                         <p className="text-sm font-semibold">Live mission progress</p>
                         <p className="text-xs text-muted-foreground">
-                          Server-sent updates κάθε 3 δευτερόλεπτα.
+                          Ανανέωση από το Render backend κάθε 3 δευτερόλεπτα.
                         </p>
                       </div>
                       <button
