@@ -80,3 +80,30 @@ def test_loopback_anonymous_access_denied_when_forwarded_or_tunneled(monkeypatch
     monkeypatch.setenv("NGROK_AUTHTOKEN", "configured")
     with app.test_request_context("/", environ_base={"REMOTE_ADDR": "127.0.0.1"}):
         assert not security.check_token(__import__("flask").request)
+
+
+def test_auth_guard_locks_out_repeated_failures():
+    from executor.auth_guard import (
+        AUTH_FAILURE_LIMIT,
+        _auth_state,
+        _clear_auth_failures,
+        _record_auth_failure,
+    )
+
+    client_ip = "192.0.2.123"
+    _clear_auth_failures(client_ip)
+    for _ in range(AUTH_FAILURE_LIMIT):
+        blocked_until = _record_auth_failure(client_ip)
+    assert blocked_until > 0
+    _, current_block = _auth_state(client_ip)
+    assert current_block > 0
+    _clear_auth_failures(client_ip)
+
+
+def test_public_startup_requires_master_token(monkeypatch):
+    import pytest
+
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.delenv("NOUS_TOKEN", raising=False)
+    with pytest.raises(RuntimeError, match="NOUS_TOKEN is required"):
+        security.validate_startup_security()
