@@ -45,6 +45,13 @@ This checklist separates repository CI success from end-to-end runtime validatio
 6. On Android 14+, verify broadcasts from an ordinary third-party app are rejected by sender UID. On older Android versions, the platform does not expose the same sender UID check through this API; do not treat the exported ADB receiver as protected against arbitrary local apps on those versions.
 7. Test the actual supported Android versions; a successful APK build does not prove runtime behavior across OEMs or accessibility settings.
 
+## Cost-bearing and resource-intensive endpoints
+
+1. Call both `/api/gemini-check` and `/gemini-check` with a user-scoped token. They must return 401 before invoking Gemini; an admin token with a prompt over 500 characters must return 400 without a provider call.
+2. Call `/remote/executive/plan` and `/remote/quality-gate/run` with a user-scoped token. They must return 401 before starting planning or quality checks.
+3. Verify quality-gate file lists are JSON arrays with no more than 50 entries and each path string is bounded; malformed input must return 400 without starting checks.
+4. Verify the normal dashboard Gemini connection test still works with the configured admin/master token and the short built-in test prompt.
+
 ## Deployment and recovery checks
 
 - Verify the GitHub Pages build and the live backend separately after merge.
