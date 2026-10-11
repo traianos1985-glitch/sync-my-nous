@@ -31,7 +31,7 @@ def test_preflight_detects_python_framework_by_package_name_only(monkeypatch, tm
     monkeypatch.setenv("NOUS_WORKSPACE_ROOT", str(tmp_path))
     (tmp_path / "requirements.txt").write_text(
         "fastapi==0.115.0\nuvicorn[standard]>=0.30\n"
-        "private-package @ https://user:secret@example.invalid/pkg.whl\n",
+        "private-package @ https://user:credential-sentinel-9f3@example.invalid/pkg.whl\n",
         encoding="utf-8",
     )
 
@@ -39,7 +39,7 @@ def test_preflight_detects_python_framework_by_package_name_only(monkeypatch, tm
 
     assert result["ok"] is True
     assert result["detected"]["python_frameworks"] == ["FastAPI"]
-    assert "secret" not in repr(result)
+    assert "credential-sentinel-9f3" not in repr(result)
     assert "example.invalid" not in repr(result)
     assert {item["id"]: item for item in result["providers"]}["railway"]["recommended"] is True
 
@@ -62,7 +62,9 @@ def test_preflight_ignores_manifest_symlink_outside_workspace(monkeypatch, tmp_p
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     external = tmp_path / "external-package.json"
-    external.write_text(json.dumps({"dependencies": {"next": "15"}, "scripts": {"dev": "secret"}}))
+    external.write_text(json.dumps({
+        "dependencies": {"next": "15"}, "scripts": {"dev": "script-sentinel-9f3"}
+    }))
     try:
         (workspace / "package.json").symlink_to(external)
     except OSError:
@@ -73,7 +75,7 @@ def test_preflight_ignores_manifest_symlink_outside_workspace(monkeypatch, tmp_p
     assert result["ok"] is True
     assert result["detected"]["package_json"] is False
     assert result["project_types"] == ["unknown"]
-    assert "secret" not in repr(result)
+    assert "script-sentinel-9f3" not in repr(result)
 
 
 def test_previews_endpoint_enriches_existing_cards_with_preflight(monkeypatch):
