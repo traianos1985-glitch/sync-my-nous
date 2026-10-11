@@ -83,6 +83,15 @@ def test_rejects_oversized_generated_files():
     assert "file_too_large:sample_app/main.py" in validate_app_plan(plan)
 
 
+def test_rejects_python_syntax_errors_before_approval():
+    plan = valid_plan()
+    plan["files"][0]["content"] = "def broken(:\\n    pass"
+
+    errors = validate_app_plan(plan)
+
+    assert any(error.startswith("invalid_python_syntax:sample_app/main.py:") for error in errors)
+
+
 def test_plan_app_does_not_queue_unvalidated_llm_output(monkeypatch, tmp_path):
     queue = tmp_path / "data" / "app_builder_queue.json"
     monkeypatch.setattr(app_builder, "QUEUE", queue)
