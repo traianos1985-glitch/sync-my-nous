@@ -47,8 +47,11 @@ jobs:
         run: python -m pip check
       - name: Syntax check
         run: python -m compileall -q executor apps *.py
-      - name: Ruff
+      - name: Ruff correctness checks
         run: ruff check .
+      - name: Legacy security and style findings (advisory)
+        continue-on-error: true
+        run: ruff check . --select B,S,F401 --output-format concise
       - name: Pytest
         env:
           PYTHONPATH: .
