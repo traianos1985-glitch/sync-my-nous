@@ -1,14 +1,35 @@
 """ReAct (Reasoning + Acting) Autonomous Loop and Tool Registry for NOUS.
-
 Provides a structured Thought -> Action -> Observation -> Reflection loop with a secure,
 extensible dynamic tool registry.
 """
-import os
 import json
 import time
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from executor.command_tools import run_command
+
+WORKSPACE = Path("data/agent_workspace")
+
+
+def _resolve_workspace_path(raw_path: str, *, create_workspace: bool = False) -> Path:
+    """Resolve a relative agent-workspace path and reject traversal and symlink escapes."""
+    if not isinstance(raw_path, str) or not raw_path.strip() or len(raw_path) > 1024:
+        raise ValueError("invalid_workspace_path")
+    candidate_text = raw_path.strip()
+    candidate = Path(candidate_text)
+    if candidate.is_absolute():
+        raise ValueError("path_outside_workspace")
+    root = WORKSPACE.resolve()
+    if create_workspace:
+        root.mkdir(parents=True, exist_ok=True)
+        root = WORKSPACE.resolve()
+    resolved = (root / candidate).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("path_outside_workspace") from exc
+    return resolved
 
 
 def _run_approved_command(cmd: str) -> str:
@@ -69,40 +90,55 @@ class ToolRegistry:
 
         def read_file_tool(path: str) -> str:
             try:
-                if not os.path.exists(path):
-                    return f"[ERROR]: File not found: {path}"
-                with open(path, 'r', encoding='utf-8', errors='replace') as f:
-                    content = f.read()
+                target = _resolve_workspace_path(path, create_workspace=True)
+                if not target.is_file():
+                    return "[ERROR]: File not found in agent workspace."
+                content = target.read_text(encoding="utf-8", errors="replace")
                 return content[:8000] + ("\n...[truncated]" if len(content) > 8000 else "")
-            except Exception as e:
-                return f"[ERROR]: {str(e)}"
+            except ValueError as exc:
+                return f"[ERROR]: {exc}"
+            except OSError:
+                return "[ERROR]: Unable to read workspace file."
 
         def write_file_tool(path: str, content: str) -> str:
             try:
-                os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-                with open(path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                return f"[SUCCESS]: Wrote {len(content)} characters to {path}"
-            except Exception as e:
-                return f"[ERROR]: {str(e)}"
+                if not isinstance(content, str) or len(content) > 100_000:
+                    return "[ERROR]: Invalid or oversized file content."
+                target = _resolve_workspace_path(path, create_workspace=True)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                # Resolve again after creating parents to reject symlinked parent directories.
+                target = _resolve_workspace_path(path)
+                target.write_text(content, encoding="utf-8")
+                return f"[SUCCESS]: Wrote {len(content)} characters to agent workspace file."
+            except ValueError as exc:
+                return f"[ERROR]: {exc}"
+            except OSError:
+                return "[ERROR]: Unable to write workspace file."
 
         def list_dir_tool(path: str = ".") -> str:
             try:
-                entries = os.listdir(path)
-                return json.dumps(entries[:100], ensure_ascii=False)
-            except Exception as e:
-                return f"[ERROR]: {str(e)}"
+                target = _resolve_workspace_path(path, create_workspace=True)
+                if not target.is_dir():
+                    return "[ERROR]: Directory not found in agent workspace."
+                entries = sorted(entry.name for entry in target.iterdir())[:100]
+                return json.dumps(entries, ensure_ascii=False)
+            except ValueError as exc:
+                return f"[ERROR]: {exc}"
+            except OSError:
+                return "[ERROR]: Unable to list workspace directory."
 
         def git_status_tool() -> str:
             return _run_approved_command("git status --short")
 
         self.register("bash", bash_tool, TOOL_DESCRIPTION, {"cmd": "string"})
-        self.register("read_file", read_file_tool, "Reads up to 8KB of a file path.", {"path": "string"})
-        self.register("write_file", write_file_tool, "Writes text to a specified file path.", {"path": "string", "content": "string"})
-        self.register("list_dir", list_dir_tool, "Lists files and folders inside a directory.", {"path": "string"})
+        self.register("read_file", read_file_tool, "Reads up to 8KB from the isolated agent workspace.", {"path": "string"})
+        self.register("write_file", write_file_tool, "Writes at most 100KB inside the isolated agent workspace.", {"path": "string", "content": "string"})
+        self.register("list_dir", list_dir_tool, "Lists entries inside the isolated agent workspace.", {"path": "string"})
         self.register("git_status", git_status_tool, GIT_DESCRIPTION, {})
 
+
 GLOBAL_TOOL_REGISTRY = ToolRegistry()
+
 
 class ReActAgent:
     """ReAct Agent execution loop with step logging and reflection."""
@@ -116,9 +152,8 @@ class ReActAgent:
         else:
             try:
                 observation = str(tool(**action_args))
-            except Exception as e:
-                observation = f"[ERROR]: Failed executing {action_name}: {str(e)}"
-
+            except Exception:
+                observation = f"[ERROR]: Failed executing {action_name}."
         return {
             "thought": thought,
             "action": action_name,
@@ -151,7 +186,6 @@ class ReActAgent:
         else:
             status = "completed"
             reflection = COMPLETED_MESSAGE
-
         return {
             "task": task,
             "status": status,
@@ -160,7 +194,9 @@ class ReActAgent:
             "finished_at": time.time()
         }
 
+
 DEFAULT_REACT_AGENT = ReActAgent()
+
 
 def run_react_task(task: str, max_steps: int = 5) -> Dict[str, Any]:
     return DEFAULT_REACT_AGENT.run(task, max_steps=max_steps)

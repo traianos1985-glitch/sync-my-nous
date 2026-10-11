@@ -70,11 +70,10 @@ def install_auth_guard(app):
             return jsonify({"ok": False, "error": "request_too_large"}), 413
         if request.method == "OPTIONS" or is_public(request.path):
             return None
+
         client_ip = request.remote_addr or "unknown"
-        _, blocked_until = _auth_state(client_ip)
-        if blocked_until > time.monotonic():
-            return jsonify({"ok": False, "error": "auth_rate_limited",
-                            "retry_after_seconds": int(blocked_until - time.monotonic()) + 1}), 429
+        # Validate credentials before applying an IP lockout. A valid operator token
+        # must never be denied solely because another request from the same IP failed.
         try:
             authenticated = check_token(request)
         except Exception:
@@ -83,6 +82,12 @@ def install_auth_guard(app):
         if authenticated:
             _clear_auth_failures(client_ip)
             return None
+
+        _, blocked_until = _auth_state(client_ip)
+        if blocked_until > time.monotonic():
+            return jsonify({"ok": False, "error": "auth_rate_limited",
+                            "retry_after_seconds": int(blocked_until - time.monotonic()) + 1}), 429
+
         blocked_until = _record_auth_failure(client_ip)
         if blocked_until > time.monotonic():
             return jsonify({"ok": False, "error": "auth_rate_limited",
