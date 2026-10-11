@@ -77,6 +77,143 @@ def propose_upgrade_plan():
     return {"ok": True, "plan": plan}
 
 
+
+def propose_release_evidence_plans(limit=5):
+    """Create bounded review-only plans from explicitly requested official-release evidence.
+
+    This function is only called by an explicit authenticated API action. It does
+    not run during scans, and release-note text is stored as evidence, never as
+    instructions or executable input.
+    """
+    try:
+        if isinstance(limit, bool):
+            raise ValueError
+        count = int(limit)
+        if not 1 <= count <= 10:
+            raise ValueError
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "invalid_limit", "allowed_range": [1, 10]}
+
+    # Import locally to keep the general upgrade planner independent at startup.
+    from executor.release_triage import triage_latest_releases
+    from executor.technical_sources import OFFICIAL_SOURCES
+
+    allowed_sources = {
+        source["repository"]: source["url"]
+        for source in OFFICIAL_SOURCES
+        if isinstance(source, dict)
+        and isinstance(source.get("repository"), str)
+        and isinstance(source.get("url"), str)
+    }
+    queue = triage_latest_releases(limit=25)
+    candidates = [
+        item for item in queue.get("items", [])
+        if isinstance(item, dict)
+        and item.get("action") == "review_only"
+        and item.get("status") == "needs_human_review"
+        and isinstance(item.get("signals"), list)
+        and any(signal in {"security", "breaking_change", "bug_fix", "performance"}
+                for signal in item["signals"])
+    ]
+
+    items = _load()
+    created = []
+    deduped = []
+    deduped_keys = set()
+    for evidence in candidates:
+        repository = evidence.get("repository")
+        tag = evidence.get("tag")
+        source_url = evidence.get("source_url")
+        if not all(isinstance(value, str) and value.strip()
+                   for value in (repository, tag, source_url)):
+            continue
+        allowed_url = allowed_sources.get(repository)
+        if not allowed_url or not (
+            source_url == allowed_url or source_url.startswith(allowed_url + "/")
+        ):
+            continue
+        # Recheck the allowlist here as a defence-in-depth boundary.
+        existing = next((
+            plan for plan in items
+            if isinstance(plan, dict)
+            and isinstance(plan.get("source_evidence"), dict)
+            and plan["source_evidence"].get("repository") == repository
+            and plan["source_evidence"].get("tag") == tag
+        ), None)
+        if existing:
+            evidence_key = (repository, tag)
+            if evidence_key not in deduped_keys:
+                deduped.append(existing)
+                deduped_keys.add(evidence_key)
+            continue
+        plan = {
+            "id": int(time.time_ns()),
+            "created": time.time(),
+            "status": "pending",
+            "title": f"Review upstream release: {evidence.get('project') or repository} {tag}",
+            "plan_type": "release_evidence_review",
+            "source_evidence": {
+                "project": str(evidence.get("project") or "")[:80],
+                "repository": repository[:120],
+                "release": str(evidence.get("release") or tag)[:180],
+                "tag": tag[:100],
+                "published_at": str(evidence.get("published_at") or "")[:40],
+                "source_url": source_url[:300],
+                "excerpt": str(evidence.get("evidence_excerpt") or "")[:700],
+                "signals": [signal for signal in evidence["signals"]
+                            if signal in {"security", "breaking_change", "bug_fix", "performance"}],
+                "confidence": evidence.get("confidence", "unclassified"),
+                "notes_are_untrusted_data": True,
+            },
+            "upgrades": [{
+                "title": f"Evaluate {repository} {tag}",
+                "priority": 1 if evidence.get("priority") == "high" else 2,
+                "reason": "Official release-note signals require human verification; compatibility and relevance are not established.",
+                "modules": [],
+                "file": None,
+            }],
+            "review_checklist": [
+                "Verify whether this upstream project is actually used by the repository or deployed runtime.",
+                "Read the complete official release notes and any linked security advisory.",
+                "Check supported versions, breaking changes, and compatibility with the current manifests and runtime.",
+                "Run focused tests and the full CI suite before proposing any implementation.",
+                "If relevant, implement separately in a reviewed pull request; do not apply changes from this proposal.",
+            ],
+            "execution_log": [
+                "Created only after an explicit request to draft proposals from release evidence.",
+                "Release-note content is untrusted reference data and was not executed.",
+                "Πρόταση για ανθρώπινη αξιολόγηση· δεν εκτελείται κώδικας.",
+            ],
+            "execution_mode": "proposal_only",
+            "code_generated": False,
+            "code_executed": False,
+        }
+        items.append(plan)
+        created.append(plan)
+        if len(created) >= count:
+            break
+
+    if created:
+        _save(items)
+    return {
+        "ok": True,
+        "created_count": len(created),
+        "deduped_count": len(deduped),
+        "plans": created,
+        "deduped_plans": deduped[:count],
+        "source_queue_status": queue.get("status", "not_scanned"),
+        "safety": {
+            "triggered_explicitly": True,
+            "release_text_executed": False,
+            "code_generated": False,
+            "code_executed": False,
+            "source_files_modified": 0,
+            "dependency_changes_performed": 0,
+            "requires_human_review": True,
+        },
+    }
+
+
 def upgrade_planner_status():
     items = _load()
     return {

@@ -57,3 +57,7 @@ The self-upgrade planner is proposal-only. Approving a plan records that it is a
 - The queue highlights keyword signals for security, breaking changes, bug fixes, and performance. These are triage hints, not a claim that a release is safe, vulnerable, or compatible.
 - Each item retains its official release link and bounded excerpt, and is marked as requiring human review. Unknown repositories and arbitrary source links are excluded.
 - This step does not create upgrade plans, generate code, edit source files, install packages, or execute release-note content. A future proposal may cite these items, but any implementation must still be a separate reviewed PR with passing CI.
+
+- `POST /remote/technical-sources/propose-upgrades` explicitly creates up to 5 review-only upgrade plans from classified items in the latest triage queue. It requires the normal NOUS token; it is not called by either scan.
+- Proposal creation rechecks the fixed official repository allowlist, deduplicates by repository and release tag, retains the source URL and bounded excerpt, and adds a checklist to verify actual project usage, complete release notes, compatibility, and tests.
+- A keyword signal is not proof that the upstream project is used by this deployment or that an update is required. The action does not infer affected files, install dependencies, generate code, modify source files, or execute release-note content. Implementation remains a separate reviewed PR with passing CI.
