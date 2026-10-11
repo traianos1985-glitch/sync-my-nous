@@ -27,7 +27,7 @@ def test_every_section_panel_path_has_a_real_backend_or_frontend_route():
     ).read_text(encoding="utf-8")
     configured_paths = {
         match.group(1).split("?", maxsplit=1)[0]
-        for match in re.finditer(r'path:\\s*"([^"]+)"', config)
+        for match in re.finditer(r'path:\s*"([^"]+)"', config)
     }
     available_routes = _flask_routes() | _frontend_api_routes()
     missing = sorted(path for path in configured_paths if path not in available_routes)
@@ -58,7 +58,7 @@ def test_frontend_owned_api_paths_are_not_sent_to_the_flask_base_url():
 
 def _action_arrays(source):
     arrays = []
-    for match in re.finditer(r"actions:\\s*\\[", source):
+    for match in re.finditer(r"actions:\s*\[", source):
         start = match.end() - 1
         depth = 0
         quote = None
@@ -68,12 +68,12 @@ def _action_arrays(source):
             if quote:
                 if escaped:
                     escaped = False
-                elif char == "\\\\":
+                elif char == "\\":
                     escaped = True
                 elif char == quote:
                     quote = None
                 continue
-            if char in {"'", '"', "`"}:
+            if char in {"'", '"', chr(96)}:
                 quote = char
             elif char == "[":
                 depth += 1
@@ -91,7 +91,7 @@ def _registered_methods():
         ROOT / "nous-ai-os" / "executor" / "router.py"
     ).read_text(encoding="utf-8")
     route_pattern = re.compile(
-        r"""@app\\.route\\(\\s*["']([^"']+)["'](?:,\\s*methods=\\[([^\\]]+)\\])?\\)"""
+        r"""@app\.route\(\s*["']([^"']+)["'](?:,\s*methods=\[([^\]]+)\])?\)"""
     )
     for match in route_pattern.finditer(router):
         route = match.group(1)
@@ -109,7 +109,7 @@ def _registered_methods():
             continue
         route = "/" + stem.replace(".", "/")
         source = route_file.read_text(encoding="utf-8")
-        methods[route] = set(re.findall(r"^\\s*(GET|POST|PUT|PATCH|DELETE):", source, re.MULTILINE))
+        methods[route] = set(re.findall(r"^\s*(GET|POST|PUT|PATCH|DELETE):", source, re.MULTILINE))
     return methods
 
 
@@ -120,7 +120,7 @@ def test_every_section_panel_action_has_a_post_handler():
     action_paths = {
         match.group(1).split("?", maxsplit=1)[0]
         for body in _action_arrays(config)
-        for match in re.finditer(r'path:\\s*"([^"]+)"', body)
+        for match in re.finditer(r'path:\s*"([^"]+)"', body)
     }
     methods = _registered_methods()
     missing = sorted(path for path in action_paths if "POST" not in methods.get(path, set()))
