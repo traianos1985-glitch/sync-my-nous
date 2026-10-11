@@ -9,11 +9,23 @@ from executor.vector_memory import (
 )
 from executor.self_healing_coder import self_heal_snippet
 from executor.background_watchdog import run_watchdog_check
+from executor.security import check_admin_token
 
 agent_ops_bp = Blueprint("agent_ops_bp", __name__, url_prefix="/api/ops")
 
+
+def _admin_required():
+    """Keep operational endpoints behind the explicit admin boundary."""
+    if not check_admin_token(request):
+        return jsonify({"success": False, "error": "unauthorized"}), 401
+    return None
+
+
 @agent_ops_bp.route("/react/run", methods=["POST"])
 def api_react_run():
+    denied = _admin_required()
+    if denied:
+        return denied
     data = request.get_json(silent=True) or {}
     task = data.get("task", "")
     if not task:
@@ -21,13 +33,18 @@ def api_react_run():
     res = run_react_task(task, max_steps=data.get("max_steps", 5))
     return jsonify({"success": True, "result": res})
 
+
 @agent_ops_bp.route("/tools", methods=["GET"])
 def api_tools_list():
     tools = GLOBAL_TOOL_REGISTRY.list_tools()
     return jsonify({"success": True, "tools": tools})
 
+
 @agent_ops_bp.route("/swarm/run", methods=["POST"])
 def api_swarm_run():
+    denied = _admin_required()
+    if denied:
+        return denied
     data = request.get_json(silent=True) or {}
     mission = data.get("mission", data.get("task", ""))
     if not mission:
@@ -35,8 +52,12 @@ def api_swarm_run():
     res = run_swarm(mission, data.get("context"))
     return jsonify({"success": True, "result": res})
 
+
 @agent_ops_bp.route("/memory/vector/add", methods=["POST"])
 def api_vector_add():
+    denied = _admin_required()
+    if denied:
+        return denied
     data = request.get_json(silent=True) or {}
     text = data.get("text", "")
     if not text:
@@ -44,8 +65,12 @@ def api_vector_add():
     row_id = store_vector_memory(text, data.get("metadata"))
     return jsonify({"success": True, "id": row_id})
 
+
 @agent_ops_bp.route("/memory/vector/search", methods=["GET", "POST"])
 def api_vector_search():
+    denied = _admin_required()
+    if denied:
+        return denied
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
         q = data.get("query", "")
@@ -53,28 +78,43 @@ def api_vector_search():
     else:
         q = request.args.get("q", "")
         top_k = int(request.args.get("top_k", 5))
-        
+
     if not q:
         return jsonify({"success": False, "error": "query is required"}), 400
     hits = search_vector_memory(q, top_k=top_k)
     return jsonify({"success": True, "query": q, "results": hits})
 
+
 @agent_ops_bp.route("/memory/vector/stats", methods=["GET"])
 def api_vector_stats():
+    denied = _admin_required()
+    if denied:
+        return denied
     stats = get_vector_stats()
     return jsonify({"success": True, "stats": stats})
 
+
 @agent_ops_bp.route("/self-heal/run", methods=["POST"])
 def api_self_heal():
+    denied = _admin_required()
+    if denied:
+        return denied
     data = request.get_json(silent=True) or {}
     filename = data.get("filename", "scratch.py")
     code = data.get("code", "")
     if not code:
         return jsonify({"success": False, "error": "code is required"}), 400
-    res = self_heal_snippet(filename, code, data.get("test_cmd"))
+
+    # Never accept a caller-supplied command. The public API only validates/heals
+    # the supplied snippet; arbitrary subprocess execution is not exposed here.
+    res = self_heal_snippet(filename, code)
     return jsonify({"success": True, "result": res})
+
 
 @agent_ops_bp.route("/watchdog/run", methods=["POST", "GET"])
 def api_watchdog_run():
+    denied = _admin_required()
+    if denied:
+        return denied
     res = run_watchdog_check()
     return jsonify({"success": True, "report": res})
