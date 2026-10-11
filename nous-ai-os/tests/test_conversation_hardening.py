@@ -83,3 +83,23 @@ def test_auto_title_limit_and_corrupt_index_handling(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="Invalid conversation index structure"):
         title_engine.auto_title_recent_conversations()
     assert index.read_bytes() == original
+
+
+def test_conversation_api_storage_failure_returns_safe_error(monkeypatch):
+    pytest.importorskip("flask")
+    import executor.router as router
+
+    monkeypatch.setenv("NOUS_TOKEN", "conversation-test-token")
+
+    def fail_listing():
+        raise ValueError("corrupt storage at /private/path/conversation_index.json")
+
+    monkeypatch.setattr(router, "list_conversations", fail_listing)
+    response = router.app.test_client().get(
+        "/remote/conversations",
+        headers={"Authorization": "Bearer conversation-test-token"},
+    )
+
+    assert response.status_code == 500
+    assert response.get_json()["error"] == "conversation_storage_unavailable"
+    assert "/private/path" not in response.get_data(as_text=True)
