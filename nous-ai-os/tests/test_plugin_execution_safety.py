@@ -107,10 +107,10 @@ def test_quarantine_rejects_path_traversal(tmp_path, monkeypatch):
 def test_legacy_code_tester_never_executes_source(tmp_path):
     marker = tmp_path / "code-tester-executed.txt"
     source = (
-        "from pathlib import Path\\n"
-        f"Path({str(marker)!r}).write_text('executed')\\n"
-        "def run():\\n"
-        "    return {'ok': True}\\n"
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed')\n"
+        "def run():\n"
+        "    return {'ok': True}\n"
     )
 
     result = code_tester.test_plugin(source)
@@ -124,9 +124,9 @@ def test_legacy_code_tester_never_executes_source(tmp_path):
 def test_legacy_debug_engine_never_executes_source(tmp_path):
     marker = tmp_path / "debug-engine-executed.txt"
     source = (
-        "from pathlib import Path\\n"
-        f"Path({str(marker)!r}).write_text('executed')\\n"
-        "VALUE = 42\\n"
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed')\n"
+        "VALUE = 42\n"
     )
 
     result = debug_engine.run_code(source)
@@ -138,7 +138,7 @@ def test_legacy_debug_engine_never_executes_source(tmp_path):
 
 
 def test_legacy_code_tester_rejects_source_without_run():
-    assert code_tester.test_plugin("VALUE = 1\\n") == {
+    assert code_tester.test_plugin("VALUE = 1\n") == {
         "success": False,
         "error": "Missing top-level run() function",
     }
