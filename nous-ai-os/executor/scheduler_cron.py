@@ -70,6 +70,22 @@ def _load() -> dict[str, Any]:
         ):
             raise ValueError("schedule_store_invalid_structure")
         state.setdefault("log", [])
+        for job in state["jobs"]:
+            if not isinstance(job.get("action"), str) or job["action"] not in SCHEDULED_AUTO_APPROVE_ACTIONS:
+                raise ValueError("schedule_store_invalid_job")
+            hour, minute = job.get("hour"), job.get("minute", 0)
+            if (
+                isinstance(hour, bool) or not isinstance(hour, int) or not 0 <= hour <= 23
+                or isinstance(minute, bool) or not isinstance(minute, int) or not 0 <= minute <= 59
+            ):
+                raise ValueError("schedule_store_invalid_job")
+            if "enabled" in job and not isinstance(job["enabled"], bool):
+                raise ValueError("schedule_store_invalid_job")
+            days = job.get("days", list(_DAY_NAMES))
+            if not isinstance(days, list) or not days or any(
+                not isinstance(day, str) or day not in _DAY_NAMES for day in days
+            ):
+                raise ValueError("schedule_store_invalid_job")
         return state
 
 

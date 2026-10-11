@@ -78,9 +78,20 @@ def _save_unlocked(items):
 def request_approval(action, payload=None, reason="operator action"):
     action = str(action).strip()
     if not action: raise ValueError("action_must_not_be_empty")
+    if len(action) > 128: raise ValueError("action_too_long")
     if payload is not None and not isinstance(payload, dict): raise ValueError("payload_must_be_object")
+    if payload is not None:
+        try:
+            encoded_payload = json.dumps(payload, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("payload_must_be_json_safe") from exc
+        if len(encoded_payload.encode("utf-8")) > 16384:
+            raise ValueError("payload_too_large")
+    clean_reason = str(reason)
+    if len(clean_reason) > 500:
+        clean_reason = clean_reason[:500]
     created = time.time()
-    item = {"id": int(time.time_ns()), "action": action, "payload": payload.copy() if payload is not None else {}, "reason": str(reason), "status": "pending", "created": created, "expires_at": created + APPROVAL_TTL_SECONDS, "decided": None}
+    item = {"id": int(time.time_ns()), "action": action, "payload": payload.copy() if payload is not None else {}, "reason": clean_reason, "status": "pending", "created": created, "expires_at": created + APPROVAL_TTL_SECONDS, "decided": None}
     with _edit_items() as items:
         ids = {str(entry.get("id")) for entry in items}
         while str(item["id"]) in ids: item["id"] += 1
@@ -112,9 +123,12 @@ def approve(approval_id):
 
 def reject(approval_id):
     with _edit_items() as items:
+        now = time.time()
         for item in items:
             if str(item.get("id")) == str(approval_id) and item.get("status") == "pending":
-                item["status"], item["decided"] = "rejected", time.time()
+                if _expire_if_needed(item, now):
+                    return None
+                item["status"], item["decided"] = "rejected", now
                 return item.copy()
     return None
 

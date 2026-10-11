@@ -104,3 +104,38 @@ def test_dashboard_knowledge_upload_requires_admin_scope(monkeypatch):
 
     assert response.status_code == 401
     assert response.get_json()["error"] == "unauthorized"
+
+
+def test_cron_fails_closed_on_persisted_non_allowlisted_job(tmp_path, monkeypatch):
+    path = isolate_schedule(tmp_path, monkeypatch)
+    path.parent.mkdir(parents=True)
+    original = json.dumps({
+        "jobs": [{
+            "id": 1, "name": "tampered", "action": "cleanup_disk",
+            "hour": 2, "minute": 0, "days": ["mon"], "enabled": True,
+        }],
+        "log": [],
+    }).encode()
+    path.write_bytes(original)
+
+    with pytest.raises(ValueError, match="schedule_store_invalid_job"):
+        scheduler_cron.list_jobs()
+    assert scheduler_cron.cron_status()["status"] == "unavailable"
+    assert path.read_bytes() == original
+
+
+def test_cron_fails_closed_on_invalid_persisted_time(tmp_path, monkeypatch):
+    path = isolate_schedule(tmp_path, monkeypatch)
+    path.parent.mkdir(parents=True)
+    original = json.dumps({
+        "jobs": [{
+            "id": 1, "name": "bad-time", "action": "create_backup",
+            "hour": 99, "minute": 0, "days": ["mon"], "enabled": True,
+        }],
+        "log": [],
+    }).encode()
+    path.write_bytes(original)
+
+    with pytest.raises(ValueError, match="schedule_store_invalid_job"):
+        scheduler_cron.list_jobs()
+    assert path.read_bytes() == original

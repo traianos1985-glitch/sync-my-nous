@@ -72,3 +72,12 @@ This checklist separates repository CI success from end-to-end runtime validatio
 - Check API base URL, authentication configuration, CORS, database availability, and Render cold-start behavior without printing credentials to logs.
 - Reboot the backend during a queued/running mission in a test environment; verify recovery and final mission status before enabling autonomous production use.
 - Keep deployment secrets in server-side secret settings, never in client bundles or committed files.
+
+
+## Final hardening regressions
+
+- Android Companion CI must compile \`MainActivity.kt\` and produce the debug APK; a successful Python/frontend CI run does not substitute for the Android build.
+- Corrupt auto-mission scheduler state must report \`unavailable\`, stop autonomous ticks, and remain byte-for-byte unchanged until an operator repairs it.
+- Auto-mission scheduler writes must use same-directory atomic replacement and leave no temporary files after a successful write.
+- Persisted cron jobs are revalidated when loaded; a non-allowlisted action or invalid time must make the schedule unavailable rather than execute or silently rewrite the schedule.
+- Operator approval payloads must be JSON-safe and bounded; expired approvals must not be transitioned to rejected or executed.
