@@ -442,7 +442,7 @@ def chat():
         pass
 
     data = request.get_json(silent=True) or {}
-    cmd = data.get("command", "")
+    cmd = data.get("command") or data.get("message") or data.get("prompt") or data.get("text") or ""
 
     # ── CHAT INTENT ROUTING ───────────────────────────────────────────────────
     try:
