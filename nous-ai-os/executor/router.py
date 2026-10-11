@@ -3316,6 +3316,21 @@ def app_builder_repair_review_route():
     return jsonify(result), 200
 
 
+@app.route("/remote/app-builder/contract-audit", methods=["POST"])
+def app_builder_contract_audit_route():
+    """Audit App Builder UI calls against statically declared Flask routes."""
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    from executor.app_contract_audit import audit_repository_app_builder_contract
+
+    repo_root = Path(__file__).resolve().parents[2]
+    result = audit_repository_app_builder_contract(repo_root)
+    status_code = 200 if result.get("ok") else (
+        503 if result.get("status") == "unavailable" else 422
+    )
+    return jsonify(result), status_code
+
+
 @app.route("/remote/app-builder/reject", methods=["POST"])
 def app_builder_reject_route():
     if not check_admin_token(request):

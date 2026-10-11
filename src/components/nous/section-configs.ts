@@ -51,6 +51,12 @@ export const sectionConfigs: Record<string, SectionConfig> = {
     ],
     actions: [
       {
+        label: "Έλεγχος συμβατότητας UI/API",
+        path: "/remote/app-builder/contract-audit",
+        confirm:
+          "Να συγκριθούν οι διαδρομές και οι μέθοδοι που δηλώνει το UI του App Builder με τα Flask routes του repository; Είναι στατικός έλεγχος, όχι δοκιμή live API.",
+      },
+      {
         label: "Σχέδιο νέας εφαρμογής",
         path: "/remote/app-builder/plan",
         input: { key: "description", placeholder: "Περιέγραψε την εφαρμογή" },
