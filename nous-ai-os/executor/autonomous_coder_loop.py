@@ -1,6 +1,6 @@
 from executor.autocoder import generate
 from executor.code_tester import test_plugin
-from executor.plugin_creator import create_plugin
+from executor.plugin_builder import create_plugin
 from executor.snapshots import create_snapshot, rollback
 import time
 
