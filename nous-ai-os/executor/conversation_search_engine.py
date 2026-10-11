@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from executor.conversation_manager import INDEX, get_conversation, load_json, save_json
+from executor.conversation_manager import INDEX, get_conversation, load_json, normalize_limit, save_json
 
 REPORTS = Path("data/reports")
 
@@ -116,14 +116,17 @@ def score_conversation(query: str, conv: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def search_conversations(query: str, limit: int = 8) -> dict[str, Any]:
+def search_conversations(query: str, limit: int = 8, *, write_report: bool = True) -> dict[str, Any]:
     query = clean(query)
     if not query:
         return {"ok": False, "error": "empty_query", "query": query}
+    if len(query) > 500:
+        return {"ok": False, "error": "query_too_long", "max_length": 500}
 
+    bounded_limit = normalize_limit(limit, default=8, maximum=20)
     index = load_json(INDEX, [])
     if not isinstance(index, list):
-        index = []
+        raise ValueError(f"Invalid conversation index structure in {INDEX}")
 
     hits = []
     for item in index:
@@ -154,12 +157,15 @@ def search_conversations(query: str, limit: int = 8) -> dict[str, Any]:
         "timestamp": now_iso(),
         "query": query,
         "total": len(hits),
-        "hits": hits[:limit],
+        "hits": hits[:bounded_limit],
     }
 
-    report = REPORTS / f"conversation_search_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    save_json(report, result)
-    result["report_path"] = str(report)
+    # Cross-conversation context is used during ordinary chat; do not create a
+    # disk report for every chat turn. Explicit searches keep an audit report.
+    if write_report:
+        report = REPORTS / f"conversation_search_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.json"
+        save_json(report, result)
+        result["report_path"] = str(report)
 
     return result
 
@@ -202,7 +208,7 @@ def answer_from_conversations(query: str) -> dict[str, Any]:
 
 
 def cross_conversation_context(query: str, limit: int = 5) -> str:
-    res = search_conversations(query, limit=limit)
+    res = search_conversations(query, limit=limit, write_report=False)
     hits = res.get("hits", []) if res.get("ok") else []
 
     if not hits:

@@ -57,6 +57,25 @@ def _valid_conversation_id(conversation_id: str) -> bool:
     return bool(re.fullmatch(r"[0-9]{1,30}", str(conversation_id or "")))
 
 
+def normalize_limit(value: Any, default: int = 8, maximum: int = 50) -> int:
+    """Normalize API-supplied list limits without raising or permitting unbounded work."""
+    try:
+        if isinstance(value, bool):
+            raise ValueError("boolean is not a limit")
+        parsed = int(value)
+    except (TypeError, ValueError, OverflowError):
+        parsed = default
+    return max(1, min(parsed, maximum))
+
+
+def _load_index() -> list[dict[str, Any]]:
+    """Read the conversation index without silently replacing unexpected data."""
+    index = load_json(INDEX, [])
+    if not isinstance(index, list):
+        raise ValueError(f"Invalid conversation index structure in {INDEX}")
+    return [item for item in index if isinstance(item, dict)]
+
+
 def safe_title(text: str, fallback: str = "Νέα συνομιλία") -> str:
     t = re.sub(r"\s+", " ", text or "").strip()
     t = t[:70].strip()
@@ -79,11 +98,11 @@ def new_conversation(title: str = "") -> dict[str, Any]:
         "summary": "",
     }
 
-    save_json(CONV_DIR / f"{cid}.json", conv)
+    # Validate the index before creating the conversation file, so corrupt
+    # metadata cannot leave behind a newly-created orphan conversation.
+    index = _load_index()
 
-    index = load_json(INDEX, [])
-    if not isinstance(index, list):
-        index = []
+    save_json(CONV_DIR / f"{cid}.json", conv)
 
     index.insert(0, {
         "id": cid,
@@ -109,20 +128,17 @@ def get_conversation(conversation_id: str) -> dict[str, Any]:
 
 
 def list_conversations(limit: int = 30) -> dict[str, Any]:
-    index = load_json(INDEX, [])
-    if not isinstance(index, list):
-        index = []
+    index = _load_index()
+    bounded_limit = normalize_limit(limit, default=30, maximum=200)
     return {
         "ok": True,
         "total": len(index),
-        "conversations": index[:limit],
+        "conversations": index[:bounded_limit],
     }
 
 
 def update_index(conv: dict[str, Any]) -> None:
-    index = load_json(INDEX, [])
-    if not isinstance(index, list):
-        index = []
+    index = _load_index()
 
     item = {
         "id": conv["id"],
@@ -169,6 +185,8 @@ def append_turn(
     if not conv.get("title") or conv.get("title") == "Νέα συνομιλία":
         conv["title"] = safe_title(user_message)
 
+    # Refuse to mutate a conversation if the shared index is already corrupt.
+    _load_index()
     save_json(CONV_DIR / f"{conv['id']}.json", conv)
     update_index(conv)
 
@@ -215,6 +233,7 @@ def rename_conversation(conversation_id: str, title: str) -> dict[str, Any]:
     if not conv.get("ok"):
         return conv
 
+    _load_index()
     conv["title"] = safe_title(title)
     conv["updated_at"] = now_iso()
 
@@ -227,15 +246,12 @@ def rename_conversation(conversation_id: str, title: str) -> dict[str, Any]:
 def delete_conversation(conversation_id: str) -> dict[str, Any]:
     if not _valid_conversation_id(conversation_id):
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
+    index = _load_index()
     path = CONV_DIR / f"{conversation_id}.json"
     if path.exists():
         path.unlink()
 
-    index = load_json(INDEX, [])
-    if not isinstance(index, list):
-        index = []
-
-    index = [x for x in index if not (isinstance(x, dict) and x.get("id") == conversation_id)]
+    index = [x for x in index if x.get("id") != conversation_id]
     save_json(INDEX, index)
 
     return {"ok": True, "deleted": conversation_id}
