@@ -1,6 +1,6 @@
 from executor.intent import detect_intent
 from executor.tools import run_tool
-from executor.tool_catalog import get_tool, tool_catalog
+from executor.tool_catalog import TOOLS, get_tool, tool_catalog
 
 
 def test_intent_recognizes_new_utility_commands():
@@ -30,3 +30,8 @@ def test_tool_catalog_is_discoverable_and_reports_risk():
     assert {"calculate", "convert", "time", "text_stats", "json_validate", "sha256"} <= names
     assert get_tool("agent_solve")["approval_required"] == "depends_on_action"
     assert tool_catalog("utility")["count"] == 3
+
+
+def test_raw_tool_catalog_has_no_duplicate_names():
+    names = [item["name"] for item in TOOLS]
+    assert len(names) == len(set(names))
