@@ -3223,6 +3223,65 @@ def app_builder_test_route():
     return jsonify(result), status_code
 
 
+@app.route("/remote/app-builder/diagnose", methods=["POST"])
+def app_builder_diagnose_route():
+    """Run tests and return a review-only diagnosis when they fail."""
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_request_body"}), 400
+    app_name = data.get("app_name")
+    if not isinstance(app_name, str) or not app_name.strip():
+        return jsonify({"ok": False, "error": "app_name_required"}), 400
+    try:
+        timeout_seconds = int(data.get("timeout_seconds", 120))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "invalid_timeout"}), 400
+
+    from executor.app_builder import APPS_DIR
+    from executor.app_validation_runner import run_project_tests
+
+    test_result = run_project_tests(app_name.strip(), APPS_DIR, timeout_seconds)
+    if test_result.get("ok"):
+        return jsonify({
+            "ok": True,
+            "status": "tests_passed",
+            "test_result": test_result,
+            "diagnosis": None,
+            "message": "Τα tests πέρασαν· δεν χρειάζεται πρόταση επισκευής.",
+        }), 200
+    if test_result.get("error") in {
+        "invalid_app_name", "invalid_timeout", "timeout_out_of_range",
+        "path_outside_apps_directory", "app_not_found", "automated_tests_not_found",
+        "unsafe_test_path", "test_runner_unavailable",
+    }:
+        status_code = 503 if test_result.get("error") == "test_runner_unavailable" else (
+            404 if test_result.get("error") in {"app_not_found", "automated_tests_not_found"} else 400
+        )
+        return jsonify({"ok": False, "status": "test_run_unavailable", "test_result": test_result}), status_code
+
+    from executor.app_failure_diagnosis import diagnose_test_failure
+
+    diagnosis = diagnose_test_failure(app_name.strip(), APPS_DIR, test_result)
+    if not diagnosis.get("ok"):
+        return jsonify({
+            "ok": False,
+            "status": "diagnosis_failed",
+            "test_result": test_result,
+            "diagnosis": diagnosis,
+            "human_review_required": True,
+        }), 502
+    return jsonify({
+        "ok": True,
+        "status": "diagnosis_ready",
+        "test_result": test_result,
+        "diagnosis": diagnosis,
+        "message": "Η πρόταση είναι μόνο για έλεγχο· δεν άλλαξε κανένα αρχείο.",
+        "human_review_required": True,
+    }), 200
+
+
 @app.route("/remote/app-builder/reject", methods=["POST"])
 def app_builder_reject_route():
     if not check_admin_token(request):
