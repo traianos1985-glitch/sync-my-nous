@@ -61,8 +61,8 @@ def test_shared_state_and_autonomous_routes_require_admin(
             monkeypatch.setattr(
                 router,
                 name,
-                lambda *args, **kwargs: pytest.fail(
-                    f"{name} ran before admin authorization"
+                lambda *args, _name=name, **kwargs: pytest.fail(
+                    f"{_name} ran before admin authorization"
                 ),
             )
 
