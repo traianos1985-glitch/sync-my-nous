@@ -100,20 +100,15 @@ async function callGemini(
   return null;
 }
 
-const requestWindows = new Map<string, number[]>();
-function allowRequest(userId: string): boolean {
-  const now = Date.now();
-  const recent = (requestWindows.get(userId) ?? []).filter((time) => now - time < 60_000);
-  if (recent.length >= 20) return false;
-  recent.push(now);
-  requestWindows.set(userId, recent);
-  return true;
-}
+import { allowChatRequest } from "../lib/chat-guardrails";
 
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
-      GET: async () => Response.json(getModelCallMetrics()),
+      GET: async ({ request }) => {
+        await requireAuthenticatedUserId(request);
+        return Response.json(getModelCallMetrics());
+      },
       POST: async ({ request }) => {
         let userId = "";
         let message = "";
@@ -126,10 +121,18 @@ export const Route = createFileRoute("/api/chat")({
           };
           message = body.message?.trim() ?? "";
           userId = await requireAuthenticatedUserId(request);
-          if (!allowRequest(userId))
+          if (!allowChatRequest(userId))
             return Response.json({ ok: false, error: "Too many requests" }, { status: 429 });
           if (!message)
             return Response.json({ ok: false, error: "Το μήνυμα είναι κενό." }, { status: 400 });
+
+          const budget = await getPersistentDailyBudget(userId);
+          if (!budget.allowed) {
+            return Response.json(
+              { ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." },
+              { status: 429 },
+            );
+          }
 
           const history = (body.history ?? []).slice(-10);
           await db.insert(nousMessages).values({
@@ -145,14 +148,6 @@ export const Route = createFileRoute("/api/chat")({
           const modelMessage = researchResult.context
             ? `${message}\n\n[READ-ONLY RESEARCH CONTEXT — cite only these sources]\n${researchResult.context}`
             : message;
-          const budget = await getPersistentDailyBudget(userId);
-          if (!budget.allowed) {
-            return Response.json(
-              { ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." },
-              { status: 429 },
-            );
-          }
-
           const startedAt = new Date().toISOString();
           const started = performance.now();
           const gemini = await callGemini(
