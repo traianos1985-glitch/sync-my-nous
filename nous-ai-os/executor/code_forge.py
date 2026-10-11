@@ -1,4 +1,8 @@
-import os, ast, time, subprocess
+import ast
+import os
+import time
+from pathlib import Path
+
 from executor.llm_core import ask
 
 WORKDIR = "forge"
@@ -6,18 +10,21 @@ os.makedirs(WORKDIR, exist_ok=True)
 
 BLOCKED = ["os.system", "subprocess.Popen", "rm -rf", "pip install", "eval(", "exec("]
 
+
 def clean(code):
     return str(code).replace("```python", "").replace("```", "").strip()
 
+
 def safe_check(code):
-    for b in BLOCKED:
-        if b in code:
-            return False, f"blocked keyword: {b}"
+    for blocked in BLOCKED:
+        if blocked in code:
+            return False, f"blocked keyword: {blocked}"
     try:
         ast.parse(code)
         return True, "ok"
-    except Exception as e:
-        return False, str(e)
+    except (SyntaxError, ValueError, TypeError) as exc:
+        return False, str(exc)
+
 
 def generate_code(goal):
     prompt = f"""
@@ -40,18 +47,29 @@ Rules:
     res = ask(prompt)
     return clean(res.get("response", str(res)) if isinstance(res, dict) else str(res))
 
+
 def test_code(path):
+    """Statically validate a generated plugin; never execute generated source here."""
     try:
-        subprocess.check_output(["python", "-m", "py_compile", path], stderr=subprocess.STDOUT, text=True, timeout=10)
-        code = open(path, "r", encoding="utf-8").read()
-        ns = {}
-        exec(code, ns)
-        if "run" not in ns:
-            return {"success": False, "error": "missing run()"}
-        out = ns["run"]()
-        return {"success": True, "result": out}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+        source = Path(path).read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+        has_run = any(
+            isinstance(node, ast.FunctionDef) and node.name == "run"
+            for node in tree.body
+        )
+        if not has_run:
+            return {"success": False, "error": "missing top-level run() function"}
+        return {
+            "success": True,
+            "result": {
+                "validation": "static_only",
+                "run_function_found": True,
+            },
+            "execution_skipped": True,
+        }
+    except (OSError, SyntaxError, ValueError, TypeError) as exc:
+        return {"success": False, "error": str(exc)}
+
 
 def fix_code(goal, code, error):
     prompt = f"""
@@ -72,6 +90,7 @@ Code:
     res = ask(prompt)
     return clean(res.get("response", str(res)) if isinstance(res, dict) else str(res))
 
+
 def forge_plugin(goal):
     name = "forge_plugin_" + str(int(time.time()))
     path = f"{WORKDIR}/{name}.py"
@@ -82,7 +101,7 @@ def forge_plugin(goal):
     if not ok:
         return {"success": False, "stage": "safe_check", "error": msg, "code": code}
 
-    open(path, "w", encoding="utf-8").write(code)
+    Path(path).write_text(code, encoding="utf-8")
     test = test_code(path)
 
     if not test.get("success"):
@@ -92,7 +111,7 @@ def forge_plugin(goal):
         if not ok:
             return {"success": False, "stage": "fix_safe_check", "error": msg, "code": fixed}
 
-        open(path, "w", encoding="utf-8").write(fixed)
+        Path(path).write_text(fixed, encoding="utf-8")
         test = test_code(path)
 
     if not test.get("success"):
@@ -100,6 +119,6 @@ def forge_plugin(goal):
 
     final = f"executor/plugins/{name}.py"
     os.makedirs("executor/plugins", exist_ok=True)
-    open(final, "w", encoding="utf-8").write(open(path, "r", encoding="utf-8").read())
+    Path(final).write_text(Path(path).read_text(encoding="utf-8"), encoding="utf-8")
 
     return {"success": True, "plugin": name, "path": final, "test": test}
