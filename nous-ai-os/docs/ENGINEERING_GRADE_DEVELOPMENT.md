@@ -94,7 +94,7 @@ status and manual action.
 The bootstrap records runtime/platform details, a bounded project-manifest and
 dependency-name inventory, availability of key Python modules and developer tools,
 filesystem write checks, free disk space, source-control revision when available,
-and a minimal Gemini connectivity probe. It stores the report in
+and a minimal Gemini connectivity probe. It also builds a bounded source map (file paths, test paths, Python imports/definitions and literal Flask route declarations) without executing source files. The AI assessment receives only a summarized map and sanitized metadata, not source contents. It stores the report in
 `data/environment_bootstrap_report.json`. Secret values are never included:
 token and API-key settings are reported only as configured/not-configured flags.
 Only a small allowlist of known runtime directories may be created automatically.
