@@ -117,25 +117,25 @@ const layers = [
 
 const upgrades = [
   {
-    tag: "Υλοποιημένο",
+    tag: "Στον κώδικα",
     title: "Σχεσιακή αποθήκευση και δεδομένα ανά χρήστη",
     text: "Το Drizzle schema περιλαμβάνει χρήστες, sessions, missions, approvals, tool runs, jobs, knowledge documents/chunks και observability events. Η διαθεσιμότητα εξαρτάται από τη σωστή ρύθμιση της βάσης στο περιβάλλον εκτέλεσης.",
     tone: "signal" as const,
   },
   {
-    tag: "Υλοποιημένο",
+    tag: "Στον κώδικα",
     title: "Streaming chat και lifecycle εργασιών",
     text: "Υπάρχει endpoint Server-Sent Events για chat και API εργασιών με δημιουργία, ανάκτηση, ακύρωση και retry. Η εκτέλεση κάθε job εξακολουθεί να εξαρτάται από τον αντίστοιχο runtime worker.",
     tone: "signal" as const,
   },
   {
-    tag: "Υλοποιημένο",
+    tag: "Στον κώδικα",
     title: "Παρατηρησιμότητα κλήσεων μοντέλων",
     text: "Το API εκθέτει μετρικές κλήσεων μοντέλων και πρόσφατα events, ενώ το schema αποθηκεύει συμβάντα ανά χρήστη για επιθεώρηση και διάγνωση.",
     tone: "signal" as const,
   },
   {
-    tag: "Υλοποιημένο",
+    tag: "Στον κώδικα",
     title: "Regression tests και έλεγχοι ασφαλείας",
     text: "Το CI εκτελεί lint, typecheck, build, έλεγχο δημόσιου bundle, Python syntax/Ruff/pytest και σάρωση μυστικών. Τα συμβόλαια UI/API ελέγχουν αντιστοίχιση routes και HTTP methods.",
     tone: "signal" as const,
