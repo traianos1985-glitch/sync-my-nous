@@ -106,3 +106,29 @@ def test_section_panel_endpoints_and_actions_use_supported_http_methods():
                     f"{expected_method} {ui_path} (backend methods: {', '.join(supported)})"
                 )
     assert not mismatches, "Section-panel HTTP method mismatches: " + "; ".join(mismatches)
+
+def test_every_navigation_section_has_a_config_or_explicit_custom_renderer():
+    root = Path(__file__).resolve().parents[2]
+    nav_source = (root / "src" / "components" / "nous" / "nav.ts").read_text(encoding="utf-8")
+    nav_ids = set(re.findall(r'id: "([^"]+)"', nav_source))
+    config_source = (root / "src" / "components" / "nous" / "section-configs.ts").read_text(encoding="utf-8")
+    pairs = re.findall(
+        r'^  (?:"([^"]+)"|([A-Za-z_$][\\w$-]*)):\\s*\\{',
+        config_source,
+        re.M,
+    )
+    config_ids = {first or second for first, second in pairs}
+    custom_sections = {"chat", "home", "documents", "control", "settings"}
+    missing = sorted(nav_ids - config_ids - custom_sections)
+    assert not missing, f"Navigation sections without a panel or custom renderer: {missing}"
+
+
+def test_home_runtime_overview_is_rendered_by_the_home_dashboard():
+    root = Path(__file__).resolve().parents[2]
+    dashboard_source = (root / "src" / "routes" / "dashboard.tsx").read_text(encoding="utf-8")
+    home_start = dashboard_source.index(') : section === "home" ? (')
+    home_panel = dashboard_source.index('<SectionPanel section="home" />', home_start)
+    home_end = dashboard_source.index('        ) : (', home_panel)
+    assert home_panel < home_end, (
+        "Home section config exists but is not rendered in the Home dashboard"
+    )
