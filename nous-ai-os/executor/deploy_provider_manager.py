@@ -1,7 +1,13 @@
+"""Deployment provider helpers; actual deploys are gated by operator approvals."""
+import os
+import shutil
 import time
+from pathlib import Path
+
 from executor.operator_capability_manager import operator_capabilities
 from executor.code_assistant import run_cmd
 from executor.agent_journal import write_journal
+
 
 def deploy_provider_status():
     caps = operator_capabilities()
@@ -16,23 +22,82 @@ def deploy_provider_status():
         "install_hints": caps["install_hints"],
     }
 
-def deploy_with_provider(provider, path="."):
-    status = deploy_provider_status()
 
-    if provider == "vercel":
-        if not status["providers"]["vercel"]:
-            return {"ok": False, "error": "vercel_cli_not_installed", "status": status}
-        cmd = f"cd {path} && vercel --prod --yes"
+def _workspace_root() -> Path:
+    configured = os.environ.get("NOUS_WORKSPACE_ROOT", "").strip()
+    return Path(configured or Path.cwd()).expanduser().resolve()
 
-    elif provider == "railway":
-        if not status["providers"]["railway"]:
-            return {"ok": False, "error": "railway_cli_not_installed", "status": status}
-        cmd = f"cd {path} && railway up"
 
-    else:
-        return {"ok": False, "error": "provider_not_supported_or_not_configured", "status": status}
+def _resolve_project_path(value) -> Path:
+    root = _workspace_root()
+    raw = str(value or ".").strip()
+    if not raw or len(raw) > 1024:
+        raise ValueError("invalid_project_path")
+    candidate = Path(raw).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        project = candidate.resolve(strict=True)
+        project.relative_to(root)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError("project_path_outside_workspace_or_missing") from exc
+    if not project.is_dir():
+        raise ValueError("project_path_not_directory")
+    return project
 
-    result = run_cmd(cmd)
-    output = {"ok": bool(result.get("ok")), "provider": provider, "result": result}
+
+def prepare_provider_deploy(provider, path="."):
+    """Validate a deployment request without executing the provider CLI."""
+    provider_id = str(provider or "").strip().lower()
+    if provider_id not in {"vercel", "railway"}:
+        return {"ok": False, "error": "provider_not_supported"}
+    try:
+        project = _resolve_project_path(path)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    cli = shutil.which(provider_id)
+    if not cli:
+        return {"ok": False, "error": f"{provider_id}_cli_not_installed"}
+    return {
+        "ok": True,
+        "payload": {
+            "provider": provider_id,
+            "path": str(project),
+        },
+    }
+
+
+def execute_provider_deploy(payload):
+    """Execute a previously approved, revalidated provider request."""
+    if not isinstance(payload, dict):
+        return {"ok": False, "error": "invalid_deployment_payload"}
+    prepared = prepare_provider_deploy(payload.get("provider"), payload.get("path"))
+    if not prepared.get("ok"):
+        return prepared
+    provider_id = prepared["payload"]["provider"]
+    project = prepared["payload"]["path"]
+    cli = shutil.which(provider_id)
+    if not cli:
+        return {"ok": False, "error": f"{provider_id}_cli_not_installed"}
+    argv = [cli, "--prod", "--yes"] if provider_id == "vercel" else [cli, "up"]
+    result = run_cmd(argv, cwd=project, timeout=300)
+    output = {
+        "ok": bool(result.get("ok")),
+        "provider": provider_id,
+        "project": Path(project).name or ".",
+        "exit_code": result.get("code"),
+        "error": result.get("error") if not result.get("ok") else None,
+    }
+    # Never journal raw CLI stdout/stderr: deployment output can contain secrets.
     write_journal("deploy_provider_run", output)
     return output
+
+
+def deploy_with_provider(provider, path=".", *, approved=False):
+    """Compatibility wrapper that refuses direct, unapproved deployments."""
+    if not approved:
+        return {"ok": False, "error": "explicit_operator_approval_required"}
+    prepared = prepare_provider_deploy(provider, path)
+    if not prepared.get("ok"):
+        return prepared
+    return execute_provider_deploy(prepared["payload"])
