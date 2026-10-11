@@ -45,7 +45,7 @@ def test_watchdog_git_checks_do_not_use_a_shell(monkeypatch):
 
     def fake_run(argv, **kwargs):
         captured.append((argv, kwargs))
-        output = "## main\n" if argv[1] == "rev-parse" else ""
+        output = "main\n" if argv[1] == "rev-parse" else ""
         return SimpleNamespace(returncode=0, stdout=output, stderr="")
 
     monkeypatch.setattr(background_watchdog.subprocess, "run", fake_run)
