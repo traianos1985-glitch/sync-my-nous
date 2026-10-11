@@ -146,6 +146,7 @@ def diagnose_test_failure(app_name: str, apps_root: str | Path, test_result: dic
         "validation_plan": [str(v)[:1000] for v in validation[:20]],
         "risks": [str(v)[:1000] for v in risks[:20]], "changes": changes,
         "change_validation_errors": errors, "context_files": [v["path"] for v in context["files"]],
-        "context_truncated": context["truncated"], "sensitive_files_excluded": True,\n        "secret_patterns_redacted": True,
+        "context_truncated": context["truncated"], "sensitive_files_excluded": True,
+        "secret_patterns_redacted": True,
         "writes_performed": False, "tests_rerun": False, "human_review_required": True,
     }
