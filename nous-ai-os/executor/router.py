@@ -642,43 +642,6 @@ SAFE_UI_TOOL_ACTIONS = {
     "recall", "agent_review", "autonomy_status", "repair_advice",
 }
 
-@app.route("/api/tools/catalog")
-def api_tool_catalog():
-    """Read-only inventory of tools exposed by the NOUS command runtime."""
-    from executor.tool_catalog import tool_catalog
-
-    catalog = tool_catalog(request.args.get("category", ""))
-    for item in catalog.get("tools", []):
-        item["executable_from_tool_library"] = item.get("name") in SAFE_UI_TOOL_ACTIONS
-    return jsonify(catalog)
-
-
-@app.route("/api/tools/run", methods=["POST"])
-def api_tool_run():
-    """Execute only explicitly allowlisted read-only or deterministic tools."""
-    from executor.intent import detect_intent
-    from executor.tools import run_tool
-    data = request.get_json(silent=True) or {}
-    command = str(data.get("command") or "").strip()
-    if not command or len(command) > 2000:
-        return jsonify({"ok": False, "error": "command_empty_or_too_long"}), 400
-    intent = detect_intent(command)
-    action = intent.get("action")
-    if intent.get("type") != "tool" or action not in SAFE_UI_TOOL_ACTIONS:
-        return jsonify({
-            "ok": False,
-            "executed": False,
-            "error": "tool_not_available_for_direct_execution",
-            "action": action,
-            "message": "Use the dedicated NOUS workflow for this action; it is not run directly from Tool Library.",
-        }), 403
-    try:
-        result = run_tool(intent, {"command": command})
-        return jsonify({"ok": True, "executed": True, "action": action, "result": result})
-    except Exception as exc:
-        return jsonify({"ok": False, "executed": False, "action": action, "error": "tool_execution_failed", "details": str(exc)}), 500
-
-
 @app.route("/api/gemini-check", methods=["POST"])
 @app.route("/gemini-check", methods=["POST"])
 def gemini_check_route():

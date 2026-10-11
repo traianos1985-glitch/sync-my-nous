@@ -81,3 +81,15 @@ def test_catalog_names_are_unique_and_dispatchable():
     assert not missing, (
         "Catalog tools without a run_tool dispatch branch: " + ", ".join(missing)
     )
+
+def test_tool_library_routes_have_one_canonical_registration_and_allowlist():
+    root = Path(__file__).resolve().parents[1]
+    router_source = (root / "executor" / "router.py").read_text(encoding="utf-8")
+    dashboard_source = (root / "executor" / "dashboard_api.py").read_text(encoding="utf-8")
+
+    assert '@app.route("/api/tools/catalog")' not in router_source
+    assert '@app.route("/api/tools/run"' not in router_source
+    assert dashboard_source.count('@dashboard_api_bp.get("/tools/catalog")') == 1
+    assert dashboard_source.count('@dashboard_api_bp.post("/tools/run")') == 1
+    assert "TOOL_LIBRARY_ALLOWED_ACTIONS" in dashboard_source
+    assert "executable_from_tool_library" in dashboard_source
