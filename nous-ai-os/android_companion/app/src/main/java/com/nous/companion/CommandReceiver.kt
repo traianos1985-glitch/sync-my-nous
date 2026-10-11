@@ -16,7 +16,7 @@ class CommandReceiver : BroadcastReceiver() {
         // do not expose the sender UID through this API; the receiver still
         // requires the exact explicit component and allowlisted action/command.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val senderUid = sendingUid
+            val senderUid = getSentFromUid()
             if (senderUid != Process.SHELL_UID && senderUid != Process.myUid()) {
                 Log.w("NOUS_COMPANION", "Rejected command broadcast from untrusted uid")
                 return
