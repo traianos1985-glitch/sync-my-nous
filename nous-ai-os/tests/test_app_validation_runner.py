@@ -43,7 +43,7 @@ def test_invokes_pytest_without_shell_and_uses_clean_environment(tmp_path, monke
 
     assert result["ok"] is True
     assert result["status"] == "passed"
-    assert captured["command"][-4:] == ["-q", "tests"][-4:] if False else captured["command"][-2:] == ["-q", "tests"]
+    assert captured["command"][-2:] == ["-q", "tests"]
     assert captured["kwargs"]["shell"] is False
     assert captured["kwargs"]["timeout"] == 25
     assert captured["kwargs"]["cwd"] == str(project.resolve())
