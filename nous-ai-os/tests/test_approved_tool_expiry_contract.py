@@ -17,7 +17,7 @@ def test_expired_approved_tool_actions_are_rejected_before_and_during_claim():
         "// Validate the approved action before claiming it.", maxsplit=1
     )[1].split("// Conditional update is the single-winner claim:", maxsplit=1)[0]
     claim = source.split(
-        "// Conditional update is the single-winner claim.", maxsplit=1
+        "// Conditional update is the single-winner claim:", maxsplit=1
     )[1].split("if (!approval)", maxsplit=1)[0]
 
     assert expiry_guard in validation
