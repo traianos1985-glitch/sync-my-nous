@@ -19,11 +19,11 @@ class BackgroundWatchdog:
         """Checks if the working tree has uncommitted changes or detached state."""
         try:
             res = subprocess.run(
-                "git status --porcelain", shell=True, capture_output=True, text=True, timeout=5
+                ["git", "status", "--porcelain"], shell=False, capture_output=True, text=True, timeout=5
             )
             dirty_files = [line.strip() for line in res.stdout.splitlines() if line.strip()]
             branch_res = subprocess.run(
-                "git rev-parse --abbrev-ref HEAD", shell=True, capture_output=True, text=True, timeout=5
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], shell=False, capture_output=True, text=True, timeout=5
             )
             branch = branch_res.stdout.strip() or "unknown"
             return {
