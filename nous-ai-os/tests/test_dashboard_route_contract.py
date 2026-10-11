@@ -91,3 +91,19 @@ def test_every_section_config_is_reachable_from_navigation_or_custom_dashboard()
     custom_dashboard_sections = {"chat", "home", "documents", "control", "settings"}
     orphaned = sorted(config_ids - nav_ids - custom_dashboard_sections)
     assert not orphaned, f"Section configs are unreachable from navigation: {orphaned}"
+def test_every_navigation_section_is_configured_or_has_an_explicit_custom_renderer():
+    nav_source = (
+        REPO_ROOT / "src" / "components" / "nous" / "nav.ts"
+    ).read_text(encoding="utf-8")
+    nav_ids = set(re.findall(r'\\bid\\s*:\\s*["\\']([^"\\']+)["\\']', nav_source))
+    config_source = SECTION_CONFIG.read_text(encoding="utf-8")
+    pairs = re.findall(
+        r'^  (?:["]([^"]+)["]|([A-Za-z_$][\\w$-]*)):\\s*\\{',
+        config_source,
+        re.M,
+    )
+    config_ids = {first or second for first, second in pairs}
+    # These sections are rendered directly in dashboard.tsx instead of SectionPanel.
+    custom_sections = {"chat", "documents", "settings"}
+    missing = sorted(nav_ids - config_ids - custom_sections)
+    assert not missing, f"Navigation sections without a panel or custom renderer: {missing}"
