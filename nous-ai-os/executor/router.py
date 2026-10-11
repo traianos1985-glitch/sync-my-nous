@@ -1161,6 +1161,8 @@ def remote_upgrade_planner_status():
 
 @app.route("/remote/upgrade-planner/plans")
 def remote_upgrade_planner_plans():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_upgrade_plans())
 
 
@@ -1348,6 +1350,8 @@ def remote_nous_drive_think():
 
 @app.route("/remote/nous-drive/proposals")
 def remote_nous_drive_proposals():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(nous_drive_proposals())
 
 @app.route("/remote/nous-drive/approve", methods=["POST"])
@@ -1535,6 +1539,8 @@ def remote_deep_code_analyst_status():
 
 @app.route("/remote/deep-code-analyst/reports")
 def remote_deep_code_analyst_reports():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_deep_code_reports())
 
 
@@ -1573,6 +1579,8 @@ def remote_patch_generator_status():
 
 @app.route("/remote/patch-generator/proposals")
 def remote_patch_generator_proposals():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_patch_proposals())
 
 
@@ -1630,6 +1638,8 @@ def remote_code_analyst_status():
 
 @app.route("/remote/code-analyst/reports")
 def remote_code_analyst_reports():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_code_analysis_reports())
 
 
@@ -1719,6 +1729,8 @@ def remote_autonomous_repair_status():
 
 @app.route("/remote/autonomous-repair/proposals")
 def remote_autonomous_repair_proposals():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_repair_proposals())
 
 
@@ -1834,6 +1846,8 @@ def remote_mission_planner_status():
 
 @app.route("/remote/mission-planner/proposals")
 def remote_mission_planner_proposals():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_mission_proposals())
 
 
@@ -1956,6 +1970,8 @@ def remote_lessons_status():
 
 @app.route("/remote/lessons/list")
 def remote_lessons_list():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_lessons())
 
 
@@ -1990,6 +2006,8 @@ def remote_decision_memory_status_route():
 
 @app.route("/remote/decision-memory/list")
 def remote_decision_memory_list_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_decisions())
 
 
@@ -2048,6 +2066,8 @@ def remote_brain_backup_status_route():
 
 @app.route("/remote/brain-backup/list")
 def remote_brain_backup_list_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_brain_backups())
 
 
@@ -2064,6 +2084,8 @@ def remote_brain_status_route():
 
 @app.route("/remote/brain/state")
 def remote_brain_state_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(build_brain_state())
 
 
@@ -2076,6 +2098,8 @@ def remote_brain_save_route():
 
 @app.route("/remote/brain/load")
 def remote_brain_load_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(load_brain_state())
 
 @app.route("/remote/goals-v2/status")
@@ -2085,6 +2109,8 @@ def remote_goals_v2_status_route():
 
 @app.route("/remote/goals-v2")
 def remote_goals_v2_list_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_goals())
 
 
@@ -2212,6 +2238,8 @@ def remote_missions_status_route():
 
 @app.route("/remote/missions")
 def remote_missions_list_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_missions())
 
 
@@ -2258,6 +2286,8 @@ def remote_missions_run_cycle_route():
 
 @app.route("/remote/missions/approvals")
 def remote_missions_approvals_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(pending_approvals())
 
 @app.route("/remote/missions/approve-task", methods=["POST"])
@@ -2474,6 +2504,8 @@ def remote_operator_status_route():
 
 @app.route("/remote/operator/approvals")
 def remote_operator_approvals_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_approvals())
 
 
@@ -2722,6 +2754,8 @@ def remote_self_improve_status_route():
 
 @app.route("/remote/self-improve/patches")
 def remote_self_improve_patches_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_patches())
 
 
@@ -2862,6 +2896,8 @@ def remote_real_research_learn_topic_route():
 
 @app.route("/remote/agent/decide")
 def remote_agent_decide_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(decide_next_action())
 
 
@@ -2874,11 +2910,15 @@ def remote_agent_act_route():
 
 @app.route("/remote/agent/goals")
 def remote_agent_goals_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(prioritize_goals())
 
 
 @app.route("/remote/agent/journal")
 def remote_agent_journal_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_journal())
 
 @app.route("/remote/local-llm/status")
@@ -3019,11 +3059,15 @@ def remote_knowledge_route():
 
 @app.route("/remote/knowledge/queue")
 def remote_knowledge_queue_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(load_queue())
 
 
 @app.route("/remote/knowledge/base")
 def remote_knowledge_base_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(load_knowledge())
 
 
@@ -3085,11 +3129,15 @@ def remote_queue_recover_dead_route():
 
 @app.route("/remote/projects")
 def remote_projects_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_progress())
 
 
 @app.route("/remote/projects/summary")
 def remote_projects_summary_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(project_summary())
 
 
@@ -3121,6 +3169,8 @@ def remote_self_heal_check_route():
 
 @app.route("/remote/queue")
 def remote_queue_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(list_queue())
 
 
@@ -3303,6 +3353,8 @@ def app_builder_status_route():
 
 @app.route("/remote/app-builder/list")
 def app_builder_list_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify({"ok": True, "builds": list_builds()})
 
 @app.route("/remote/app-builder/plan", methods=["POST"])
@@ -3484,6 +3536,8 @@ def app_builder_reject_route():
 
 @app.route("/remote/app-builder/get/<plan_id>")
 def app_builder_get_route(plan_id):
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     build = get_build(plan_id)
     if not build:
         return jsonify({"ok": False, "error": "not_found"}), 404
@@ -3492,6 +3546,8 @@ def app_builder_get_route(plan_id):
 
 @app.route("/remote/app-builder/files")
 def app_builder_files_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     """List persistent generated apps first, then legacy repository apps."""
     apps = []
     seen = set()
@@ -3795,6 +3851,8 @@ def app_builder_run_app_route():
 
 @app.route("/remote/app-builder/app-log")
 def app_builder_app_log_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     """Return recent stdout/stderr of a running app."""
     global _running_apps
     app_name = request.args.get("app", "").strip()
@@ -3826,6 +3884,8 @@ def app_builder_stop_app_route():
 
 @app.route("/remote/app-builder/download/<app_name>")
 def app_builder_download_route(app_name):
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     """Download the entire app folder as a ZIP file."""
     import zipfile, io
     from flask import send_file
