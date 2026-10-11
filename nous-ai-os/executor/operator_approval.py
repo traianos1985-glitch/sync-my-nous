@@ -3,7 +3,28 @@ import fcntl, json, os, tempfile, time
 from contextlib import contextmanager
 
 FILE = "data/operator_approvals.json"
-FINAL_STATUSES = {"completed", "failed", "cancelled"}
+APPROVAL_TTL_SECONDS = 30 * 60
+FINAL_STATUSES = {"completed", "failed", "cancelled", "expired"}
+
+
+def _is_expired(item, now=None):
+    now = time.time() if now is None else now
+    expires_at = item.get("expires_at")
+    if not isinstance(expires_at, (int, float)) or isinstance(expires_at, bool):
+        created = item.get("created")
+        if not isinstance(created, (int, float)) or isinstance(created, bool):
+            return True
+        expires_at = created + APPROVAL_TTL_SECONDS
+    return now >= expires_at
+
+
+def _expire_if_needed(item, now=None):
+    now = time.time() if now is None else now
+    if item.get("status") in {"pending", "approved"} and _is_expired(item, now):
+        item["status"] = "expired"
+        item["expired_at"] = now
+        return True
+    return False
 
 def _lock_path():
     return FILE + ".lock"
@@ -58,7 +79,8 @@ def request_approval(action, payload=None, reason="operator action"):
     action = str(action).strip()
     if not action: raise ValueError("action_must_not_be_empty")
     if payload is not None and not isinstance(payload, dict): raise ValueError("payload_must_be_object")
-    item = {"id": int(time.time_ns()), "action": action, "payload": payload.copy() if payload is not None else {}, "reason": str(reason), "status": "pending", "created": time.time(), "decided": None}
+    created = time.time()
+    item = {"id": int(time.time_ns()), "action": action, "payload": payload.copy() if payload is not None else {}, "reason": str(reason), "status": "pending", "created": created, "expires_at": created + APPROVAL_TTL_SECONDS, "decided": None}
     with _edit_items() as items:
         ids = {str(entry.get("id")) for entry in items}
         while str(item["id"]) in ids: item["id"] += 1
@@ -66,7 +88,11 @@ def request_approval(action, payload=None, reason="operator action"):
     return item
 
 def list_approvals(status=None):
-    with _edit_items() as items: result = list(items)
+    with _edit_items() as items:
+        now = time.time()
+        for item in items:
+            _expire_if_needed(item, now)
+        result = [item.copy() for item in items]
     return [item for item in result if item.get("status") == status] if status else result
 
 def get_approval(approval_id):
@@ -74,10 +100,14 @@ def get_approval(approval_id):
 
 def approve(approval_id):
     with _edit_items() as items:
+        now = time.time()
         for item in items:
-            if str(item.get("id")) == str(approval_id) and item.get("status") == "pending":
-                item["status"], item["decided"] = "approved", time.time()
-                return item.copy()
+            if str(item.get("id")) != str(approval_id) or item.get("status") != "pending":
+                continue
+            if _expire_if_needed(item, now):
+                return None
+            item["status"], item["decided"] = "approved", now
+            return item.copy()
     return None
 
 def reject(approval_id):
@@ -91,9 +121,17 @@ def reject(approval_id):
 def claim_approved_approval(approval_id, action, payload):
     if not isinstance(payload, dict): return None
     with _edit_items() as items:
+        now = time.time()
         for item in items:
-            if str(item.get("id")) == str(approval_id) and item.get("action") == action and item.get("payload") == payload and item.get("status") == "approved":
-                item["status"], item["execution_started"] = "executing", time.time()
+            if (
+                str(item.get("id")) == str(approval_id)
+                and item.get("action") == action
+                and item.get("payload") == payload
+                and item.get("status") == "approved"
+            ):
+                if _expire_if_needed(item, now):
+                    return None
+                item["status"], item["execution_started"] = "executing", now
                 return item.copy()
     return None
 
