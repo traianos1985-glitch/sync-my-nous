@@ -129,7 +129,6 @@ def apply_patch(patch_id):
     try:
         shutil.copyfile(target, backup)
         target.parent.mkdir(parents=True, exist_ok=True)
-        original = target.read_bytes()
         with tempfile.NamedTemporaryFile(
             mode="wb", dir=target.parent, prefix=f".{target.name}.",
             suffix=".tmp.py", delete=False
