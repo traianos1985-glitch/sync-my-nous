@@ -195,3 +195,25 @@ def test_status_prefers_running_lock_over_previous_report(tmp_path, monkeypatch)
     assert status["status"] == "running"
     assert status["report_available"] is True
 
+def test_source_map_indexes_python_routes_and_tests_without_source_contents(tmp_path):
+    executor = tmp_path / "executor"
+    tests = tmp_path / "tests"
+    executor.mkdir()
+    tests.mkdir()
+    (executor / "router.py").write_text(
+        "from flask import Flask\n@app.route('/health')\ndef health():\n    return {}\n",
+        encoding="utf-8",
+    )
+    (tests / "test_router.py").write_text("def test_health():\n    assert True\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("GEMINI_API_KEY=secret-value", encoding="utf-8")
+
+    result = bootstrap._source_map(tmp_path, tmp_path)
+    module = next(item for item in result["python_modules"] if item["path"] == "executor/router.py")
+
+    assert result["file_count"] >= 2
+    assert "tests/test_router.py" in result["test_paths"]
+    assert "/health" in module["routes"]
+    assert result["source_contents_transmitted"] is False
+    assert all(".env" not in item["path"] for item in result["files"])
+
+
