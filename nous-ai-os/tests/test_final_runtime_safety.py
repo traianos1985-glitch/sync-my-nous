@@ -125,3 +125,20 @@ def test_summary_updates_history_index_and_report_names_are_unique(tmp_path, mon
     assert index[0]["updated_at"] == saved["updated_at"]
     assert Path(first["report_path"]).exists()
     assert Path(second["report_path"]).exists()
+
+
+def test_self_diagnosis_uses_configured_token_for_internal_probes(monkeypatch):
+    from executor import self_diagnosis
+
+    monkeypatch.setenv("NOUS_TOKEN", "private-diagnostic-token")
+    headers = self_diagnosis._internal_diagnostic_headers()
+
+    assert headers == {"Authorization": "Bearer private-diagnostic-token"}
+    assert "private-diagnostic-token" not in json.dumps({"headers_present": bool(headers)})
+
+
+def test_self_diagnosis_internal_probes_do_not_require_token_in_report(monkeypatch):
+    from executor import self_diagnosis
+
+    monkeypatch.delenv("NOUS_TOKEN", raising=False)
+    assert self_diagnosis._internal_diagnostic_headers() == {}
