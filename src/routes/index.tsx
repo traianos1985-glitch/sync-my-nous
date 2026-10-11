@@ -45,7 +45,7 @@ const REPO = "https://github.com/traianos1985-glitch/Nous-AI-OS";
 const stats = [
   { value: "~300", label: "modules στο executor" },
   { value: "351", label: "HTTP routes" },
-  { value: "1", label: "service για όλα" },
+  { value: "2", label: "frontend + backend" },
   { value: "fail-closed", label: "auth by default" },
 ];
 
@@ -117,28 +117,28 @@ const layers = [
 
 const upgrades = [
   {
-    tag: "Προτεραιότητα 2",
-    title: "Βάση δεδομένων στη θέση των JSON αρχείων",
-    text: "Τα data/*.json δεν κλιμακώνουν και χαλάνε σε ταυτόχρονη εγγραφή. SQLite ή Postgres με migrations λύνει μνήμη, αναζήτηση και backup.",
+    tag: "Στον κώδικα",
+    title: "Σχεσιακή αποθήκευση και δεδομένα ανά χρήστη",
+    text: "Το Drizzle schema περιλαμβάνει χρήστες, sessions, missions, approvals, tool runs, jobs, knowledge documents/chunks και observability events. Η διαθεσιμότητα εξαρτάται από τη σωστή ρύθμιση της βάσης στο περιβάλλον εκτέλεσης.",
     tone: "signal" as const,
   },
   {
-    tag: "Προτεραιότητα 2",
-    title: "Streaming απαντήσεις & queue για μεγάλες εργασίες",
-    text: "Server-sent events για ζωντανό chat και ουρά εργασιών, ώστε οι αποστολές να μην μπλοκάρουν το HTTP request.",
+    tag: "Στον κώδικα",
+    title: "Streaming chat και lifecycle εργασιών",
+    text: "Υπάρχει endpoint Server-Sent Events για chat και API εργασιών με δημιουργία, ανάκτηση, ακύρωση και retry. Η εκτέλεση κάθε job εξακολουθεί να εξαρτάται από τον αντίστοιχο runtime worker.",
     tone: "signal" as const,
   },
   {
-    tag: "Προτεραιότητα 3",
-    title: "Παρατηρησιμότητα & κόστος",
-    text: "Κεντρικό log με tokens, χρόνο και κόστος ανά κλήση μοντέλου, με όρια ανά ημέρα.",
-    tone: "muted" as const,
+    tag: "Στον κώδικα",
+    title: "Παρατηρησιμότητα κλήσεων μοντέλων",
+    text: "Το API εκθέτει μετρικές κλήσεων μοντέλων και πρόσφατα events, ενώ το schema αποθηκεύει συμβάντα ανά χρήστη για επιθεώρηση και διάγνωση.",
+    tone: "signal" as const,
   },
   {
-    tag: "Προτεραιότητα 3",
-    title: "Πραγματικά tests αντί smoke",
-    text: "Σενάρια για brain, missions και auth guard, ώστε το CI να πιάνει regressions πριν το deploy.",
-    tone: "muted" as const,
+    tag: "Στον κώδικα",
+    title: "Regression tests και έλεγχοι ασφαλείας",
+    text: "Το CI εκτελεί lint, typecheck, build, έλεγχο δημόσιου bundle, Python syntax/Ruff/pytest και σάρωση μυστικών. Τα συμβόλαια UI/API ελέγχουν αντιστοίχιση routes και HTTP methods.",
+    tone: "signal" as const,
   },
 ];
 
@@ -160,7 +160,7 @@ function Index() {
         <div className="relative mx-auto max-w-6xl px-6 py-24 md:py-32">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-xs text-primary">
             <span className="size-1.5 animate-pulse rounded-full bg-primary" />
-            status: online · fail-closed auth
+            architecture: frontend + backend · fail-closed auth
           </div>
 
           <h1 className="mt-8 font-display text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
@@ -170,7 +170,7 @@ function Index() {
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
             Αυτόνομος AI agent σε Python και Flask που λειτουργεί σαν λειτουργικό σύστημα:
             σκέφτεται, θυμάται, φτιάχνει εφαρμογές, επισκευάζει τον εαυτό του και χειρίζεται browser
-            και κινητό — όλα από ένα service.
+            και κινητό — με frontend workspace και backend API.
           </p>
 
           <div className="mt-10 flex flex-wrap gap-3">
@@ -202,7 +202,7 @@ function Index() {
               className="inline-flex items-center gap-2 rounded-md px-5 py-3 font-mono text-sm text-primary transition-colors hover:bg-accent"
             >
               <Sparkles className="size-4" />
-              Προτάσεις αναβάθμισης
+              Τεχνική υποδομή
             </a>
           </div>
 
@@ -320,9 +320,10 @@ function Index() {
                 Αρχιτεκτονική
               </h2>
               <p className="mt-4 max-w-md leading-relaxed text-muted-foreground">
-                Ένα Flask service (
-                <code className="font-mono text-primary">executor.router:app</code>) σηκώνει API,
-                dashboard και όλους τους agents. Ο φάκελος{" "}
+                Το React/TanStack frontend παρέχει το workspace και τις δικές του server routes σε
+                full-stack hosting. Το Flask service (
+                <code className="font-mono text-primary">executor.router:app</code>) παρέχει το NOUS
+                backend API και agents. Ο φάκελος{" "}
                 <code className="font-mono text-primary">data/</code> κρατά την κατάσταση και μένει
                 εκτός Git.
               </p>
@@ -353,11 +354,11 @@ function Index() {
         <div className="flex items-end justify-between gap-6">
           <div>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-              Προτάσεις αναβάθμισης
+              Τεχνική υποδομή
             </h2>
             <p className="mt-3 max-w-xl text-muted-foreground">
-              Οι επόμενες τέσσερις βελτιώσεις του project, μετά την ολοκλήρωση του core runtime και
-              του web UI.
+              Βασικά δομικά στοιχεία που υπάρχουν ήδη στον κώδικα. Η πραγματική διαθεσιμότητά τους
+              εξαρτάται από το deployment, τις ρυθμίσεις και τις ενεργές υπηρεσίες.
             </p>
           </div>
           <span className="hidden font-mono text-xs text-muted-foreground md:block">/roadmap</span>
