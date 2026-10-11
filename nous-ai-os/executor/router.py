@@ -626,7 +626,9 @@ SAFE_UI_TOOL_ACTIONS = {
 @app.route("/api/tools/catalog")
 def api_tool_catalog():
     """Read-only inventory of tools exposed by the NOUS command runtime."""
-        catalog = tool_catalog(request.args.get("category", ""))
+    from executor.tool_catalog import tool_catalog
+
+    catalog = tool_catalog(request.args.get("category", ""))
     for item in catalog.get("tools", []):
         item["executable_from_tool_library"] = item.get("name") in SAFE_UI_TOOL_ACTIONS
     return jsonify(catalog)
