@@ -81,3 +81,10 @@ This checklist separates repository CI success from end-to-end runtime validatio
 - Auto-mission scheduler writes must use same-directory atomic replacement and leave no temporary files after a successful write.
 - Persisted cron jobs are revalidated when loaded; a non-allowlisted action or invalid time must make the schedule unavailable rather than execute or silently rewrite the schedule.
 - Operator approval payloads must be JSON-safe and bounded; expired approvals must not be transitioned to rejected or executed.
+
+
+## Provider deployment approval flow
+
+- Both legacy deployment entry points (\`/remote/deploy/provider-run\` and \`/remote/vercel/deploy\`) must create a pending, expiring operator approval; they must not execute a provider CLI on the initial request.
+- The approval payload binds provider, resolved workspace-contained project path, and production/preview mode. The approve route claims the approval once, revalidates the path and provider, and stores only a secret-safe result summary.
+- A replayed approval ID must never launch a second deployment. Test both endpoints and confirm that preview Vercel deployments do not include the production flag.

@@ -1281,7 +1281,7 @@ def remote_nous_initiatives():
                     "priority": "high",
                     "icon": "🚀",
                     "title": f"Έγκριση deployment: {payload.get('provider', 'provider')}",
-                    "description": f"Production deployment για project {Path(str(payload.get('path', '.'))).name or '.'}",
+                    "description": f"{payload.get('mode', 'production').title()} deployment για project {Path(str(payload.get('path', '.'))).name or '.'}",
                     "risk": "high",
                     "created": approval.get("created", 0),
                     "source": "operator_approval",
@@ -2477,12 +2477,29 @@ def remote_vercel_status_route():
 def remote_vercel_deploy_route():
     if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
-
-    data = request.get_json(silent=True) or {}
-    return jsonify(vercel_deploy(
-        data.get("path", ""),
-        bool(data.get("prod", True))
-    ))
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "json_object_required"}), 400
+    prod = data.get("prod", True)
+    if not isinstance(prod, bool):
+        return jsonify({"ok": False, "error": "invalid_deployment_mode"}), 400
+    prepared = prepare_provider_deploy(
+        "vercel", data.get("path", ""), "production" if prod else "preview"
+    )
+    if not prepared.get("ok"):
+        return jsonify(prepared), 400
+    approval = request_approval(
+        "provider_deploy",
+        payload=prepared["payload"],
+        reason="A Vercel deployment requires explicit one-time operator approval",
+    )
+    return jsonify({
+        "ok": False,
+        "approval_required": True,
+        "approval_id": approval["id"],
+        "approve_route": "/remote/operator/approve-provider-deploy",
+        "approval": approval,
+    }), 202
 
 @app.route("/remote/deploy/providers")
 def remote_deploy_providers_route():

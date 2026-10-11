@@ -46,11 +46,16 @@ def _resolve_project_path(value) -> Path:
     return project
 
 
-def prepare_provider_deploy(provider, path="."):
+def prepare_provider_deploy(provider, path=".", mode="production"):
     """Validate a deployment request without executing the provider CLI."""
     provider_id = str(provider or "").strip().lower()
     if provider_id not in {"vercel", "railway"}:
         return {"ok": False, "error": "provider_not_supported"}
+    mode_value = str(mode or "production").strip().lower()
+    if mode_value not in {"production", "preview"}:
+        return {"ok": False, "error": "invalid_deployment_mode"}
+    if provider_id == "railway" and mode_value != "production":
+        return {"ok": False, "error": "preview_deployment_not_supported"}
     try:
         project = _resolve_project_path(path)
     except ValueError as exc:
@@ -63,6 +68,7 @@ def prepare_provider_deploy(provider, path="."):
         "payload": {
             "provider": provider_id,
             "path": str(project),
+            "mode": mode_value,
         },
     }
 
@@ -71,7 +77,9 @@ def execute_provider_deploy(payload):
     """Execute a previously approved, revalidated provider request."""
     if not isinstance(payload, dict):
         return {"ok": False, "error": "invalid_deployment_payload"}
-    prepared = prepare_provider_deploy(payload.get("provider"), payload.get("path"))
+    prepared = prepare_provider_deploy(
+        payload.get("provider"), payload.get("path"), payload.get("mode", "production")
+    )
     if not prepared.get("ok"):
         return prepared
     provider_id = prepared["payload"]["provider"]
@@ -79,11 +87,16 @@ def execute_provider_deploy(payload):
     cli = shutil.which(provider_id)
     if not cli:
         return {"ok": False, "error": f"{provider_id}_cli_not_installed"}
-    argv = [cli, "--prod", "--yes"] if provider_id == "vercel" else [cli, "up"]
+    mode = prepared["payload"]["mode"]
+    if provider_id == "vercel":
+        argv = [cli, "--prod", "--yes"] if mode == "production" else [cli, "--yes"]
+    else:
+        argv = [cli, "up"]
     result = run_cmd(argv, cwd=project, timeout=300)
     output = {
         "ok": bool(result.get("ok")),
         "provider": provider_id,
+        "mode": mode,
         "project": Path(project).name or ".",
         "exit_code": result.get("code"),
         "error": result.get("error") if not result.get("ok") else None,
