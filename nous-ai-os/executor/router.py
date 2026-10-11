@@ -18,7 +18,7 @@ from executor.remote_llm import ask_with_image, check_gemini
 from executor.nous_ui import nous_dashboard_html
 from executor.kernel import handle
 from executor.tool_catalog import tool_catalog
-from executor.security import check_token, check_admin_token
+from executor.security import check_token, check_admin_token, validate_startup_security
 from executor.auth_guard import install_auth_guard
 from executor.api_tokens import create_token, list_tokens, revoke_token, token_stats
 from executor import autonomy as autonomy_state
@@ -139,6 +139,11 @@ except Exception:
     pass
 
 app = Flask(__name__)
+
+# Render and ngrok are public-facing by design; never start them without the
+# master token even if the API-token store happens to be empty.
+validate_startup_security()
+
 
 # Keep browser access limited to the deployed dashboard and local development.
 ALLOWED_ORIGINS = {
@@ -4118,5 +4123,6 @@ except Exception:
     pass
 
 if __name__ == "__main__":
+    validate_startup_security(force_public=True)
     print("🧠 NUS AI OS LEVEL 22 RUNNING")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")))
