@@ -9,12 +9,12 @@ import android.util.Log
 
 class CommandReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
-        // This receiver remains exported because the companion is driven through
-        // explicit adb broadcasts. Restrict callers to adb shell and this app;
-        // ordinary third-party apps must not be able to tap or navigate the UI.
-        // getSendingUid() is available on Android 14+. Older Android releases
-        // do not expose the sender UID through this API; the receiver still
-        // requires the exact explicit component and allowlisted action/command.
+        val appContext = context ?: return
+        val commandIntent = intent ?: return
+
+        // On Android 14+, additionally restrict broadcasts to adb shell and this
+        // app. Older Android versions do not expose sender UID through this API,
+        // so a per-install pairing token is mandatory on every version.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val senderUid = getSentFromUid()
             if (senderUid != Process.SHELL_UID && senderUid != Process.myUid()) {
@@ -23,12 +23,17 @@ class CommandReceiver : BroadcastReceiver() {
             }
         }
 
-        if (intent?.action != ACTION_COMMAND) {
+        if (commandIntent.action != ACTION_COMMAND) {
             Log.w("NOUS_COMPANION", "Rejected command with unexpected action")
             return
         }
 
-        val command = intent.getStringExtra("command") ?: return
+        if (!PairingToken.matches(appContext, commandIntent.getStringExtra(EXTRA_PAIRING_TOKEN))) {
+            Log.w("NOUS_COMPANION", "Rejected command broadcast without valid pairing token")
+            return
+        }
+
+        val command = commandIntent.getStringExtra("command") ?: return
         if (command !in ALLOWED_COMMANDS) {
             CompanionState.update("rejected", "ERROR: unknown command")
             Log.w("NOUS_COMPANION", "Rejected unknown command")
@@ -46,8 +51,8 @@ class CommandReceiver : BroadcastReceiver() {
             "back" -> "back=${service.pressBack()}"
             "home" -> "home=${service.pressHome()}"
             "tap" -> {
-                val x = intent.getFloatExtra("x", -1f)
-                val y = intent.getFloatExtra("y", -1f)
+                val x = commandIntent.getFloatExtra("x", -1f)
+                val y = commandIntent.getFloatExtra("y", -1f)
                 if (x.isFinite() && y.isFinite() && x >= 0f && y >= 0f) {
                     "tap=${service.tap(x, y)} x=$x y=$y"
                 } else {
@@ -67,6 +72,7 @@ class CommandReceiver : BroadcastReceiver() {
 
     companion object {
         private const val ACTION_COMMAND = "com.nous.companion.COMMAND"
+        const val EXTRA_PAIRING_TOKEN = "pairing_token"
         private val ALLOWED_COMMANDS = setOf("back", "home", "tap", "ui_tree", "state")
     }
 }
