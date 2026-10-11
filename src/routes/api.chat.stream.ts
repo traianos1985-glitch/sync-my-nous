@@ -5,7 +5,7 @@ import { db } from "../lib/db";
 import { nousMessages } from "../lib/db/schema";
 import { randomUUID } from "node:crypto";
 import { research, type ResearchMode } from "../lib/research-broker";
-import { getPersistentDailyBudget } from "../lib/model-observability";
+import { getPersistentDailyBudget, recordPersistentModelCall } from "../lib/model-observability";
 import { allowChatRequest } from "../lib/chat-guardrails";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -95,7 +95,11 @@ export const Route = createFileRoute("/api/chat/stream")({
 
         let response: Response | null = null;
         const models = geminiModelCandidates();
+        let selectedModel = models[0];
+        const startedAt = new Date().toISOString();
+        const started = performance.now();
         for (const [index, model] of models.entries()) {
+          selectedModel = model;
           try {
             response = await fetch(
               `${GEMINI_API_BASE}/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
@@ -163,6 +167,12 @@ export const Route = createFileRoute("/api/chat/stream")({
               }
 
               if (!answer) throw new Error("Gemini returned an empty response");
+              await recordPersistentModelCall(
+                { startedAt, durationMs: Math.round(performance.now() - started), ok: true },
+                userId,
+                "gemini-api",
+                selectedModel,
+              );
               await db.insert(nousMessages).values({
                 id: randomUUID(),
                 missionId: body.missionId?.slice(0, 128) ?? null,
