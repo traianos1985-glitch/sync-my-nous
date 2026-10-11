@@ -62,7 +62,6 @@ The self-upgrade planner is proposal-only. Approving a plan records that it is a
 - Proposal creation rechecks the fixed official repository allowlist, deduplicates by repository and release tag, retains the source URL and bounded excerpt, and adds a checklist to verify actual project usage, complete release notes, compatibility, and tests.
 - A keyword signal is not proof that the upstream project is used by this deployment or that an update is required. The action does not infer affected files, install dependencies, generate code, modify source files, or execute release-note content. Implementation remains a separate reviewed PR with passing CI.
 
-
 ## Hosted-runtime resilience
 
 - Official release-source requests run with a bounded worker pool, so configured per-source timeouts do not add up serially across all sources.
