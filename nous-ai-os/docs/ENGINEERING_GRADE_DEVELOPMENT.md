@@ -83,7 +83,6 @@ checks found no blockers. Review all warnings and the complete diff, then apply 
 change through a separate human-controlled workflow and run the project's full
 test suite. The repair proposal store is runtime state under `data/app_builder_repairs.json`.
 
-
 ## Upgrading NOUS itself
 
 Every proposed source-code change should include:
