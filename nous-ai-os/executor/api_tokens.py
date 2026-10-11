@@ -7,6 +7,7 @@ FILE = "data/api_tokens.json"
 _LOCK = threading.Lock()
 _LAST_USED_THROTTLE = 60.0
 MAX_TOKENS = 500
+VALID_SCOPES = {"user", "admin"}
 
 
 @contextmanager
@@ -84,28 +85,33 @@ def token_stats():
                 "revoked": sum(bool(x.get("revoked")) for x in tokens)}
 
 
-def create_token(name="remote"):
+def create_token(name="remote", scope="user"):
     safe_name = str(name).strip()[:80] or "remote"
+    safe_scope = str(scope).strip().lower()
+    if safe_scope not in VALID_SCOPES:
+        raise ValueError("invalid_token_scope")
     with _store_lock():
         tokens = _load_unlocked()
         if len(tokens) >= MAX_TOKENS:
             raise RuntimeError("api_token_limit_reached")
         token = "nous_" + secrets.token_urlsafe(32)
-        item = {"id": int(time.time_ns()), "name": safe_name, "token_hash": _hash(token),
-                "created": time.time(), "revoked": False, "last_used": None}
+        item = {"id": int(time.time_ns()), "name": safe_name, "scope": safe_scope,
+                "token_hash": _hash(token), "created": time.time(), "revoked": False, "last_used": None}
         existing_ids = {str(value.get("id")) for value in tokens}
         while str(item["id"]) in existing_ids:
             item["id"] += 1
         tokens.append(item)
         _save_unlocked(tokens)
-    return {"id": item["id"], "name": item["name"], "token": token, "created": item["created"]}
+    return {"id": item["id"], "name": item["name"], "scope": item["scope"],
+            "token": token, "created": item["created"]}
 
 
 def list_tokens():
     with _store_lock():
         tokens = _load_unlocked()
-        return [{"id": x.get("id"), "name": x.get("name"), "created": x.get("created"),
-                 "revoked": x.get("revoked", False), "last_used": x.get("last_used")} for x in tokens]
+        return [{"id": x.get("id"), "name": x.get("name"), "scope": x.get("scope", "user"),
+                 "created": x.get("created"), "revoked": x.get("revoked", False),
+                 "last_used": x.get("last_used")} for x in tokens]
 
 
 def revoke_token(token_id):
@@ -121,8 +127,8 @@ def revoke_token(token_id):
     return {"revoked": found, "id": token_id}
 
 
-def token_allowed(token):
-    if not token:
+def token_allowed(token, required_scope="user"):
+    if not token or required_scope not in VALID_SCOPES:
         return False
     candidate_hash = _hash(str(token))
     now = time.time()
@@ -134,7 +140,9 @@ def token_allowed(token):
             if item.get("revoked"):
                 continue
             stored = item["token_hash"]
-            if len(stored) == len(candidate_hash) and secrets.compare_digest(stored, candidate_hash):
+            scope = item.get("scope", "user")
+            scope_allowed = scope == "admin" or (required_scope == "user" and scope == "user")
+            if scope_allowed and len(stored) == len(candidate_hash) and secrets.compare_digest(stored, candidate_hash):
                 allowed = True
                 if now - float(item.get("last_used") or 0) > _LAST_USED_THROTTLE:
                     item["last_used"] = now
