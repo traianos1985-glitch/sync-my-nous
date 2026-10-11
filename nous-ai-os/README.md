@@ -90,8 +90,9 @@ security sandbox και δεν αποκλείει την πρόσβαση στο
 ## Environment-aware startup bootstrap
 
 After the first authenticated request, NOUS starts background diagnostics of the
-runtime, required Python modules, project manifests, writable data directories,
-disk space, source-control revision, and Gemini connectivity. View the latest
+runtime, required Python modules, project manifests, a bounded source/test map,
+Python imports and Flask route declarations, writable data directories, disk space,
+source-control revision, and Gemini connectivity. View the latest
 report at `GET /remote/environment/bootstrap/status`; administrators can start a
 fresh run with `POST /remote/environment/bootstrap/run`.
 
