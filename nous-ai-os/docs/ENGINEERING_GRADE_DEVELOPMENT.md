@@ -41,8 +41,19 @@ Before a generated application is placed in the approval queue, NOUS checks:
 
 These checks are deterministic structural checks. They do **not** prove that the
 application is correct, secure, or runnable. Generated code is not executed during
-plan validation. The approval/write stage currently performs Python syntax checks;
-it does not run arbitrary generated tests in the production process.
+plan validation. After a human approves and writes an application, an administrator
+can use `POST /remote/app-builder/test` with `{"app_name":"sample_app"}` to run
+its `tests/` suite through the bounded subprocess test runner. The route requires
+the admin token. It does not install dependencies; the required test runner and
+project dependencies must already be available.
+
+The runner uses an argument list (not a shell), a reduced environment, a timeout,
+bounded output, and best-effort POSIX resource limits. **This is not a security
+sandbox:** it does not block network access or guarantee filesystem isolation.
+Only run reviewed projects. For genuinely untrusted generated code, use a dedicated
+container/VM or external sandbox with network disabled, a read-only base filesystem,
+a disposable writable workspace, and strict CPU/memory/process limits before running
+it. A passing test suite is evidence, not proof of correctness or security.
 
 ## Upgrading NOUS itself
 
