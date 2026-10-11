@@ -87,7 +87,6 @@ This checklist separates repository CI success from end-to-end runtime validatio
 - The approval payload binds provider, resolved workspace-contained project path, and production/preview mode. The approve route claims the approval once, revalidates the path and provider, and stores only a secret-safe result summary.
 - A replayed approval ID must never launch a second deployment. Test both endpoints and confirm that preview Vercel deployments do not include the production flag.
 
-
 ## Environment bootstrap and AI review boundary
 
 - Gemini connectivity probes must send API keys in the `x-goog-api-key` header, never in URL query parameters.
