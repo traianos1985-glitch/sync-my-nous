@@ -184,3 +184,14 @@ def test_bootstrap_refuses_symlinked_runtime_data_directory(tmp_path):
     assert not (outside / "generated_apps").exists()
     assert not (outside / "environment_bootstrap_report.json").exists()
 
+def test_status_prefers_running_lock_over_previous_report(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "environment_bootstrap.lock").write_text("123", encoding="utf-8")
+    monkeypatch.setattr(bootstrap, "_LAST_RESULT", {"ok": True, "status": "ready"})
+
+    status = bootstrap.environment_bootstrap_status(tmp_path)
+
+    assert status["status"] == "running"
+    assert status["report_available"] is True
+
