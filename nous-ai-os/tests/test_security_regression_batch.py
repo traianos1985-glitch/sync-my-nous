@@ -111,7 +111,7 @@ def test_central_admin_policy_rejects_user_scope_for_sensitive_routes(monkeypatc
     monkeypatch.setattr(auth_guard, "check_token", lambda _request: True)
     monkeypatch.setattr(auth_guard, "check_admin_token", lambda _request: False)
     cases = [
-        ("GET", "/api/ops/tools"),
+        ("POST", "/api/ops/react/run"),
         ("POST", "/api/ops/self-heal/run"),
         ("POST", "/api/agent-environments/deploy"),
         ("GET", "/remote/self-improve/status"),
