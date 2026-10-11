@@ -90,7 +90,11 @@ export function SectionPanel({ section }: { section: string }) {
         timeoutMs: 90_000,
       });
       if (actionGeneration.current !== generation) return;
-      const ok = !(isRecord(data) && data["ok"] === false);
+      const ok = !(
+        isRecord(data) &&
+        (data["ok"] === false ||
+          (typeof data["error"] === "string" && data["error"].trim().length > 0))
+      );
       setActionResult({ label: action.label, ok, data });
       await load();
     } catch (error) {
