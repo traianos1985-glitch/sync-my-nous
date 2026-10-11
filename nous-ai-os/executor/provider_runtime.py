@@ -287,6 +287,11 @@ def deploy_provider(provider: str, project_path: str = ".", mode: str = "preview
         return {"ok": False, "error": "explicit_confirmation_required"}
     if mode not in {"preview", "production"}:
         return {"ok": False, "error": "invalid_deployment_mode"}
+    # Render's service deploy endpoint deploys the configured service; it does
+    # not provide a preview-vs-production switch. Reject "preview" rather than
+    # silently performing a production deployment under a preview label.
+    if provider_id == "render" and mode != "production":
+        return {"ok": False, "error": "render_preview_deployment_not_supported"}
     try:
         project = _resolve_workspace_path(project_path)
     except ValueError as exc:

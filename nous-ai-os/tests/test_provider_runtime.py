@@ -108,3 +108,62 @@ def test_preview_catalog_falls_back_to_provider_homepages_without_github(monkeyp
     assert result["github_repository"] is None
     assert all(not item["ready"] for item in result["previews"])
     assert all(item["url"].startswith("https://") for item in result["previews"])
+
+
+def test_render_preview_mode_is_rejected_before_any_deployment(monkeypatch, tmp_path):
+    monkeypatch.setenv("NOUS_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.setenv("RENDER_SERVICE_ID", "srv_123")
+    monkeypatch.setenv("RENDER_API_KEY", "test-token")
+    monkeypatch.setattr(
+        provider_runtime,
+        "_render_request",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("preview mode must never call the production deploy endpoint")
+        ),
+    )
+
+    result = provider_runtime.deploy_provider(
+        "render", project_path=".", mode="preview", confirmation="DEPLOY"
+    )
+
+    assert result == {
+        "ok": False,
+        "error": "render_preview_deployment_not_supported",
+    }
+
+
+def test_render_production_mode_remains_explicitly_available(monkeypatch, tmp_path):
+    monkeypatch.setenv("NOUS_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.setenv("RENDER_SERVICE_ID", "srv_123")
+    monkeypatch.setenv("RENDER_API_KEY", "test-token")
+    calls = []
+
+    def fake_render_request(method, path):
+        calls.append((method, path))
+        return {"ok": True, "status_code": 201, "data": {"id": "dep_123"}}
+
+    monkeypatch.setattr(provider_runtime, "_render_request", fake_render_request)
+
+    result = provider_runtime.deploy_provider(
+        "render", project_path=".", mode="production", confirmation="DEPLOY"
+    )
+
+    assert result["ok"] is True
+    assert result["mode"] == "production"
+    assert result["deployment_id"] == "dep_123"
+    assert calls == [("POST", "/v1/services/srv_123/deploys")]
+
+
+def test_render_preview_rejection_does_not_require_workspace_or_credentials(monkeypatch):
+    monkeypatch.delenv("NOUS_WORKSPACE_ROOT", raising=False)
+    monkeypatch.delenv("RENDER_SERVICE_ID", raising=False)
+    monkeypatch.delenv("RENDER_API_KEY", raising=False)
+
+    result = provider_runtime.deploy_provider(
+        "render", mode="preview", confirmation="DEPLOY"
+    )
+
+    assert result == {
+        "ok": False,
+        "error": "render_preview_deployment_not_supported",
+    }
