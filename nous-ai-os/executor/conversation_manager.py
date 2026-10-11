@@ -98,9 +98,11 @@ def new_conversation(title: str = "") -> dict[str, Any]:
         "summary": "",
     }
 
-    save_json(CONV_DIR / f"{cid}.json", conv)
-
+    # Validate the index before creating the conversation file, so corrupt
+    # metadata cannot leave behind a newly-created orphan conversation.
     index = _load_index()
+
+    save_json(CONV_DIR / f"{cid}.json", conv)
 
     index.insert(0, {
         "id": cid,
@@ -136,9 +138,7 @@ def list_conversations(limit: int = 30) -> dict[str, Any]:
 
 
 def update_index(conv: dict[str, Any]) -> None:
-    index = load_json(INDEX, [])
-    if not isinstance(index, list):
-        index = []
+    index = _load_index()
 
     item = {
         "id": conv["id"],
@@ -247,11 +247,9 @@ def delete_conversation(conversation_id: str) -> dict[str, Any]:
     if path.exists():
         path.unlink()
 
-    index = load_json(INDEX, [])
-    if not isinstance(index, list):
-        index = []
+    index = _load_index()
 
-    index = [x for x in index if not (isinstance(x, dict) and x.get("id") == conversation_id)]
+    index = [x for x in index if x.get("id") != conversation_id]
     save_json(INDEX, index)
 
     return {"ok": True, "deleted": conversation_id}
