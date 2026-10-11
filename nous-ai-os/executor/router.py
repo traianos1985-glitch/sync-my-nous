@@ -383,6 +383,8 @@ def chat():
             research_mode=str(research_mode),
         )
         if clean_chat is not None:
+            if isinstance(clean_chat, dict) and clean_chat.get("error") == "conversation_storage_unavailable":
+                return jsonify(clean_chat), 503
             return jsonify(clean_chat)
     except Exception:
         pass
