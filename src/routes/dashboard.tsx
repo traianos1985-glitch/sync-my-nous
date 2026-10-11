@@ -532,8 +532,8 @@ function Dashboard() {
     try {
       const [statusResult, metricsResult, overviewResult] = await Promise.allSettled([
         nousFetch<SystemStatus>("/api/status"),
-        nousFetch<SystemStatus["metrics"]>("/api/system/metrics"),
-        nousFetch<SystemStatus["overview"]>("/api/system/overview"),
+        nousFetch<SystemStatus["metrics"]>("/remote/metrics"),
+        nousFetch<SystemStatus["overview"]>("/remote/status"),
       ]);
       const status = statusResult.status === "fulfilled" ? statusResult.value : undefined;
       const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : undefined;
