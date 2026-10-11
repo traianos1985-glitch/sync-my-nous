@@ -7,6 +7,7 @@ changes credentials, or executes model-generated commands.
 """
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
@@ -191,6 +192,101 @@ def _manifest_inventory(app_root: Path, repo_root: Path) -> dict[str, Any]:
     }
 
 
+def _source_map(app_root: Path, repo_root: Path) -> dict[str, Any]:
+    """Build a bounded structural map without executing or transmitting source code."""
+    suffixes = {".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".html", ".css", ".md", ".yml", ".yaml", ".toml"}
+    skipped_dirs = {".git", ".venv", "venv", "node_modules", "__pycache__", "data", "dist", "build", ".next", ".pytest_cache"}
+    files: list[dict[str, Any]] = []
+    python_modules: list[dict[str, Any]] = []
+    language_counts: dict[str, int] = {}
+    test_paths: list[str] = []
+    entrypoints: list[str] = []
+    total_bytes = 0
+    truncated = False
+    root = repo_root if repo_root.is_dir() else app_root
+    known_entrypoints = {
+        "router.py", "app.py", "main.py", "server.py", "index.ts",
+        "index.tsx", "main.ts", "main.tsx", "package.json", "pyproject.toml",
+    }
+    for current, dirs, names in os.walk(root, topdown=True, followlinks=False):
+        dirs[:] = sorted(
+            name for name in dirs
+            if name.lower() not in skipped_dirs and not (Path(current) / name).is_symlink()
+        )
+        for name in sorted(names):
+            path = Path(current) / name
+            lower = name.lower()
+            if lower in _SECRET_NAMES or lower.startswith(".env.") or path.is_symlink():
+                continue
+            if path.suffix.lower() not in suffixes:
+                continue
+            try:
+                size = path.stat().st_size
+                relative = path.relative_to(root).as_posix()
+            except (OSError, ValueError):
+                continue
+            if size > 1_000_000 or total_bytes + size > 20_000_000 or len(files) >= 400:
+                truncated = True
+                continue
+            total_bytes += size
+            suffix = path.suffix.lower() or "no_extension"
+            language_counts[suffix] = language_counts.get(suffix, 0) + 1
+            files.append({"path": relative, "kind": "source", "size_bytes": size})
+            if name.lower().startswith("test_") or "/tests/" in f"/{relative.lower()}/" or relative.lower().endswith((".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")):
+                test_paths.append(relative)
+            if lower in known_entrypoints:
+                entrypoints.append(relative)
+            if suffix == ".py" and size <= 200_000 and len(python_modules) < 120:
+                try:
+                    tree = ast.parse(path.read_text(encoding="utf-8"))
+                    imports: set[str] = set()
+                    definitions: list[str] = []
+                    routes: list[str] = []
+                    for node in tree.body:
+                        if isinstance(node, ast.Import):
+                            imports.update(alias.name.split(".", 1)[0] for alias in node.names)
+                        elif isinstance(node, ast.ImportFrom) and node.module:
+                            imports.add(node.module.split(".", 1)[0])
+                        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                            definitions.append(node.name)
+                        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            for decorator in node.decorator_list:
+                                if not isinstance(decorator, ast.Call) or not isinstance(decorator.func, ast.Attribute):
+                                    continue
+                                if decorator.func.attr != "route" or not decorator.args:
+                                    continue
+                                first_arg = decorator.args[0]
+                                if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
+                                    routes.append(first_arg.value[:200])
+                    python_modules.append({
+                        "path": relative,
+                        "imports": sorted(imports)[:40],
+                        "definitions": definitions[:40],
+                        "routes": routes[:80],
+                        "syntax_parsed": True,
+                    })
+                except (OSError, UnicodeError, SyntaxError, ValueError):
+                    python_modules.append({
+                        "path": relative,
+                        "imports": [],
+                        "definitions": [],
+                        "routes": [],
+                        "syntax_parsed": False,
+                    })
+    return {
+        "root_name": root.name,
+        "file_count": len(files),
+        "total_indexed_bytes": total_bytes,
+        "truncated": truncated,
+        "language_counts": language_counts,
+        "entrypoints": entrypoints[:80],
+        "test_paths": test_paths[:100],
+        "files": files,
+        "python_modules": python_modules,
+        "source_contents_transmitted": False,
+    }
+
+
 def _probe_gemini() -> dict[str, Any]:
     """Verify one tiny Gemini generation request without returning or logging the key."""
     try:
@@ -299,6 +395,7 @@ def _ai_assessment(
         "capabilities": report.get("capabilities"),
         "modules": report.get("modules"),
         "manifest_inventory": report.get("manifest_inventory"),
+        "source_map": report.get("source_map"),
         "checks": report.get("checks"),
         "findings": report.get("findings"),
         "safe_repairs_applied": report.get("safe_repairs_applied"),
@@ -408,6 +505,7 @@ def run_environment_bootstrap(
         "findings": [],
         "safe_repairs_applied": [],
         "manifest_inventory": _manifest_inventory(app_root, repo_root),
+        "source_map": _source_map(app_root, repo_root),
         "gemini": {"status": "not_checked", "connected": False},
         "ai_assessment": {"status": "not_run", "recommendations": []},
         "limitations": [
@@ -459,6 +557,20 @@ def run_environment_bootstrap(
             "code": "required_modules_missing",
             "detail": "One or more required Python modules are unavailable; dependency installation needs operator review.",
             "modules": missing_required,
+        })
+
+    report["checks"]["source_map"] = {
+        "ok": report["source_map"]["file_count"] > 0,
+        "file_count": report["source_map"]["file_count"],
+        "python_module_count": len(report["source_map"]["python_modules"]),
+        "test_file_count": len(report["source_map"]["test_paths"]),
+        "truncated": report["source_map"]["truncated"],
+    }
+    if not report["checks"]["source_map"]["ok"]:
+        report["findings"].append({
+            "severity": "warning",
+            "code": "source_map_empty",
+            "detail": "No source files were indexed in the bounded project scan.",
         })
 
     report["checks"]["project_manifests"] = {
