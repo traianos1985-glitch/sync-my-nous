@@ -21,8 +21,10 @@ def test_auto_mission_executor_refuses_to_overwrite_corrupt_state(tmp_path, monk
 
     enabled = executor.set_auto_mission_executor_enabled(True)
     run = executor.run_auto_mission_executor()
+    status = executor.auto_mission_executor_status()
 
     assert enabled == {"ok": False, "error": "state_load_failed", "enabled": False}
+    assert status["state_error"] == "state_load_failed"
     assert run == {"ok": False, "error": "state_load_failed"}
     assert state_path.read_bytes() == original
 
