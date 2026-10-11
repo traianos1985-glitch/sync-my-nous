@@ -14,7 +14,6 @@ export class NousApiError extends Error {
 
 const defaultApiBase = import.meta.env.DEV ? "/api/nous" : "https://nous-ai-os-api.onrender.com";
 const apiBase = (import.meta.env["VITE_NOUS_API_URL"] || defaultApiBase).replace(/\/$/, "");
-const apiToken = import.meta.env["VITE_NOUS_API_TOKEN"];
 const tokenStorageKey = "nous-dashboard-token";
 const requestTimeoutMs = 35_000;
 const retryableStatuses = new Set([502, 503, 504]);
@@ -53,8 +52,6 @@ async function createApiError(response: Response): Promise<NousApiError> {
   return new NousApiError(response.status, message, detailMessage ?? serverMessage);
 }
 
-// The dashboard uses /api/* names, but the Flask backend on Render exposes some
-// of them under different paths. Map them so the buttons reach real endpoints.
 const BACKEND_PATH_MAP: Record<string, string> = {
   "/api/chat": "/chat",
   "/api/health": "/health",
@@ -66,7 +63,6 @@ function resolvePath(path: string): string {
   return query ? `${mapped}?${query}` : (mapped ?? path);
 }
 
-// Flask /chat reads `command` after its early-return handlers, so mirror `message` into it.
 function adaptBody(path: string, body: RequestInit["body"]): RequestInit["body"] {
   if (resolvePath(path) !== "/chat" || typeof body !== "string") return body;
   try {
@@ -107,8 +103,7 @@ export function hasStoredNousToken(): boolean {
 }
 
 export function getNousToken(): string | undefined {
-  const token = getStoredToken() ?? apiToken;
-  return token?.trim() || undefined;
+  return getStoredToken()?.trim() || undefined;
 }
 
 export function setNousToken(token: string): void {
