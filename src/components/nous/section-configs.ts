@@ -55,6 +55,11 @@ export const sectionConfigs: Record<string, SectionConfig> = {
         path: "/remote/app-builder/plan",
         input: { key: "description", placeholder: "Περιέγραψε την εφαρμογή" },
       },
+      {
+        label: "Εκτέλεση tests εφαρμογής",
+        path: "/remote/app-builder/test",
+        input: { key: "app_name", placeholder: "Όνομα εγκεκριμένης εφαρμογής" },
+      },
     ],
   },
   scheduler: {
