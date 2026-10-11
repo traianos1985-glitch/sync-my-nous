@@ -1,4 +1,5 @@
-from executor import (\n    code_forge,\n    code_tester,\n    debug_engine,\n    plugin_ai,\n    plugin_builder,\n    plugin_quarantine,\n    plugin_registry,\n)
+from executor import code_forge, code_tester, debug_engine
+from executor import plugin_ai, plugin_builder, plugin_quarantine, plugin_registry
 
 
 def test_generated_plugin_validation_never_executes_source(tmp_path):
