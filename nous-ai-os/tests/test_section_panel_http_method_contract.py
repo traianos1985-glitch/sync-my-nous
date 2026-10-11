@@ -13,7 +13,8 @@ SECTION_CONFIG = REPO_ROOT / "src" / "components" / "nous" / "section-configs.ts
 def _configured_calls():
     source = SECTION_CONFIG.read_text(encoding="utf-8")
     calls = []
-    for match in re.finditer(r'\\bpath\\s*:\\s*["\\']([^"\\']+)["\\']', source):
+    path_pattern = re.compile(r"""\\bpath\\s*:\\s*["']([^"']+)["']""")
+    for match in path_pattern.finditer(source):
         before = source[:match.start()]
         endpoint_pos = before.rfind("endpoints:")
         action_pos = before.rfind("actions:")
@@ -51,7 +52,9 @@ def test_every_section_panel_call_uses_a_registered_route_and_supported_method()
                 f"{expected_method} {path} (backend supports: {', '.join(supported)})"
             )
 
-    assert not missing, "Section-panel calls without a registered Flask route: " + ", ".join(missing)
+    assert not missing, (
+        "Section-panel calls without a registered Flask route: " + ", ".join(missing)
+    )
     assert not method_mismatches, (
         "Section-panel HTTP method mismatches: " + ", ".join(method_mismatches)
     )
