@@ -1,3 +1,12 @@
+## Runtime setup for agents (read before testing or changing credentials)
+
+- The deployed backend is `https://nous-ai-os-api.onrender.com`.
+- The Gemini API key (`GEMINI_API_KEY`) is already configured as a server-side environment variable on the Render service `nous-ai-os`. **Do not ask the owner for it, expose it in the frontend, add it to a `VITE_*` variable, or commit it.**
+- When opening the app in a preview, the owner will enter the **NOUS token** in the app's token field. Use that token only to authenticate requests to the deployed NOUS backend; do not ask for the Gemini key instead.
+- Never hard-code, log, screenshot, or commit the NOUS token. Do not put it in source files, test fixtures, URLs, browser-visible build variables, or pull-request descriptions. Use the app's intended token input / Authorization header.
+- If the preview does not have the token yet, ask the owner to enter it through the UI; do not invent a token or change authentication to bypass it.
+- Local backend development is separate from the hosted preview. A local `.env` may be used privately; never commit it. The Gemini key is optional for local runs if using the documented Ollama fallback.
+
 <!-- LOVABLE:BEGIN -->
 > [!IMPORTANT]
 > This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
