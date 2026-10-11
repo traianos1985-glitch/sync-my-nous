@@ -198,6 +198,19 @@ export const sectionConfigs: Record<string, SectionConfig> = {
     ],
     actions: [{ label: "Κύκλος μάθησης", path: "/remote/learning/run", body: { max_topics: 1 } }],
   },
+  bootstrap: {
+    endpoints: [
+      { label: "Environment bootstrap", path: "/remote/environment/bootstrap/status" },
+    ],
+    actions: [
+      {
+        label: "Πλήρης διάγνωση περιβάλλοντος",
+        path: "/remote/environment/bootstrap/run",
+        confirm:
+          "Να γίνει νέος έλεγχος περιβάλλοντος, εξαρτήσεων, αποθήκευσης και σύνδεσης Gemini; Θα δημιουργηθούν μόνο γνωστοί φάκελοι runtime. Δεν αλλάζει κώδικας ή ρυθμίσεις μυστικών.",
+      },
+    ],
+  },
   system: {
     endpoints: [
       { label: "Overview", path: "/api/system/overview" },
