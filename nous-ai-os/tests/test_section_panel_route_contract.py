@@ -112,12 +112,11 @@ def test_every_navigation_section_has_a_config_or_explicit_custom_renderer():
     nav_source = (root / "src" / "components" / "nous" / "nav.ts").read_text(encoding="utf-8")
     nav_ids = set(re.findall(r'id: "([^"]+)"', nav_source))
     config_source = (root / "src" / "components" / "nous" / "section-configs.ts").read_text(encoding="utf-8")
-    pairs = re.findall(
-        r'^  (?:"([^"]+)"|([A-Za-z_$][\\w$-]*)):\\s*\\{',
-        config_source,
-        re.M,
-    )
-    config_ids = {first or second for first, second in pairs}
+    config_ids = {
+        line.strip().removesuffix(": {").strip('"')
+        for line in config_source.splitlines()
+        if line.startswith("  ") and line.rstrip().endswith(": {")
+    }
     custom_sections = {"chat", "home", "documents", "control", "settings"}
     missing = sorted(nav_ids - config_ids - custom_sections)
     assert not missing, f"Navigation sections without a panel or custom renderer: {missing}"
