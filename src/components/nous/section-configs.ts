@@ -211,7 +211,7 @@ export const sectionConfigs: Record<string, SectionConfig> = {
   },
   system: {
     endpoints: [
-      { label: "Overview", path: "/api/system/overview" },
+      { label: "Overview", path: "/remote/status" },
       { label: "Ops", path: "/remote/ops/status" },
       { label: "Reality", path: "/remote/reality/status" },
     ],
