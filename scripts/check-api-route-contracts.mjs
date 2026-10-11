@@ -14,7 +14,7 @@ function requireMatch(source, pattern, message) {
 // never to TanStack server handlers on the Pages origin.
 requireMatch(
   apiClient,
-  /function requestUrl\(path: string\): string \{[\s\S]*?return \$\{apiBase\}\$\{resolvePath\(path\)\};/,
+  /function requestUrl\(path: string\): string \{[\s\S]*?return `\$\{apiBase\}\$\{resolvePath\(path\)\}`;/,
   "Dashboard requests must always use the configured Flask API base URL.",
 );
 if (/FRONTEND_API_PREFIXES|isFrontendApiPath/.test(apiClient)) {
