@@ -4,13 +4,13 @@ This checklist complements the staged hosting migration runbook and helps preven
 
 ## Routing contract
 
-| Request family                                                              | Expected destination                 | Authentication boundary                                              |
-| --------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------- |
-| /api/chat, /api/health                                                      | Existing Flask service on Render     | NOUS bearer token where required by the Flask endpoint               |
-| /api/approvals, /api/audit, /api/evaluation, /api/feedback, /api/jobs       | Same-origin TanStack server routes   | Better Auth session; endpoint-specific authorization                 |
-| /api/knowledge*, /api/missions*, /api/observability                         | Same-origin TanStack server routes   | Better Auth session; user-scoped data access                         |
-| /api/security-audit, /api/security-lessons, /api/status, /api/tools/execute | Same-origin TanStack server routes   | Better Auth session and action-specific safety checks                |
-| /api/chat/stream                                                            | Same-origin TanStack streaming route | Same session and authorization policy as the corresponding UI action |
+| Request family                                                                      | Expected destination                 | Authentication boundary                                              |
+| ----------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------- |
+| `/api/chat`, `/api/health`                                                          | Existing Flask service on Render     | NOUS bearer token where required by the Flask endpoint               |
+| `/api/approvals`, `/api/audit`, `/api/evaluation`, `/api/feedback`, `/api/jobs`     | Same-origin TanStack server routes   | Better Auth session; endpoint-specific authorization                 |
+| `/api/knowledge*`, `/api/missions*`, `/api/observability`                           | Same-origin TanStack server routes   | Better Auth session; user-scoped data access                         |
+| `/api/security-audit`, `/api/security-lessons`, `/api/status`, `/api/tools/execute` | Same-origin TanStack server routes   | Better Auth session and action-specific safety checks                |
+| `/api/chat/stream`                                                                  | Same-origin TanStack streaming route | Same session and authorization policy as the corresponding UI action |
 
 The API client contract check verifies that every declared same-origin prefix has a matching route file and that the allowlist remains aligned with the expected contract. It is a static regression guard, not a substitute for runtime authorization or end-to-end tests.
 
