@@ -66,11 +66,14 @@ tests/               pytest smoke tests
 
 ## Engineering-grade development
 
-Ο App Builder εφαρμόζει πλέον κοινά πρότυπα για πολυ-αρχειακές εφαρμογές, τεκμηρίωση,
+Ο App Builder εφαρμόζει κοινά πρότυπα για πολυ-αρχειακές εφαρμογές, τεκμηρίωση,
 αυτοματοποιημένες δοκιμές και ασφαλή paths πριν μπει ένα σχέδιο στην ουρά έγκρισης.
-Οι προτάσεις αλλαγών κώδικα περιλαμβάνουν επίσης checklist για root cause, regression
-coverage, validation και rollback. Οι έλεγχοι σχεδίου είναι στατικοί και δεν
-υποκαθιστούν εκτέλεση δοκιμών σε απομονωμένο περιβάλλον.
+Μετά από ανθρώπινη έγκριση, ο administrator μπορεί από το UI του App Builder να
+εκτελέσει τα tests με το `POST /remote/app-builder/test`. Ο runner χρησιμοποιεί
+subprocess, καθαρότερο περιβάλλον, timeout και best-effort resource limits· **δεν είναι
+security sandbox και δεν αποκλείει την πρόσβαση στο δίκτυο**. Μην εκτελείς μη
+έμπιστο κώδικα χωρίς ξεχωριστό container/VM sandbox. Οι προτάσεις αναβάθμισης κώδικα
+περιλαμβάνουν checklist για root cause, regression coverage, validation και rollback.
 
 Δες το [Engineering-Grade Development Guide](docs/ENGINEERING_GRADE_DEVELOPMENT.md).
 
