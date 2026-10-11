@@ -89,7 +89,8 @@ def _call_gemini(
 def _can_fallback(result: dict) -> bool:
     error = str(result.get("error", "")).lower()
     return (
-        "quota" in error
+        "gemini_request_failed" in error
+        or "quota" in error
         or "resource_exhausted" in error
         or "gemini_http_429" in error
         or any(f"gemini_http_{status}" in error for status in (403, 404, 408, 500, 502, 503, 504))
