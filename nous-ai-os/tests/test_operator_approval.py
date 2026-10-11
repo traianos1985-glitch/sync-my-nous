@@ -88,3 +88,23 @@ def test_expired_approved_action_cannot_be_claimed(tmp_path, monkeypatch):
         pending["id"], "deploy", {"target": "test"}
     ) is None
     assert operator_approval.get_approval(pending["id"])["status"] == "expired"
+
+
+
+def test_approval_reject_expires_instead_of_rejecting_stale_request(tmp_path, monkeypatch):
+    monkeypatch.setattr(operator_approval, "FILE", str(tmp_path / "operator_approvals.json"))
+    pending = operator_approval.request_approval("deploy", payload={"target": "test"})
+    monkeypatch.setattr(operator_approval.time, "time", lambda: pending["expires_at"] + 1)
+
+    assert operator_approval.reject(pending["id"]) is None
+    assert operator_approval.get_approval(pending["id"])["status"] == "expired"
+
+
+def test_approval_payload_must_be_bounded_json(tmp_path, monkeypatch):
+    monkeypatch.setattr(operator_approval, "FILE", str(tmp_path / "operator_approvals.json"))
+    import pytest
+
+    with pytest.raises(ValueError, match="payload_too_large"):
+        operator_approval.request_approval("deploy", payload={"data": "x" * 17000})
+    with pytest.raises(ValueError, match="payload_must_be_json_safe"):
+        operator_approval.request_approval("deploy", payload={"data": float("nan")})

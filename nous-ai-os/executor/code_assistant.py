@@ -21,18 +21,19 @@ SAFE_MODULES = [
 ]
 
 
-def run_cmd(cmd):
-    """Run a command as argv; never ask a shell to interpret command text."""
+def run_cmd(cmd, cwd=None, timeout=30):
+    """Run a bounded argv command without shell interpretation."""
     try:
         argv = shlex.split(cmd) if isinstance(cmd, str) else list(cmd)
-        if not argv:
-            return {"ok": False, "error": "empty_command"}
+        if not argv or any(not isinstance(arg, str) for arg in argv):
+            return {"ok": False, "error": "invalid_command"}
         p = subprocess.run(
             argv,
+            cwd=cwd,
             shell=False,
             text=True,
             capture_output=True,
-            timeout=30,
+            timeout=max(1, min(int(timeout), 300)),
         )
         return {
             "ok": p.returncode == 0,
@@ -40,8 +41,10 @@ def run_cmd(cmd):
             "stdout": p.stdout[-4000:],
             "stderr": p.stderr[-4000:],
         }
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "command_timeout"}
+    except (OSError, TypeError, ValueError, OverflowError):
+        return {"ok": False, "error": "command_execution_failed"}
 
 
 def code_health():

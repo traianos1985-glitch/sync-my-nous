@@ -41,7 +41,7 @@ class MainActivity : Activity() {
 
         pairingTokenView = TextView(this)
         pairingTokenView.textSize = 12f
-        pairingTokenView.textIsSelectable = true
+        pairingTokenView.setTextIsSelectable(true)
 
         val copyTokenButton = Button(this)
         copyTokenButton.text = "Copy Pairing Token"

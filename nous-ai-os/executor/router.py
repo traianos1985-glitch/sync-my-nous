@@ -44,7 +44,9 @@ from executor.complex_action_runner import complex_action_status, run_complex_ac
 from executor.deploy_operator import deploy_operator_status, prepare_real_deploy
 from executor.reality_gate import reality_status
 from executor.real_action_chains import real_chain_status, run_real_chain
-from executor.deploy_provider_manager import deploy_provider_status, deploy_with_provider
+from executor.deploy_provider_manager import (
+    deploy_provider_status, prepare_provider_deploy, execute_provider_deploy,
+)
 from executor.vercel_deploy_integration import vercel_status, vercel_deploy
 from executor.remote_browser_bridge import remote_browser_bridge_status, create_browser_job, list_browser_jobs, complete_browser_job
 from executor.operator_backend_router import operator_backend_status, browser_backend_status, android_backend_status, deployment_backend_status
@@ -1271,6 +1273,23 @@ def remote_nous_initiatives():
                     "approve_payload": {"id": approval["id"]},
                     "reject_payload": {"id": approval["id"]},
                 })
+            elif approval.get("action") == "provider_deploy":
+                payload = approval.get("payload", {})
+                items.append({
+                    "id": str(approval["id"]),
+                    "type": "deployment",
+                    "priority": "high",
+                    "icon": "🚀",
+                    "title": f"Έγκριση deployment: {payload.get('provider', 'provider')}",
+                    "description": f"{payload.get('mode', 'production').title()} deployment για project {Path(str(payload.get('path', '.'))).name or '.'}",
+                    "risk": "high",
+                    "created": approval.get("created", 0),
+                    "source": "operator_approval",
+                    "approve_route": "/remote/operator/approve-provider-deploy",
+                    "reject_route": "/remote/operator/reject",
+                    "approve_payload": {"id": approval["id"]},
+                    "reject_payload": {"id": approval["id"]},
+                })
     except Exception:
         pass
 
@@ -2458,12 +2477,29 @@ def remote_vercel_status_route():
 def remote_vercel_deploy_route():
     if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
-
-    data = request.get_json(silent=True) or {}
-    return jsonify(vercel_deploy(
-        data.get("path", ""),
-        bool(data.get("prod", True))
-    ))
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "json_object_required"}), 400
+    prod = data.get("prod", True)
+    if not isinstance(prod, bool):
+        return jsonify({"ok": False, "error": "invalid_deployment_mode"}), 400
+    prepared = prepare_provider_deploy(
+        "vercel", data.get("path", ""), "production" if prod else "preview"
+    )
+    if not prepared.get("ok"):
+        return jsonify(prepared), 400
+    approval = request_approval(
+        "provider_deploy",
+        payload=prepared["payload"],
+        reason="A Vercel deployment requires explicit one-time operator approval",
+    )
+    return jsonify({
+        "ok": False,
+        "approval_required": True,
+        "approval_id": approval["id"],
+        "approve_route": "/remote/operator/approve-provider-deploy",
+        "approval": approval,
+    }), 202
 
 @app.route("/remote/deploy/providers")
 def remote_deploy_providers_route():
@@ -2474,8 +2510,25 @@ def remote_deploy_providers_route():
 def remote_deploy_provider_run_route():
     if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
-    data = request.get_json(silent=True) or {}
-    return jsonify(deploy_with_provider(data.get("provider", ""), data.get("path", ".")))
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "json_object_required"}), 400
+    prepared = prepare_provider_deploy(data.get("provider", ""), data.get("path", "."))
+    if not prepared.get("ok"):
+        return jsonify(prepared), 400
+    payload = prepared["payload"]
+    approval = request_approval(
+        "provider_deploy",
+        payload=payload,
+        reason="A production deployment requires explicit one-time operator approval",
+    )
+    return jsonify({
+        "ok": False,
+        "approval_required": True,
+        "approval_id": approval["id"],
+        "approve_route": "/remote/operator/approve-provider-deploy",
+        "approval": approval,
+    }), 202
 
 @app.route("/remote/real-actions/status")
 def remote_real_actions_status_route():
@@ -2520,7 +2573,42 @@ def remote_operator_status_route():
 def remote_operator_approvals_route():
     if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
-    return jsonify(list_approvals())
+    approvals = list_approvals()
+    for item in approvals:
+        if item.get("action") == "provider_deploy":
+            item["approve_route"] = "/remote/operator/approve-provider-deploy"
+            item["approve_payload"] = {"id": item["id"]}
+            item["reject_route"] = "/remote/operator/reject"
+            item["reject_payload"] = {"id": item["id"]}
+    return jsonify(approvals)
+
+
+@app.route("/remote/operator/approve-provider-deploy", methods=["POST"])
+def remote_operator_approve_provider_deploy_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not data.get("id"):
+        return jsonify({"ok": False, "error": "approval_id_required"}), 400
+    approval_id = data["id"]
+    approval = get_approval(approval_id)
+    if not approval or approval.get("action") != "provider_deploy":
+        return jsonify({"ok": False, "error": "deployment_approval_not_found"}), 404
+    if not approve(approval_id):
+        return jsonify({"ok": False, "error": "deployment_approval_not_pending"}), 409
+    payload = approval.get("payload")
+    claimed = claim_approved_approval(approval_id, "provider_deploy", payload)
+    if not claimed:
+        return jsonify({"ok": False, "error": "deployment_approval_not_claimable"}), 409
+    result = execute_provider_deploy(payload)
+    final_status = "completed" if result.get("ok") else "failed"
+    finish_approval(approval_id, final_status, {
+        "ok": bool(result.get("ok")),
+        "provider": result.get("provider") or (payload.get("provider") if isinstance(payload, dict) else None),
+        "error": result.get("error"),
+        "exit_code": result.get("exit_code"),
+    })
+    return jsonify(result), (200 if result.get("ok") else 409)
 
 
 @app.route("/remote/operator/approve-command", methods=["POST"])
