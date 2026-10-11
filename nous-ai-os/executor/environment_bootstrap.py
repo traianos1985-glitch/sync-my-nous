@@ -693,7 +693,7 @@ def environment_bootstrap_status(root: str | Path | None = None) -> dict[str, An
         return {"ok": True, "status": "running", "report_available": _LAST_RESULT is not None}
     try:
         if lock_path.exists() and time.time() - lock_path.stat().st_mtime <= _STALE_LOCK_SECONDS:
-            return {"ok": True, "status": "running", "report_available": (app_root / "data" / _REPORT_NAME).is_file()}
+            return {"ok": True, "status": "running", "report_available": _LAST_RESULT is not None or (app_root / "data" / _REPORT_NAME).is_file()}
     except OSError:
         pass
     if _LAST_RESULT is not None:
