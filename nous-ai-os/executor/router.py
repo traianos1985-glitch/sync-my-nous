@@ -176,6 +176,9 @@ app.register_blueprint(agent_ops_bp)
 from executor.dashboard_api import dashboard_api_bp
 app.register_blueprint(dashboard_api_bp)
 
+from executor.blueprints.agent_environments_bp import agent_environments_bp
+app.register_blueprint(agent_environments_bp)
+
 
 # Fail-closed auth για ΟΛΑ τα endpoints (δες executor/auth_guard.py)
 install_auth_guard(app)
