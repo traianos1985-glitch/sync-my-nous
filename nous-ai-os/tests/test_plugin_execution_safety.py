@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from executor import code_forge, plugin_quarantine, plugin_registry
 
 
