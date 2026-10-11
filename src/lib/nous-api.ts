@@ -55,35 +55,15 @@ async function createApiError(response: Response): Promise<NousApiError> {
 const BACKEND_PATH_MAP: Record<string, string> = {
   "/api/chat": "/chat",
   "/api/health": "/health",
+  "/api/missions": "/remote/missions",
+  "/api/observability": "/remote/metrics",
+  "/api/security-lessons": "/remote/lessons/list",
 };
 
-// These endpoints are implemented by the TanStack Start frontend, not by the
-// Flask service. Keep them same-origin so they reach the matching route handlers.
-const FRONTEND_API_PREFIXES = [
-  "/api/approvals",
-  "/api/audit",
-  "/api/evaluation",
-  "/api/feedback",
-  "/api/jobs",
-  "/api/knowledge",
-  "/api/missions",
-  "/api/observability",
-  "/api/security-audit",
-  "/api/security-lessons",
-  "/api/status",
-  "/api/tools/execute",
-  "/api/chat/stream",
-] as const;
-
-function isFrontendApiPath(path: string): boolean {
-  const pathname = path.split("?")[0] ?? path;
-  return FRONTEND_API_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-}
-
 function requestUrl(path: string): string {
-  return isFrontendApiPath(path) ? path : `${apiBase}${resolvePath(path)}`;
+  // GitHub Pages serves static files only. Dashboard API calls must always
+  // reach the Flask service, where the existing NOUS bearer token is validated.
+  return `${apiBase}${resolvePath(path)}`;
 }
 
 function resolvePath(path: string): string {
