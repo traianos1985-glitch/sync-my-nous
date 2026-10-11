@@ -1,4 +1,4 @@
-from executor.plugin_creator import create_plugin
+from executor.plugin_builder import create_plugin
 from executor.codegen import generate_plugin
 
 def improve(goal):
