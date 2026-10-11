@@ -96,7 +96,7 @@ def test_diagnosis_rejects_invalid_llm_json_and_does_not_write(tmp_path):
 
 
 def test_redacts_obvious_hardcoded_credentials_from_source():
-    source = 'API_KEY=sk_live_123456789\\nTOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890'
+    source = 'API_KEY=sk_live_123456789\nTOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890'
     redacted = _redact_source(source)
     assert 'sk_live_123456789' not in redacted
     assert 'ghp_abcdefghijklmnopqrstuvwxyz1234567890' not in redacted
