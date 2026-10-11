@@ -33,6 +33,7 @@ This checklist separates repository CI success from end-to-end runtime validatio
 - A user-scoped token must receive HTTP 401 on autonomous repair approval/rejection, upgrade-plan mutations, goal-manager project mutations, goal-progress refresh, release-evidence upgrade planning, and App Builder planning. Reject requests before filesystem writes, external research, or model calls.
 
 ## Shared private memory and persistent records
+
 - A user-scoped token must receive HTTP 401 for shared brain state/load, backup lists, queue and project state, mission/goal lists and approvals, repair/patch/upgrade proposals, operator approvals, and generated App Builder plans/files/logs/downloads.
 
 - A user-scoped token must receive HTTP 401 for shared executive/decision memory searches, document chat, knowledge/lesson/error-learning searches, GPS mutations, field record create/delete/image analysis, and persisted Larmor history writes.
