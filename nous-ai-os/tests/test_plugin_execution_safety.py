@@ -1,4 +1,4 @@
-from executor import code_forge, plugin_quarantine, plugin_registry
+from executor import code_forge, plugin_ai, plugin_builder, plugin_quarantine, plugin_registry
 
 
 def test_generated_plugin_validation_never_executes_source(tmp_path):
@@ -30,6 +30,29 @@ def test_generated_plugin_validation_requires_top_level_run(tmp_path):
         "success": False,
         "error": "missing top-level run() function",
     }
+    assert plugin_builder.validate("def not_run():\n    return {}\n") == (
+        False,
+        "missing top-level run() function",
+    )
+
+
+def test_plugin_ai_generation_does_not_execute_generated_source(tmp_path, monkeypatch):
+    marker = tmp_path / "generated-code-executed.txt"
+    generated = (
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed')\n"
+        "def run():\n"
+        "    return {'ok': True}\n"
+    )
+    monkeypatch.setattr(plugin_ai, "ask", lambda _prompt: {"response": generated})
+    monkeypatch.setattr(plugin_builder, "PLUGIN_DIR", str(tmp_path))
+
+    result = plugin_ai.generate_plugin("create a simple harmless test plugin")
+
+    assert result["created"]["success"] is True
+    assert result["test"]["execution_skipped"] is True
+    assert result["test"]["result"]["validation"] == "static_only"
+    assert not marker.exists()
 
 
 def test_plugin_registry_rejects_path_traversal(tmp_path, monkeypatch):
