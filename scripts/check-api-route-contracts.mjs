@@ -1,67 +1,86 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 
-const apiClientPath = "src/lib/nous-api.ts";
-const apiClient = readFileSync(apiClientPath, "utf8");
-const match = apiClient.match(/const FRONTEND_API_PREFIXES = \[([\s\S]*?)\] as const;/);
-
-if (!match) {
-  console.error(`Could not find FRONTEND_API_PREFIXES in ${apiClientPath}.`);
-  process.exit(1);
-}
-
-const configuredPrefixes = [...match[1].matchAll(/["'](\/api\/[^"']+)["']/g)].map(
-  (entry) => entry[1],
-);
-const requiredPrefixes = [
-  "/api/approvals",
-  "/api/audit",
-  "/api/evaluation",
-  "/api/feedback",
-  "/api/jobs",
-  "/api/knowledge",
-  "/api/missions",
-  "/api/observability",
-  "/api/security-audit",
-  "/api/security-lessons",
-  "/api/status",
-  "/api/tools/execute",
-  "/api/chat/stream",
-];
-const configuredSet = new Set(configuredPrefixes);
-const requiredSet = new Set(requiredPrefixes);
+const apiClient = readFileSync("src/lib/nous-api.ts", "utf8");
+const dashboard = readFileSync("src/routes/dashboard.tsx", "utf8");
+const flaskDashboardApi = readFileSync("nous-ai-os/executor/dashboard_api.py", "utf8");
+const flaskRouter = readFileSync("nous-ai-os/executor/router.py", "utf8");
 const errors = [];
 
-for (const prefix of requiredPrefixes) {
-  if (!configuredSet.has(prefix)) {
-    errors.push(`Missing same-origin API prefix: ${prefix}`);
-  }
+function requireMatch(source, pattern, message) {
+  if (!pattern.test(source)) errors.push(message);
+}
 
-  const routeName = prefix.replace(/^\/api\//, "").replaceAll("/", ".");
-  const routeFile = join("src", "routes", `api.${routeName}.ts`);
-  if (!existsSync(routeFile)) {
-    errors.push(`Missing TanStack route file for ${prefix}: ${routeFile}`);
+// GitHub Pages is static hosting: requests must go to the configured Flask API,
+// never to TanStack server handlers on the Pages origin.
+requireMatch(
+  apiClient,
+  /function requestUrl\(path: string\): string \{[\s\S]*?return \$\{apiBase\}\$\{resolvePath\(path\)\};/,
+  "Dashboard requests must always use the configured Flask API base URL.",
+);
+if (/FRONTEND_API_PREFIXES|isFrontendApiPath/.test(apiClient)) {
+  errors.push("Do not route dashboard API calls to same-origin TanStack server handlers.");
+}
+
+const expectedPathMappings = {
+  '"/api/chat": "/chat"': "chat must retain the Flask /chat compatibility mapping",
+  '"/api/health": "/health"': "health must retain the Flask /health compatibility mapping",
+  '"/api/missions": "/remote/missions"': "missions must map to the Flask missions endpoint",
+  '"/api/observability": "/remote/metrics"': "observability must map to Flask runtime metrics",
+  '"/api/security-lessons": "/remote/lessons/list"': "security lessons must map to Flask lessons",
+};
+for (const [mapping, message] of Object.entries(expectedPathMappings)) {
+  if (!apiClient.includes(mapping)) errors.push(`Missing API path mapping: ${message}.`);
+}
+
+// These are the dashboard endpoints actually implemented by the Flask service.
+// Keep this contract in sync with dashboard_api.py and router.py.
+const dashboardApiRoutes = [
+  "/status",
+  "/knowledge",
+  "/evaluation",
+  "/feedback",
+  "/audit",
+  "/jobs",
+  "/approvals",
+  "/tools/execute",
+  "/security-audit",
+];
+for (const route of dashboardApiRoutes) {
+  if (!flaskDashboardApi.includes(`"${route}"`)) {
+    errors.push(`Flask dashboard API is missing route declaration ${route}.`);
   }
 }
 
-for (const prefix of configuredPrefixes) {
-  if (!requiredSet.has(prefix)) {
-    errors.push(`Unexpected frontend API prefix: ${prefix}`);
-  }
+const routerRoutes = [
+  ['@app.route("/chat", methods=["POST"])', "chat"],
+  ['@app.route("/health")', "health"],
+  ['@app.route("/remote/missions")', "mission list"],
+  ['@app.route("/remote/metrics")', "runtime metrics"],
+  ['@app.route("/remote/lessons/list")', "lesson list"],
+];
+for (const [route, label] of routerRoutes) {
+  if (!flaskRouter.includes(route)) errors.push(`Flask router is missing the ${label} route.`);
 }
 
-if (configuredSet.size !== configuredPrefixes.length) {
-  errors.push("Duplicate FRONTEND_API_PREFIXES entry.");
+// The dashboard must poll the Flask JSON endpoint; an SSE handler does not run on Pages.
+requireMatch(
+  dashboard,
+  /nousFetch<[\s\S]{0,500}?\(">\/remote\/missions"\)/,
+  "Mission updates must poll the authenticated Flask /remote/missions endpoint.",
+);
+if (dashboard.includes('nousStream("/api/missions/stream")')) {
+  errors.push("Mission updates must not call the unavailable same-origin SSE route.");
 }
+requireMatch(
+  dashboard,
+  /missionPollRef\.current = window\.setInterval\([\s\S]{0,400}?3_000/,
+  "Mission updates must refresh every three seconds while connected.",
+);
 
 if (errors.length) {
   console.error("API route contract check failed:");
-  for (const error of errors) {
-    console.error(`- ${error}`);
-  }
+  for (const error of errors) console.error(`- ${error}`);
   process.exit(1);
 }
 
-console.log(
-  `API route contract check passed (${requiredPrefixes.length} same-origin route prefixes).`,
-);
+console.log("API route contract check passed (GitHub Pages → authenticated Flask API).");
