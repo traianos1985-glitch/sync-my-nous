@@ -55,6 +55,20 @@ container/VM or external sandbox with network disabled, a read-only base filesys
 a disposable writable workspace, and strict CPU/memory/process limits before running
 it. A passing test suite is evidence, not proof of correctness or security.
 
+When tests fail, an administrator can call `POST /remote/app-builder/diagnose` or use
+the corresponding UI action. NOUS reruns the test suite, then sends bounded test
+output and a limited set of allowlisted source files to the configured AI provider
+for a diagnosis and possible complete-file replacement proposal. Obvious secret
+filenames are excluded and common credential patterns are redacted heuristically;
+this is not a guarantee that all secrets are detected. Review the selected files
+and provider/data-handling policy before using this feature.
+
+The diagnosis endpoint never writes proposed changes, never reruns tests after a
+proposal, and does not claim that the proposed fix works. Proposed paths and sizes
+are validated, but a syntactically safe path is not proof that a patch is correct.
+An administrator must review the root-cause evidence, inspect every proposed file,
+apply the change through the normal human-controlled workflow, and rerun tests.
+
 ## Upgrading NOUS itself
 
 Every proposed source-code change should include:

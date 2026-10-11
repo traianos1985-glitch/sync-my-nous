@@ -60,6 +60,13 @@ export const sectionConfigs: Record<string, SectionConfig> = {
         path: "/remote/app-builder/test",
         input: { key: "app_name", placeholder: "Όνομα εγκεκριμένης εφαρμογής" },
       },
+      {
+        label: "Διάγνωση αποτυχίας και πρόταση επισκευής",
+        path: "/remote/app-builder/diagnose",
+        input: { key: "app_name", placeholder: "Όνομα εγκεκριμένης εφαρμογής" },
+        confirm:
+          "Να εκτελεστούν ξανά τα tests και να σταλούν τα αποτελέσματα μαζί με επιλεγμένα αρχεία πηγαίου κώδικα στο AI για διάγνωση; Δεν θα αλλάξει κανένα αρχείο.",
+      },
     ],
   },
   scheduler: {
