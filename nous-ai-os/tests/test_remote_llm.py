@@ -26,7 +26,8 @@ def test_simple_chat_uses_gemini_and_prefers_current_key_name():
     assert result["success"] is True
     assert result["provider"] == "gemini"
     assert result["response"] == "GEMINI_OK"
-    assert post.call_args.kwargs["params"] == {"key": "current-key"}
+    assert post.call_args.kwargs["headers"] == {"x-goog-api-key": "current-key"}
+    assert "key=" not in post.call_args.args[0]
     assert post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"] == "hello"
     ollama.assert_not_called()
 
@@ -49,16 +50,18 @@ def test_configured_fallback_model_is_used_after_quota_exhaustion():
             },
             clear=True,
         ),
-        patch.object(remote_llm.requests, "post", side_effect=[QuotaResponse(), FakeResponse()]) as post,
+        patch.object(remote_llm.requests, "post", side_effect=[QuotaResponse(), QuotaResponse(), FakeResponse()]) as post,
+        patch.object(remote_llm.time, "sleep"),
         patch.object(remote_llm, "ask_ollama") as ollama,
     ):
         result = remote_llm.ask_remote_llm("hello")
 
     assert result["success"] is True
     assert result["model"] == "gemini-fallback"
-    assert post.call_count == 2
+    assert post.call_count == 3
     assert post.call_args_list[0].args[0].endswith("/gemini-primary:generateContent")
-    assert post.call_args_list[1].args[0].endswith("/gemini-fallback:generateContent")
+    assert post.call_args_list[1].args[0].endswith("/gemini-primary:generateContent")
+    assert post.call_args_list[2].args[0].endswith("/gemini-fallback:generateContent")
     ollama.assert_not_called()
 
 
@@ -80,7 +83,8 @@ def test_all_configured_models_unavailable_returns_failure_without_fake_answer()
             },
             clear=True,
         ),
-        patch.object(remote_llm.requests, "post", side_effect=[QuotaResponse(), QuotaResponse()]),
+        patch.object(remote_llm.requests, "post", side_effect=[QuotaResponse(), QuotaResponse(), QuotaResponse(), QuotaResponse()]),
+        patch.object(remote_llm.time, "sleep"),
         patch.object(remote_llm, "ask_ollama", return_value={"ok": False}),
     ):
         result = remote_llm.ask_remote_llm("hello")
@@ -121,7 +125,8 @@ def test_image_analysis_sends_inline_image_to_gemini():
 def test_gemini_errors_never_return_key_or_fall_back_to_openrouter():
     with (
         patch.dict(os.environ, {"GEMINI_API_KEY": "secret-key"}, clear=True),
-        patch.object(remote_llm.requests, "post", side_effect=remote_llm.requests.Timeout()),
+        patch.object(remote_llm.requests, "post", side_effect=remote_llm.requests.Timeout()) as post,
+        patch.object(remote_llm.time, "sleep"),
         patch.object(remote_llm, "ask_ollama", return_value={"ok": False}),
     ):
         result = remote_llm.ask_remote_llm("hello")
@@ -130,6 +135,9 @@ def test_gemini_errors_never_return_key_or_fall_back_to_openrouter():
     assert result["provider"] == "gemini"
     assert "secret-key" not in str(result)
     assert "openrouter" not in str(result).lower()
+    assert post.call_count == 2
+    assert "secret-key" not in post.call_args.args[0]
+    assert post.call_args.kwargs["headers"] == {"x-goog-api-key": "secret-key"}
 
 
 @pytest.mark.parametrize("path", ["/api/gemini-check", "/gemini-check"])
@@ -161,3 +169,28 @@ def test_dashboard_gemini_check_route_uses_authenticated_gemini(path, monkeypatc
         "model": "gemini-2.5-flash",
         "response": "GEMINI_OK",
     }
+
+
+
+def test_transient_gemini_server_error_retries_same_model_once():
+    class ServerError:
+        ok = False
+        status_code = 503
+
+        def json(self):
+            return {"error": {"message": "temporarily unavailable"}}
+
+    with (
+        patch.dict(os.environ, {"GEMINI_API_KEY": "current-key", "GEMINI_MODEL": "gemini-primary",
+                                "GEMINI_FALLBACK_MODELS": "gemini-fallback"}, clear=True),
+        patch.object(remote_llm.requests, "post", side_effect=[ServerError(), FakeResponse()]) as post,
+        patch.object(remote_llm.time, "sleep"),
+        patch.object(remote_llm, "ask_ollama") as ollama,
+    ):
+        result = remote_llm.ask_remote_llm("hello")
+
+    assert result["success"] is True
+    assert result["model"] == "gemini-primary"
+    assert post.call_count == 2
+    assert all(call.args[0].endswith("/gemini-primary:generateContent") for call in post.call_args_list)
+    ollama.assert_not_called()
