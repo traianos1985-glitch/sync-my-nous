@@ -87,3 +87,22 @@ def test_reports_timeout_without_claiming_success(tmp_path, monkeypatch):
     assert result["status"] == "timeout"
     assert result["error"] == "test_timeout"
     assert result["timeout_seconds"] == 3
+
+
+
+def test_rejects_test_directory_symlink_escape(tmp_path):
+    project = _project(tmp_path)
+    outside = tmp_path.parent / f"{tmp_path.name}_outside"
+    (outside / "tests").mkdir(parents=True)
+    (outside / "tests" / "test_outside.py").write_text(
+        "def test_outside(): pass\\n",
+        encoding="utf-8",
+    )
+    (project / "tests" / "test_main.py").unlink()
+    (project / "tests").rmdir()
+    (project / "tests").symlink_to(outside / "tests", target_is_directory=True)
+
+    result = runner.run_project_tests("sample_app", tmp_path)
+
+    assert result["ok"] is False
+    assert result["error"] == "unsafe_test_path"
