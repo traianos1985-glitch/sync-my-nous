@@ -58,7 +58,7 @@ def test_code_forge_cannot_overwrite_symlink_target(tmp_path, monkeypatch):
         return
     monkeypatch.setattr(plugin_builder, "PLUGIN_DIR", str(plugin_dir))
     monkeypatch.setattr(code_forge, "generate_code", lambda _goal: _VALID_PLUGIN)
-    monkeypatch.setattr(code_forge.time, "time", lambda: 123)
+    monkeypatch.setattr(code_forge.time, "time_ns", lambda: 123)
 
     result = code_forge.forge_plugin("create a harmless plugin")
 
