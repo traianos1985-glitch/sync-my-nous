@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousApprovals, nousMissions, nousToolRuns } from "../lib/db/schema";
@@ -54,6 +54,7 @@ export const Route = createFileRoute("/api/tools/execute")({
               eq(nousApprovals.id, approvalId),
               eq(nousApprovals.userId, userId),
               eq(nousApprovals.status, "approved"),
+              gt(nousApprovals.expiresAt, new Date()),
             ),
           )
           .limit(1);
@@ -85,6 +86,7 @@ export const Route = createFileRoute("/api/tools/execute")({
               eq(nousApprovals.id, approvalId),
               eq(nousApprovals.userId, userId),
               eq(nousApprovals.status, "approved"),
+              gt(nousApprovals.expiresAt, new Date()),
             ),
           )
           .returning();
