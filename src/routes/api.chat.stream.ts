@@ -5,6 +5,8 @@ import { db } from "../lib/db";
 import { nousMessages } from "../lib/db/schema";
 import { randomUUID } from "node:crypto";
 import { research, type ResearchMode } from "../lib/research-broker";
+import { getPersistentDailyBudget } from "../lib/model-observability";
+import { allowChatRequest } from "../lib/chat-guardrails";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -35,6 +37,9 @@ export const Route = createFileRoute("/api/chat/stream")({
     handlers: {
       POST: async ({ request }) => {
         const userId = await requireAuthenticatedUserId(request);
+        if (!allowChatRequest(userId))
+          return Response.json({ ok: false, error: "Too many requests" }, { status: 429 });
+
         const body = (await request.json()) as {
           message?: string;
           history?: ChatMessage[];
@@ -44,6 +49,14 @@ export const Route = createFileRoute("/api/chat/stream")({
         };
         const message = body.message?.trim().slice(0, 20_000) ?? "";
         if (!message) return Response.json({ error: "Το μήνυμα είναι κενό." }, { status: 400 });
+
+        const budget = await getPersistentDailyBudget(userId);
+        if (!budget.allowed) {
+          return Response.json(
+            { ok: false, error: "Το ημερήσιο όριο του agent εξαντλήθηκε. Δοκίμασε ξανά αύριο." },
+            { status: 429 },
+          );
+        }
 
         const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GCP_API_KEY"];
         if (!apiKey)
