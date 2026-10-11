@@ -64,3 +64,27 @@ def test_rejected_approval_cannot_be_claimed(tmp_path, monkeypatch):
     assert operator_approval.claim_approved_approval(
         approval["id"], "deploy", {"target": "test"}
     ) is None
+
+
+
+def test_expired_pending_approval_cannot_be_approved(tmp_path, monkeypatch):
+    monkeypatch.setattr(operator_approval, "FILE", str(tmp_path / "operator_approvals.json"))
+    pending = operator_approval.request_approval("deploy", payload={"target": "test"})
+    expired_at = pending["expires_at"] + 1
+    monkeypatch.setattr(operator_approval.time, "time", lambda: expired_at)
+
+    assert operator_approval.approve(pending["id"]) is None
+    assert operator_approval.get_approval(pending["id"])["status"] == "expired"
+
+
+def test_expired_approved_action_cannot_be_claimed(tmp_path, monkeypatch):
+    monkeypatch.setattr(operator_approval, "FILE", str(tmp_path / "operator_approvals.json"))
+    pending = operator_approval.request_approval("deploy", payload={"target": "test"})
+    assert operator_approval.approve(pending["id"]) is not None
+    expired_at = pending["expires_at"] + 1
+    monkeypatch.setattr(operator_approval.time, "time", lambda: expired_at)
+
+    assert operator_approval.claim_approved_approval(
+        pending["id"], "deploy", {"target": "test"}
+    ) is None
+    assert operator_approval.get_approval(pending["id"])["status"] == "expired"
