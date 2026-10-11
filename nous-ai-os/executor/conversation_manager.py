@@ -185,6 +185,8 @@ def append_turn(
     if not conv.get("title") or conv.get("title") == "Νέα συνομιλία":
         conv["title"] = safe_title(user_message)
 
+    # Refuse to mutate a conversation if the shared index is already corrupt.
+    _load_index()
     save_json(CONV_DIR / f"{conv['id']}.json", conv)
     update_index(conv)
 
@@ -231,6 +233,7 @@ def rename_conversation(conversation_id: str, title: str) -> dict[str, Any]:
     if not conv.get("ok"):
         return conv
 
+    _load_index()
     conv["title"] = safe_title(title)
     conv["updated_at"] = now_iso()
 
@@ -243,11 +246,10 @@ def rename_conversation(conversation_id: str, title: str) -> dict[str, Any]:
 def delete_conversation(conversation_id: str) -> dict[str, Any]:
     if not _valid_conversation_id(conversation_id):
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
+    index = _load_index()
     path = CONV_DIR / f"{conversation_id}.json"
     if path.exists():
         path.unlink()
-
-    index = _load_index()
 
     index = [x for x in index if x.get("id") != conversation_id]
     save_json(INDEX, index)
