@@ -31,10 +31,10 @@ export function parseApiResponse<T>(schema: z.ZodType<T>, payload: unknown): T {
 export function readApiError(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object") return undefined;
   const value = payload as Record<string, unknown>;
-  return typeof value.error === "string"
-    ? value.error
-    : typeof value.message === "string"
-      ? value.message
+  return typeof value["error"] === "string"
+    ? value["error"]
+    : typeof value["message"] === "string"
+      ? value["message"]
       : undefined;
 }
 
@@ -55,7 +55,7 @@ export function isUnknownRecord(value: unknown): value is Record<string, unknown
 
 export function getSafeDiagnostics(payload: unknown): Record<string, unknown> | undefined {
   if (!isUnknownRecord(payload)) return undefined;
-  const diagnostics = payload.diagnostics;
+  const diagnostics = payload["diagnostics"];
   return isUnknownRecord(diagnostics) ? diagnostics : undefined;
 }
 
@@ -258,11 +258,11 @@ export function mergeDiagnostics(...values: Array<Record<string, unknown> | unde
 }
 
 export function hasContractVersion(payload: unknown): boolean {
-  return isUnknownRecord(payload) && payload.api_version === apiContractVersion;
+  return isUnknownRecord(payload) && payload["api_version"] === apiContractVersion;
 }
 
 export function contractWarning(payload: unknown): string | undefined {
-  return isUnknownRecord(payload) && payload.api_version && !hasContractVersion(payload)
+  return isUnknownRecord(payload) && payload["api_version"] && !hasContractVersion(payload)
     ? "Το backend δεν δήλωσε API v1· χρησιμοποιείται συμβατό fallback."
     : undefined;
 }
@@ -355,7 +355,7 @@ export function hasAny(value: unknown, keys: string[]): boolean {
 }
 
 export function readStatus(payload: unknown): string | undefined {
-  return isUnknownRecord(payload) ? safeString(payload.status) : undefined;
+  return isUnknownRecord(payload) ? safeString(payload["status"]) : undefined;
 }
 
 export function isHealthyStatus(payload: unknown): boolean {
@@ -542,7 +542,7 @@ export function responseMode(payload: unknown): string {
 }
 
 export function correlationId(payload: unknown): string | undefined {
-  return isUnknownRecord(payload) ? safeString(payload.correlation_id) : undefined;
+  return isUnknownRecord(payload) ? safeString(payload["correlation_id"]) : undefined;
 }
 
 export function redactPayload(payload: unknown): unknown {
@@ -834,11 +834,11 @@ export function normalizeVersion(value: unknown): string {
 }
 
 export function parseVersion(payload: unknown): string {
-  return isUnknownRecord(payload) ? normalizeVersion(payload.api_version) : "legacy";
+  return isUnknownRecord(payload) ? normalizeVersion(payload["api_version"]) : "legacy";
 }
 
 export function hasVersion(payload: unknown, expected = apiContractVersion): boolean {
-  return isUnknownRecord(payload) && payload.api_version === expected;
+  return isUnknownRecord(payload) && payload["api_version"] === expected;
 }
 
 export function contractPayload<T extends Record<string, unknown>>(payload: T): T {
@@ -1138,7 +1138,7 @@ export function responseText(payload: unknown): string {
 }
 
 export function responseId(payload: unknown): string | null {
-  return parseId(isUnknownRecord(payload) ? payload.conversation_id : undefined);
+  return parseId(isUnknownRecord(payload) ? payload["conversation_id"] : undefined);
 }
 
 export function responseVersion(payload: unknown): string {
@@ -1789,10 +1789,6 @@ export function nousApiContractSchemaApiVersionDescription(): string {
 
 export function nousApiContractSchemaApiVersionContract(): string {
   return "NOUS API v1";
-}
-
-export function nousApiContractSchemaApiVersionName(): string {
-  return "NOUS";
 }
 
 export function nousApiContractSchemaApiVersionProduct(): string {
