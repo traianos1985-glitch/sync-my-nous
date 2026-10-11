@@ -62,4 +62,6 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`API route contract check passed (${requiredPrefixes.length} same-origin route prefixes).`);
+console.log(
+  `API route contract check passed (${requiredPrefixes.length} same-origin route prefixes).`,
+);
