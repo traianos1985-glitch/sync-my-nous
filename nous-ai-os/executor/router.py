@@ -3443,11 +3443,19 @@ def app_builder_files_route():
 
 
 def _detect_run_command(app_dir) -> str:
-    p = Path(app_dir)
+    import shlex
+    import sys as _sys
+
+    p = Path(app_dir).resolve()
     for candidate in ["main.py", "app.py", "run.py", "server.py"]:
-        if (p / candidate).is_file():
-            return f"python {p / candidate}"
-    return f"python {p / 'main.py'}"
+        script = (p / candidate).resolve()
+        if script.is_file():
+            try:
+                script.relative_to(p)
+            except ValueError:
+                continue
+            return shlex.join([_sys.executable, str(script)])
+    return shlex.join([_sys.executable, str((p / "main.py").resolve())])
 
 
 # ── In-memory store for running app subprocesses ──────────────────────────────
@@ -3485,14 +3493,29 @@ def _try_autorepair_app(app_dir) -> dict:
     If a file is a JSON blob (NOUS plan artifact), extract the real Python code and overwrite it.
     Returns {"repaired": bool, "files": [...], "message": str}
     """
+    import os as _os
     import re as _re
+    import stat as _stat
     from pathlib import Path as _P
+
     repaired_files = []
-    p = _P(app_dir)
+    try:
+        p = _P(app_dir).resolve(strict=True)
+    except OSError:
+        return {"repaired": False, "files": [], "message": ""}
     for pyfile in p.rglob("*.py"):
+        # Never read or overwrite symlink targets; generated app trees are not
+        # trusted to contain only ordinary files.
         try:
-            raw = pyfile.read_text(encoding="utf-8", errors="replace")
-        except Exception:
+            if pyfile.is_symlink():
+                continue
+            resolved = pyfile.resolve(strict=True)
+            resolved.relative_to(p)
+            file_stat = resolved.stat()
+            if not _stat.S_ISREG(file_stat.st_mode) or file_stat.st_nlink != 1:
+                continue
+            raw = resolved.read_text(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
             continue
         # Detect JSON blob (NOUS plan artifact starts with ```json or { with "files" key)
         is_json_blob = raw.strip().startswith("```json") or (
@@ -3511,21 +3534,55 @@ def _try_autorepair_app(app_dir) -> dict:
             if "def " in code or "import " in code or "class " in code:
                 extracted = code
         if extracted:
-            pyfile.write_text(extracted, encoding="utf-8")
-            repaired_files.append(str(pyfile.relative_to(p)))
+            # Open without following a final-component symlink, then verify the
+            # inode again before truncating so a swapped path cannot redirect
+            # the repair write to another file.
+            flags = _os.O_WRONLY | getattr(_os, "O_NOFOLLOW", 0)
+            try:
+                fd = _os.open(str(resolved), flags)
+                with _os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    opened_stat = _os.fstat(handle.fileno())
+                    if (
+                        not _stat.S_ISREG(opened_stat.st_mode)
+                        or opened_stat.st_nlink != 1
+                        or opened_stat.st_dev != file_stat.st_dev
+                        or opened_stat.st_ino != file_stat.st_ino
+                    ):
+                        continue
+                    _os.ftruncate(handle.fileno(), 0)
+                    handle.write(extracted)
+            except OSError:
+                continue
+            repaired_files.append(str(resolved.relative_to(p)))
     if repaired_files:
         return {"repaired": True, "files": repaired_files,
                 "message": f"🔧 Αυτόματη επιδιόρθωση: εξήχθη Python κώδικας από JSON blob σε {repaired_files}"}
     return {"repaired": False, "files": [], "message": ""}
 
 
-def _launch_app_proc(run_cmd: str, app_name: str) -> dict:
-    """Launch a subprocess and collect first 1.5s of output. Returns info dict."""
-    import subprocess as _sp, sys as _sys, threading, time
-    parts = run_cmd.replace("python ", f"{_sys.executable} ").split()
-    proc = _sp.Popen(parts, stdout=_sp.PIPE, stderr=_sp.STDOUT,
-                     cwd=str(__import__("pathlib").Path(".").resolve()),
-                     text=True, bufsize=1)
+def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
+    """Launch the approved app entry point without a shell."""
+    import shlex as _shlex
+    import subprocess as _sp
+    import sys as _sys
+    import threading
+    import time
+    from pathlib import Path as _P
+
+    parts = _shlex.split(run_cmd)
+    if len(parts) != 2 or parts[0] != _sys.executable:
+        raise ValueError("invalid_app_run_command")
+    root = _P(app_dir).resolve(strict=True)
+    script = _P(parts[1]).resolve(strict=True)
+    try:
+        script.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("app_entrypoint_outside_app_directory") from exc
+    if not script.is_file() or script.suffix.lower() != ".py":
+        raise ValueError("invalid_app_entrypoint")
+    parts = [_sys.executable, str(script)]
+    proc = _sp.Popen(parts, shell=False, stdout=_sp.PIPE, stderr=_sp.STDOUT,
+                     cwd=str(_P(".").resolve()), text=True, bufsize=1)
     info = {"proc": proc, "pid": proc.pid, "cmd": run_cmd, "log": ""}
     _running_apps[app_name] = info
     lines = []
@@ -3595,7 +3652,7 @@ def app_builder_run_app_route():
 
     # ── STEP 2: First launch attempt ──────────────────────────────────────────
     try:
-        r1 = _launch_app_proc(run_cmd, app_name)
+        r1 = _launch_app_proc(run_cmd, app_name, app_dir)
         proc, lines = r1["proc"], r1["lines"]
         output_text = "".join(lines[-40:])
 
@@ -3611,7 +3668,7 @@ def app_builder_run_app_route():
                 repair_msg += ("\n" if repair_msg else "") + repair2["message"]
                 # Re-launch after repair
                 del _running_apps[app_name]
-                r2 = _launch_app_proc(run_cmd, app_name)
+                r2 = _launch_app_proc(run_cmd, app_name, app_dir)
                 proc, lines = r2["proc"], r2["lines"]
                 output_text = "".join(lines[-40:])
                 failed = proc.poll() is not None

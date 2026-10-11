@@ -1,6 +1,8 @@
 import json
+import shlex
+import sys
 
-from executor import app_builder
+from executor import app_builder, router
 
 
 def _queue_plan(tmp_path, monkeypatch, file_specs):
@@ -63,3 +65,60 @@ def test_approved_app_run_command_points_to_written_entrypoint(tmp_path, monkeyp
     result = app_builder.approve_and_write("plan-1")
     assert result["ok"] is True
     assert result["run_command"].endswith("demo_app/main.py")
+
+
+
+def test_autorepair_does_not_follow_symlink_outside_app(tmp_path):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    outside = tmp_path / "outside.py"
+    original = '{"files": [{"content": "def repaired():\\n    return True"}]}'
+    outside.write_text(original, encoding="utf-8")
+    (app_dir / "main.py").symlink_to(outside)
+
+    result = router._try_autorepair_app(app_dir)
+
+    assert result["repaired"] is False
+    assert outside.read_text(encoding="utf-8") == original
+
+
+def test_app_run_command_preserves_paths_with_spaces(tmp_path):
+    app_dir = tmp_path / "generated app"
+    app_dir.mkdir()
+    script = app_dir / "main.py"
+    script.write_text("print('ok')", encoding="utf-8")
+
+    command = router._detect_run_command(app_dir)
+
+    assert shlex.split(command) == [sys.executable, str(script.resolve())]
+
+
+def test_app_launch_rejects_entrypoint_outside_app_directory(tmp_path):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    outside = tmp_path / "outside.py"
+    outside.write_text("print('outside')", encoding="utf-8")
+    command = shlex.join([sys.executable, str(outside)])
+
+    try:
+        router._launch_app_proc(command, "sample", app_dir)
+    except ValueError as exc:
+        assert str(exc) == "app_entrypoint_outside_app_directory"
+    else:
+        raise AssertionError("expected app entrypoint path rejection")
+
+
+
+def test_autorepair_still_repairs_json_artifact_inside_app(tmp_path):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    artifact = app_dir / "main.py"
+    artifact.write_text(
+        '{"files": [{"content": "def repaired():\\n    return True"}]}',
+        encoding="utf-8",
+    )
+
+    result = router._try_autorepair_app(app_dir)
+
+    assert result["repaired"] is True
+    assert artifact.read_text(encoding="utf-8") == "def repaired():\n    return True"
