@@ -149,7 +149,7 @@ Hard requirements:
         "build_result": None,
         "engineering_validation": {
             "ok": True,
-            "checks": ["schema", "safe_paths", "unique_paths", "readme", "automated_test_file", "entrypoint", "size_limits"],
+            "checks": ["schema", "safe_paths", "unique_paths", "readme", "automated_test_file", "entrypoint", "size_limits", "python_syntax"],
             "runtime_tests_executed": False,
         },
     }
