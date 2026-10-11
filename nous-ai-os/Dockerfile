@@ -24,4 +24,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS http://127.0.0.1:5000/health || exit 1
 
 # The app starts in-process background loops; use one worker until loops are externalized.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "120", "--access-logfile", "-", "executor.router:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--worker-class", "gthread", "--threads", "8", "--workers", "1", "--timeout", "120", "--access-logfile", "-", "executor.router:app"]

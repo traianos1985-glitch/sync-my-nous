@@ -133,3 +133,13 @@ def test_central_admin_policy_does_not_require_admin_for_health(monkeypatch):
     monkeypatch.setattr(auth_guard, "check_admin_token", lambda _request: False)
     response = router.app.test_client().get("/health")
     assert response.status_code == 200
+
+
+def test_deploy_server_uses_threaded_single_worker():
+    root = Path(__file__).resolve().parents[1]
+    dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
+    procfile = (root / "Procfile").read_text(encoding="utf-8")
+    for config in (dockerfile, procfile):
+        assert "gthread" in config
+        assert "threads" in config
+        assert "workers 1" in config or '"1"' in config
