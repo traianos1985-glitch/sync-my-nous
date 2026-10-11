@@ -86,3 +86,11 @@ This checklist separates repository CI success from end-to-end runtime validatio
 - Both legacy deployment entry points (`/remote/deploy/provider-run` and `/remote/vercel/deploy`) must create a pending, expiring operator approval; they must not execute a provider CLI on the initial request.
 - The approval payload binds provider, resolved workspace-contained project path, and production/preview mode. The approve route claims the approval once, revalidates the path and provider, and stores only a secret-safe result summary.
 - A replayed approval ID must never launch a second deployment. Test both endpoints and confirm that preview Vercel deployments do not include the production flag.
+
+
+## Environment bootstrap and AI review boundary
+
+- Gemini connectivity probes must send API keys in the `x-goog-api-key` header, never in URL query parameters.
+- AI-generated environment recommendations are review-only: the parser must force `safe_to_automate=false` and `requires_human_approval=true`, regardless of model-provided flags.
+- Non-string and oversized model responses must be rejected before parsing or storing recommendations.
+- Verify the bootstrap report and request logs contain no API-key value.
