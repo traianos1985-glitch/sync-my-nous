@@ -52,6 +52,11 @@ def save_json(path: Path, data: Any) -> None:
             temporary_path.unlink()
 
 
+def _valid_conversation_id(conversation_id: str) -> bool:
+    # IDs are generated from microsecond timestamps; reject path separators and traversal.
+    return bool(re.fullmatch(r"[0-9]{1,30}", str(conversation_id or "")))
+
+
 def safe_title(text: str, fallback: str = "Νέα συνομιλία") -> str:
     t = re.sub(r"\s+", " ", text or "").strip()
     t = t[:70].strip()
@@ -93,6 +98,8 @@ def new_conversation(title: str = "") -> dict[str, Any]:
 
 
 def get_conversation(conversation_id: str) -> dict[str, Any]:
+    if not _valid_conversation_id(conversation_id):
+        return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
     path = CONV_DIR / f"{conversation_id}.json"
     conv = load_json(path, None)
     if not isinstance(conv, dict):
@@ -218,6 +225,8 @@ def rename_conversation(conversation_id: str, title: str) -> dict[str, Any]:
 
 
 def delete_conversation(conversation_id: str) -> dict[str, Any]:
+    if not _valid_conversation_id(conversation_id):
+        return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
     path = CONV_DIR / f"{conversation_id}.json"
     if path.exists():
         path.unlink()

@@ -48,3 +48,15 @@ def test_conversation_turn_persists_to_conversation_and_index(tmp_path: Path, mo
     assert conversation["messages"][0]["content"] == "Γεια"
     assert conversation["messages"][1]["content"] == "Καλησπέρα"
     assert listing["conversations"][0]["id"] == result["conversation_id"]
+
+
+def test_conversation_ids_cannot_escape_conversation_directory(tmp_path: Path, monkeypatch):
+    conversation_dir = tmp_path / "conversations"
+    conversation_dir.mkdir()
+    outside = tmp_path / "outside.json"
+    outside.write_text('{"ok": true, "messages": []}', encoding="utf-8")
+    monkeypatch.setattr(manager, "CONV_DIR", conversation_dir)
+
+    assert manager.get_conversation("../outside")["error"] == "conversation_not_found"
+    assert manager.delete_conversation("../outside")["error"] == "conversation_not_found"
+    assert outside.read_text(encoding="utf-8") == '{"ok": true, "messages": []}'
