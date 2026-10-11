@@ -54,3 +54,74 @@ def test_frontend_owned_api_paths_are_not_sent_to_the_flask_base_url():
         assert f'"{path}"' in source
     assert "function requestUrl(path: string)" in source
     assert source.count("fetch(requestUrl(path), request)") == 4
+
+
+def _action_arrays(source):
+    arrays = []
+    for match in re.finditer(r"actions:\\s*\\[", source):
+        start = match.end() - 1
+        depth = 0
+        quote = None
+        escaped = False
+        for index in range(start, len(source)):
+            char = source[index]
+            if quote:
+                if escaped:
+                    escaped = False
+                elif char == "\\\\":
+                    escaped = True
+                elif char == quote:
+                    quote = None
+                continue
+            if char in {"'", '"', "`"}:
+                quote = char
+            elif char == "[":
+                depth += 1
+            elif char == "]":
+                depth -= 1
+                if depth == 0:
+                    arrays.append(source[start + 1 : index])
+                    break
+    return arrays
+
+
+def _registered_methods():
+    methods = {}
+    router = (
+        ROOT / "nous-ai-os" / "executor" / "router.py"
+    ).read_text(encoding="utf-8")
+    route_pattern = re.compile(
+        r"""@app\\.route\\(\\s*["']([^"']+)["'](?:,\\s*methods=\\[([^\\]]+)\\])?\\)"""
+    )
+    for match in route_pattern.finditer(router):
+        route = match.group(1)
+        declared = match.group(2)
+        supported = (
+            set(re.findall(r"""["'](GET|POST|PUT|PATCH|DELETE)["']""", declared))
+            if declared
+            else {"GET", "HEAD", "OPTIONS"}
+        )
+        methods.setdefault(route, set()).update(supported)
+
+    for route_file in (ROOT / "src" / "routes").glob("api.*.ts"):
+        stem = route_file.name[:-3]
+        if "$" in stem:
+            continue
+        route = "/" + stem.replace(".", "/")
+        source = route_file.read_text(encoding="utf-8")
+        methods[route] = set(re.findall(r"^\\s*(GET|POST|PUT|PATCH|DELETE):", source, re.MULTILINE))
+    return methods
+
+
+def test_every_section_panel_action_has_a_post_handler():
+    config = (
+        ROOT / "src" / "components" / "nous" / "section-configs.ts"
+    ).read_text(encoding="utf-8")
+    action_paths = {
+        match.group(1).split("?", maxsplit=1)[0]
+        for body in _action_arrays(config)
+        for match in re.finditer(r'path:\\s*"([^"]+)"', body)
+    }
+    methods = _registered_methods()
+    missing = sorted(path for path in action_paths if "POST" not in methods.get(path, set()))
+    assert not missing, "SectionPanel actions without a POST handler: " + ", ".join(missing)
