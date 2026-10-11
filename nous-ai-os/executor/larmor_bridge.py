@@ -70,17 +70,18 @@ _MU0 = 4 * math.pi * 1e-7
 
 def characteristic_frequency_hz(sigma: float, mu_r: float, radius_m: float) -> float:
     """
-    Classical EM characteristic frequency of a metallic object.
+    Estimate the skin-depth crossover frequency for a metallic object.
 
-    f_char = 1 / (σ × μ₀ × μr × a²)
+    f_char = 1 / (π × σ × μ₀ × μr × a²)
 
-    Below this frequency, the AC field fully penetrates the object (δ_metal ≥ a).
-    Above it, eddy currents shield the interior — response drops.
-    Maximum eddy current INDUCTION occurs near f_char.
+    With δ = 1 / √(π × f × μ₀ × μr × σ), this makes δ approximately
+    equal to the object's characteristic radius a. It is a scale estimate,
+    not proof of a resonance or a guaranteed detection optimum.
     """
-    if sigma <= 0 or radius_m <= 0:
+    values = (sigma, mu_r, radius_m)
+    if any(isinstance(value, bool) or not math.isfinite(value) or value <= 0 for value in values):
         return 0.0
-    return 1.0 / (sigma * _MU0 * mu_r * radius_m ** 2)
+    return 1.0 / (math.pi * sigma * _MU0 * mu_r * radius_m ** 2)
 
 
 def skin_depth_in_metal_m(sigma: float, mu_r: float, freq_hz: float) -> float:
@@ -98,34 +99,46 @@ def optimal_em_frequency_hz(
     age_factor: float = 1.0,
 ) -> dict:
     """
-    Calculate the OPTIMAL DETECTION FREQUENCY for a buried metallic object
-    using the Classical EM (Faraday/eddy-current) resonance model.
+    Return a classical-EM skin-depth scale and a separate soil penetration limit.
 
-    Returns f_char (target characteristic), f_soil_limit (max for soil penetration),
-    and f_optimal (geometric mean compromise).
+    f_optimal_hz currently aliases f_char_hz as an experimental heuristic;
+    it is not a validated detection optimum. age_factor scales the effective
+    soil path used for the penetration-limit estimate, not the metal properties.
     """
     metal = METAL_EM_PROPERTIES.get(metal_key)
     if not metal:
         return {"error": f"Άγνωστο υλικό: {metal_key}"}
 
+    values = {
+        "radius_m": radius_m,
+        "depth_m": depth_m,
+        "soil_sigma": soil_sigma,
+        "age_factor": age_factor,
+    }
+    for name, value in values.items():
+        if isinstance(value, bool):
+            return {"error": f"{name} must be a finite positive number"}
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError, OverflowError):
+            return {"error": f"{name} must be a finite positive number"}
+        if not math.isfinite(numeric) or numeric <= 0:
+            return {"error": f"{name} must be a finite positive number"}
+        values[name] = numeric
+
+    radius_m = values["radius_m"]
+    depth_m = values["depth_m"]
+    soil_sigma = values["soil_sigma"]
+    age_factor = values["age_factor"]
     sigma_m = metal["sigma"]
     mu_r = metal["mu_r"]
 
-    # f_char: maximum eddy-current response of the object
     f_char = characteristic_frequency_hz(sigma_m, mu_r, radius_m)
+    if f_char <= 0 or not math.isfinite(f_char):
+        return {"error": "target parameters are outside the supported numeric range"}
 
-    # f_soil_limit: skin depth in soil equals target depth
-    # δ_soil = 503/√(f×σ_soil) = depth_m → f = (503/depth_m)²/σ_soil
-    # (age_factor is accounted for separately via f_char being lower for older/larger halos)
-    if soil_sigma > 0 and depth_m > 0:
-        f_soil_limit = (503.0 / depth_m) ** 2 / soil_sigma
-    else:
-        f_soil_limit = 1e9
-
-    # f_optimal: in practice f_char is the detection optimum.
-    # The soil penetration limit (f_soil_limit) is almost never binding
-    # for audio/VLF frequencies at typical buried-object depths.
-    # We return f_char as the recommended detection frequency.
+    effective_depth_m = 1.5 * age_factor * depth_m
+    f_soil_limit = (503.0 / effective_depth_m) ** 2 / soil_sigma
     f_optimal = f_char
 
     # Skin depth in soil at f_optimal
@@ -140,6 +153,8 @@ def optimal_em_frequency_hz(
         "metal": metal["name"],
         "radius_m": radius_m,
         "depth_m": depth_m,
+        "age_factor": age_factor,
+        "effective_depth_m": round(effective_depth_m, 3),
         "f_char_hz": round(f_char, 1),
         "f_soil_limit_hz": round(f_soil_limit, 1),
         "f_optimal_hz": round(f_optimal, 1),
@@ -148,6 +163,7 @@ def optimal_em_frequency_hz(
         "penetration_ratio": round(penetration_ratio, 2),
         "fully_penetrated": penetration_ratio >= 1.0,
         "notes": metal["notes"],
+        "model_note": "Experimental skin-depth estimate; not a validated metal-detection resonance or guaranteed optimum.",
     }
 
 
@@ -156,6 +172,12 @@ DOMAIN_KNOWLEDGE = """
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║         ΗΛΕΚΤΡΟΝΙΚΗ ΡΑΒΔΟΣΚΟΠΙΑ ΜΕ ΓΕΝΝΗΤΡΙΑ ΣΥΧΝΟΤΗΤΩΝ — ΠΛΗΡΗΣ ΓΝΩΣΗ  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
+
+ΣΗΜΑΝΤΙΚΗ ΣΗΜΕΙΩΣΗ ΜΟΝΑΔΩΝ / ΒΑΘΜΟΝΟΜΗΣΗΣ (2026-10 audit):
+• Οι τιμές gamma αποθηκεύονται σε Hz/T και ο κώδικας υπολογίζει fL = gamma × B σε Hz.
+• Για B=0.04823 T, ο χαλκός (11.3114 MHz/T) δίνει περίπου 545 kHz, όχι 545 Hz· ο χρυσός 24K δίνει περίπου 35.6 kHz, όχι 35.6 Hz.
+• Παλαιότεροι πίνακες, παραδείγματα αρμονικών και skin-depth σε αυτό το κείμενο βασίζονται σε ασύμβατες μονάδες/αριθμητικά παραδείγματα. Μην τα χρησιμοποιείς ως έγκυρες συστάσεις μέχρι να επανυπολογιστούν και να ελεγχθούν όλα.
+• Ο τύπος Larmor περιγράφει πυρηνική συχνότητα· από μόνος του δεν αποδεικνύει ότι ένα κοινό θαμμένο μεταλλικό αντικείμενο παράγει ανιχνεύσιμη NMR απόκριση με γεννήτρια συχνοτήτων. Η συγκεκριμένη μέθοδος παραμένει πειραματική και απαιτεί τυφλές, επαναλήψιμες δοκιμές.
 
 ━━━ 1. ΑΡΧΗ ΛΕΙΤΟΥΡΓΙΑΣ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -565,12 +587,23 @@ DOMAIN_KNOWLEDGE = """
 
 
 def calculate_larmor(material_key: str, b_field_T: float) -> dict:
-    """Calculate fL = (γ/2π) × B and return harmonics + analysis."""
+    """Calculate fL = (γ/2π) × B and return harmonics + analysis.
+
+    ``b_field_T`` must be a finite, positive magnetic flux density in tesla.
+    """
     mat = MATERIALS.get(material_key)
     if not mat:
         return {"error": f"Unknown material: {material_key}"}
 
-    import math
+    if isinstance(b_field_T, bool):
+        return {"error": "b_field_T must be a finite positive number in tesla"}
+    try:
+        b_field_T = float(b_field_T)
+    except (TypeError, ValueError, OverflowError):
+        return {"error": "b_field_T must be a finite positive number in tesla"}
+    if not math.isfinite(b_field_T) or b_field_T <= 0:
+        return {"error": "b_field_T must be a finite positive number in tesla"}
+
     gamma = mat["gamma"]
     f_hz = gamma * b_field_T
     f_khz = f_hz / 1e3
@@ -682,207 +715,69 @@ def larmor_chat(conversation: list) -> str:
 
 
 def get_knowledge_chunks() -> list[dict]:
-    """
-    Returns the domain knowledge split into Q&A pairs
-    for injection into the NOUS knowledge memory engine.
-    """
+    """Return cautious, unit-consistent reference notes for NOUS memory."""
     return [
         {
-            "question": "Τι είναι η ηλεκτρονική ραβδοσκοπία με γεννήτρια συχνοτήτων και πώς λειτουργεί;",
+            "question": "Πώς υπολογίζεται η συχνότητα Larmor και ποιες είναι οι μονάδες;",
             "answer": (
-                "Η ηλεκτρονική ραβδοσκοπία βασίζεται στο NMR (Nuclear Magnetic Resonance). "
-                "Η γεννήτρια παράγει EM σήμα στη συχνότητα Larmor fL = (γ/2π) × B₀, "
-                "όπου γ η γυρομαγνητική σταθερά του υλικού-στόχου και B₀ το γεωμαγνητικό πεδίο. "
-                "Το θαμμένο αντικείμενο απορροφά και ξανα-εκπέμπει ενέργεια (resonance). "
-                "Ο δέκτης ανιχνεύει το ξανα-εκπεμπόμενο σήμα και ο χειριστής ακολουθεί αυξανόμενη ένταση."
+                "Ο υπολογισμός είναι fL = (γ/2π) × B, με τη σταθερά gamma σε Hz/T και το B σε tesla, "
+                "άρα το αποτέλεσμα είναι σε Hz. Για B=0.04823 T, οι τιμές του κώδικα δίνουν περίπου "
+                "35.6 kHz για Au-197, 78.1 kHz για κράμα 22K και 545.5 kHz για Cu-63. "
+                "Αυτές είναι πυρηνικές συχνότητες αναφοράς· δεν αποδεικνύουν ότι ένα θαμμένο μεταλλικό "
+                "αντικείμενο παράγει ανιχνεύσιμη απόκριση με γεννήτρια. Η μέθοδος εντοπισμού παραμένει πειραματική."
             ),
-            "tags": ["larmor", "ραβδοσκοπία", "NMR", "γεννήτρια"],
+            "tags": ["larmor", "units", "experimental-limit", "NMR"],
         },
         {
-            "question": "Ποιες είναι οι γυρομαγνητικές σταθερές των υλικών για ηλεκτρονική ραβδοσκοπία;",
+            "question": "Πώς υπολογίζεται το skin depth στο έδαφος;",
             "answer": (
-                "Γυρομαγνητικές σταθερές γ/2π: "
-                "Au(24K)=0.7379 MHz/T, Ottoman 5 Lira=1.6155 MHz/T, 22K Λίρα=1.6190 MHz/T, "
-                "Ag=1.989 MHz/T, Cu=11.311 MHz/T, Al=11.101 MHz/T, Fe(⁵⁷)=1.382 MHz/T, "
-                "Mn(WWII box)=10.571 MHz/T, Ba-137=4.763 MHz/T, Sn-119=15.945 MHz/T, "
-                "Sb-121=10.239 MHz/T, B-11=13.662 MHz/T. "
-                "Για Μεσσηνία B≈0.04823T: fL(χρυσός 22K)≈78.1Hz, fL(χαλκός)≈545Hz."
+                "Το απλοποιημένο μοντέλο αγώγιμου μέσου χρησιμοποιεί δ ≈ 503 / sqrt(f × sigma) μέτρα, "
+                "όπου f είναι σε Hz και sigma σε S/m. Για παράδειγμα, σε f=35.59 kHz και sigma=0.01 S/m "
+                "προκύπτει δ≈26.7 m. Η τιμή αυτή είναι κλίμακα εξασθένησης του μοντέλου, όχι εγγυημένο "
+                "βάθος ανίχνευσης. Χρησιμοποίησε τις πραγματικές μονάδες και την αγωγιμότητα κάθε φορά."
             ),
-            "tags": ["larmor", "gamma", "υλικά", "NMR", "χρυσός"],
+            "tags": ["skin_depth", "soil", "units", "model-limit"],
         },
         {
-            "question": "Πώς επηρεάζει ο τύπος εδάφους το βάθος διείσδυσης σε ηλεκτρονική ραβδοσκοπία;",
+            "question": "Πώς εκτιμάται μια αρμονική για δεδομένο βάθος;",
             "answer": (
-                "Βάθος διείσδυσης: δ = 503 / √(f × σ) μέτρα. "
-                "Σ εδάφους: βράχος σ=0.00001, ξηρό σ=0.001, μέτριο σ=0.01, υγρό/άργιλος σ=0.05, κορεσμένο σ=0.1. "
-                "Παράδειγμα @ 35Hz (χρυσός B=0.048T): "
-                "Βράχος δ=2684m, Ξηρό δ=84.9m, Μέτριο δ=26.8m, Υγρό δ=12.0m, Κορεσμένο δ=8.5m. "
-                "Για ρηχότερη εστίαση: χρησιμοποίησε υψηλότερη αρμονική n×fL. "
-                "Υγρό έδαφος → χρειάζεσαι χαμηλότερο n, βραχώδες → υψηλότερο n."
+                "Ως πειραματική εκτίμηση, αν ο στόχος skin depth είναι delta_target = age_factor × 1.5 × depth_m, "
+                "τότε n_ideal = (503 / (delta_target × sqrt(sigma)))² / fL_hz. Το fL πρέπει να είναι σε Hz. "
+                "Για πρακτική χρήση απαιτείται θετικός ακέραιος n· αν το n_ideal είναι κάτω από 1, η βασική "
+                "συχνότητα είναι ήδη πάνω από την εκτίμηση-στόχο και δεν υπάρχει μικρότερη θετική αρμονική. "
+                "Ο τύπος δεν έχει επικυρωθεί ως μέθοδος εντοπισμού μετάλλων."
             ),
-            "tags": ["skin_depth", "έδαφος", "αγωγιμότητα", "αρμονικές"],
+            "tags": ["harmonics", "depth", "equation", "experimental-limit"],
         },
         {
-            "question": "Πώς επιλέγω τη βέλτιστη αρμονική n για συγκεκριμένο βάθος και τύπο εδάφους;",
+            "question": "Τι σημαίνει η χαρακτηριστική συχνότητα στο μοντέλο κλασικού ΗΜ;",
             "answer": (
-                "Βέλτιστη αρμονική: n τέτοιο ώστε δ(n×fL) ≈ ageFactor × 1.5 × βάθος. "
-                "ageFactor: πρόσφατο=1.0, αντάρτικα 1940-50=1.25, οθωμανικό=1.6, αρχαίο=2.0. "
-                "n ≈ [503 / (ageFactor×1.5×d × √σ)]² / fL. "
-                "Παράδειγμα: χρυσές λίρες 22K, βάθος 1.5m, αντάρτικα, μέτριο έδαφος: "
-                "target δ=1.25×1.5×1.5=2.81m, fL=78.1Hz, n≈50-70 → freq≈3,900-5,500Hz. "
-                "Επαλήθευσε με 2-3 διαφορετικές αρμονικές — κοινές ανωμαλίες = αξιόπιστο εύρημα."
+                "Ο κώδικας χρησιμοποιεί f_char = 1 / (pi × sigma_metal × mu0 × mu_r × radius_m²), "
+                "ώστε το skin depth στο απλοποιημένο μοντέλο να είναι περίπου ίσο με την ακτίνα. "
+                "Είναι κλίμακα μετάβασης skin depth, όχι απόδειξη συντονισμού ούτε εγγυημένη βέλτιστη συχνότητα. "
+                "Το f_optimal_hz είναι προς το παρόν ευρετική τιμή ίση με f_char_hz και δεν πρέπει να παρουσιάζεται "
+                "ως επαληθευμένη συχνότητα ανίχνευσης."
             ),
-            "tags": ["αρμονικές", "βάθος", "ageFactor", "βέλτιστη_επιλογή"],
+            "tags": ["classical-em", "skin-depth", "characteristic-frequency", "model-limit"],
         },
         {
-            "question": "Πώς επηρεάζει ο χρόνος ταφής το NMR σήμα και το γεωχημικό halo;",
+            "question": "Τι σημαίνει ο παράγοντας ηλικίας στον υπολογισμό;",
             "answer": (
-                "Ο χρόνος ταφής δημιουργεί γεωχημικό halo γύρω από το αντικείμενο: "
-                "Πρόσφατο (0-20 χρόνια): halo≈0cm, σήμα από ακριβή θέση. "
-                "Αντάρτικα 1940-50 (75-85 χρόνια): halo≈10-20cm από Cu/Fe οξείδωση. "
-                "Οθωμανικό (<1900, 125-200+ χρόνια): halo≈30-50cm (μαλαχίτης, αζουρίτης). "
-                "Αρχαίο (>500 χρόνια): halo≈50-100cm, ανάμειξη με πέτρωμα. "
-                "ΣΗΜΑΝΤΙΚΟ: Για λίρες 22K (Cu στο κράμα): σάρωσε ΠΡΩΤΑ με Cu freq(≈545Hz) "
-                "για να εντοπίσεις halo, μετά επιβεβαίωσε με Au-22K freq."
+                "Ο age_factor είναι εμπειρικός παράγοντας που χρησιμοποιείται μόνο για να κλιμακώσει το "
+                "effective_depth_m = 1.5 × age_factor × depth_m στην εκτίμηση του ορίου skin depth του εδάφους. "
+                "Δεν αποτελεί μετρημένη σταθερά γεохημικού halo και δεν αλλάζει τις ιδιότητες του μετάλλου. "
+                "Χρειάζεται ανεξάρτητη πειραματική επικύρωση πριν χρησιμοποιηθεί ως φυσικό συμπέρασμα."
             ),
-            "tags": ["ταφή", "halo", "ηλικία", "χημεία", "οθωμανικά", "WWII"],
+            "tags": ["age_factor", "uncertainty", "soil-model"],
         },
         {
-            "question": "Ποιες συχνότητες πρέπει να αποφεύγω λόγω θορύβου στη ραβδοσκοπία;",
+            "question": "Πώς πρέπει να ελέγχεται πειραματικά η μέθοδος εντοπισμού;",
             "answer": (
-                "Κύριες πηγές θορύβου: "
-                "Schumann resonances (Earth-ionosphere): 7.83, 14.3, 20.8, 27.3, 33.8, 39.0, 45.0 Hz — "
-                "απόφυγε ±1Hz από αυτές. "
-                "Ηλεκτρικό δίκτυο (50Hz ΔΕΗ): 50, 100, 150, 200Hz. "
-                "Seismic micropulsations: 0.001-10Hz. "
-                "Ασφαλές παράθυρο: 100-5,000Hz. "
-                "Βέλτιστο για Μεσσηνία: 200-3,000Hz. "
-                "Εργάσου >500m από γραμμές ΔΕΗ. "
-                "Ο χρυσός (fL≈35Hz) είναι κοντά σε Schumann 33.8/39Hz → χρησιμοποίησε n×fL στο ασφαλές παράθυρο."
+                "Κατέγραψε εκ των προτέρων στόχο, θέση γεννήτριας, συχνότητα, προσανατολισμό, απόσταση και αποτέλεσμα. "
+                "Χρησιμοποίησε τυφλές δοκιμές με τυχαία θέση στόχου, άδειο control, ψευδή στόχο και επαναλήψεις. "
+                "Σύγκρινε επιτυχίες με αποτυχίες και τυχαία πιθανότητα, χωρίς να αλλάζεις κανόνες μετά από κάθε δοκιμή. "
+                "Μια σύμπτωση κατεύθυνσης ή μια μεμονωμένη επιτυχία δεν αποδεικνύει φυσικό μηχανισμό."
             ),
-            "tags": ["θόρυβος", "Schumann", "παρεμβολή", "ΔΕΗ", "ασφαλές_παράθυρο"],
-        },
-        {
-            "question": "Ποιο είναι το πρωτόκολλο έρευνας πεδίου για ηλεκτρονική ραβδοσκοπία στη Μεσσηνία;",
-            "answer": (
-                "Πρωτόκολλο 7 βημάτων: "
-                "1. Μέτρηση B πεδίου (BGS WMM2025 ή μαγνητόμετρο) — Μεσσηνία: B≈0.047-0.0495T. "
-                "2. Υπολογισμός fL = γ/2π × B για το υλικό-στόχο. "
-                "3. Εκτίμηση εδάφους (σ) από βλάστηση/υφή ή live καιρό. "
-                "4. Επιλογή αρμονικής n βάσει βάθους+ηλικίας+εδάφους. "
-                "5. Grid scan: σειρές 0.5-1m, δύο κάθετες κατευθύνσεις (Ν-Ν, Α-Δ). "
-                "6. Ανάλυση: συμμετρική=σημειακός στόχος, επιμήκης=τοίχος/αγωγός, μοτίβο=cache. "
-                "7. Cross-validation: 2-3 αρμονικές — κοινές ανωμαλίες = αξιόπιστο εύρημα."
-            ),
-            "tags": ["πρωτόκολλο", "πεδίο", "Μεσσηνία", "scan", "grid"],
-        },
-        {
-            "question": "Ποιες τιμές B πεδίου ισχύουν για την Μεσσηνία και πώς τις χρησιμοποιώ;",
-            "answer": (
-                "BGS WMM2025 για Μεσσηνία (37.0-37.5°N, 21.5-22.0°E): "
-                "Ολική ένταση B: 47,000-49,500 nT (0.047-0.0495 T). "
-                "Κλίση (inclination): 52-57°. Απόκλιση: +4-5.5° E. "
-                "Ετήσια μεταβολή: ~0.08°/έτος. "
-                "Κοντά στη θάλασσα: B≈48,500nT → fL(22K λίρα)≈78.5Hz. "
-                "Ορεινές >500m: B≈47,200nT → fL(22K)≈76.5Hz. "
-                "Διαφορά 2-3% → ±1-2 αρμονικές → πάντα μέτρα B επιτόπου!"
-            ),
-            "tags": ["WMM2025", "Μεσσηνία", "B_πεδίο", "γεωμαγνητισμός"],
-        },
-        {
-            "question": "Πώς ανιχνεύω χρυσές λίρες vs οθωμανικά νομίσματα με ηλεκτρονική ραβδοσκοπία;",
-            "answer": (
-                "Χρυσή λίρα 22K vs Ottoman 5 Lira: "
-                "fL(22K)≈78.1Hz, fL(Ottoman)≈77.7Hz @ B=0.04823T — διαφορά μόνο 0.5%! "
-                "Πρακτικά αδύνατος ο διαχωρισμός χωρίς ακρίβεια <0.1Hz. "
-                "ΣΤΡΑΤΗΓΙΚΗ για λίρες 22K (αντάρτικα): "
-                "Βήμα 1: Σάρωσε με Cu freq (≈545Hz, n=1) για εντοπισμό halo χαλκού (Cu στο κράμα 8.33%). "
-                "Βήμα 2: Επιβεβαίωσε με Au-22K freq (≈78.1Hz × n_optimal) για ακριβή θέση. "
-                "Βήμα 3: Σχήμα ανωμαλίας — κυκλικό=κρυφό σωρό/κιβώτιο, σκόρπιο=διασκορπισμένα νομίσματα."
-            ),
-            "tags": ["χρυσός", "λίρες", "οθωμανικά", "διαχωρισμός", "στρατηγική"],
-        },
-        # ── NEW: Classical EM Resonance chunks ──────────────────────────────
-        {
-            "question": "Πώς λειτουργεί η γεννήτρια συχνοτήτων με κλασικό μαγνητικό συντονισμό (όχι NMR);",
-            "answer": (
-                "Η γεννήτρια λειτουργεί με ΚΛΑΣΙΚΟ ΗΛΕΚΤΡΟΜΑΓΝΗΤΙΚΟ ΣΥΝΤΟΝΙΣΜΟ (Faraday/Lenz/Maxwell), "
-                "όχι πυρηνικό NMR. Νόμος Faraday: EMF = -N×dΦ/dt — δημιουργεί εναλλασσόμενο ΗΜ πεδίο "
-                "που διεισδύει στο έδαφος (έως skin depth δ=503/√(f×σ)). "
-                "Νόμος Lenz: το θαμμένο μέταλλο επάγει ρεύμα Foucault (eddy current) που παράγει "
-                "δευτερογενές πεδίο — αυτό ανιχνεύει ο δέκτης. "
-                "Νόμος Biot-Savart: το σήμα εξασθενεί ως 1/d³ με το βάθος d. "
-                "Αυτό ΔΕΝ μειώνει αποτελεσματικότητα — είναι κλασική ΗΜ επαγωγή."
-            ),
-            "tags": ["κλασικός_ΗΜ", "Faraday", "Lenz", "eddy_current", "μαγνητικός_συντονισμός"],
-        },
-        {
-            "question": "Τι είναι η χαρακτηριστική συχνότητα αντικειμένου f_char και πώς την υπολογίζω;",
-            "answer": (
-                "Χαρακτηριστική συχνότητα στόχου: f_char = 1/(σ_μ × μ₀ × μr × a²) "
-                "όπου σ_μ=αγωγιμότητα μετάλλου(S/m), μ₀=4π×10⁻⁷, μr=σχετ. διαπερατότητα, a=ακτίνα(m). "
-                "Αγωγιμότητες: Au=4.52×10⁷, Ag=6.30×10⁷, Cu=5.96×10⁷, Al=3.77×10⁷, Fe=1.0×10⁷(μr=200), "
-                "Χάλυβας=7.0×10⁶(μr=100), Μπρούντζος=1.5×10⁷, Λίρα22K=2.2×10⁷. "
-                "Παραδείγματα χρυσής λίρας: μεμονωμένη(a=1.1cm)→f_char≈144Hz, "
-                "χούφτα(a=3cm)→f_char≈19Hz, κιβώτιο(a=8cm)→f_char≈2.8Hz. "
-                "ΣΤΗ f_char έχουμε μέγιστη επαγωγή ρεύματος στο αντικείμενο."
-            ),
-            "tags": ["f_char", "χαρακτηριστική_συχνότητα", "eddy_current", "μέγεθος_στόχου"],
-        },
-        {
-            "question": "Πώς υπολογίζω τη βέλτιστη συχνότητα με κλασικό ΗΜ για θαμμένο στόχο;",
-            "answer": (
-                "Βέλτιστη συχνότητα κλασικού ΗΜ: f_optimal = √(f_char × f_soil_limit). "
-                "f_soil_limit = (503/(1.5×d×ageFactor))²/σ_soil — εξασφαλίζει φτάνει στο βάθος. "
-                "f_char = 1/(σ_μ × μ₀ × a²) — μέγιστη απόκριση αντικειμένου. "
-                "Παράδειγμα: χρυσή λίρα(a=1.1cm), βάθος 1.5m, αντάρτικα, μέτριο έδαφος: "
-                "f_char=120Hz, f_soil=9,070Hz → f_optimal=√(120×9070)≈1,040Hz. "
-                "Αυτό ΤΑΥΤΙΖΕΤΑΙ με fL(22K)×13=78.1×13≈1,015Hz! "
-                "Δηλαδή οι fL-αρμονικές λειτουργούν ακριβώς ΓΙΑΤΙ συμπίπτουν με f_optimal ΗΜ."
-            ),
-            "tags": ["f_optimal", "ΗΜ_βέλτιστη", "dual_frequency", "eddy_current", "στρατηγική"],
-        },
-        {
-            "question": "Ποια στρατηγική Dual-Frequency να ακολουθήσω στο πεδίο για μέγιστη πιθανότητα επιτυχίας;",
-            "answer": (
-                "Στρατηγική Dual-Frequency (κλασικό ΗΜ + Larmor): "
-                "1. Εκτίμησε ακτίνα στόχου a (νόμισμα≈1cm, χούφτα≈3cm, κιβώτιο≈8-10cm). "
-                "2. Υπολόγισε f_char = 1/(σ_μ × 1.257e-6 × a²). "
-                "3. Υπολόγισε f_soil = (503/(1.5×βάθος×ageFactor))²/σ_soil. "
-                "4. f_optimal = √(f_char × f_soil). "
-                "5. Σάρωσε με: α) f_optimal, β) πλησιέστερη fL-αρμονική, γ) 2×f_optimal. "
-                "Κοινή ανωμαλία = μέγιστη αξιοπιστία. "
-                "Αν σήμα ΜΟΝΟ σε f_optimal: πιθανώς μεγαλύτερο αντικείμενο ή διαφορετικό υλικό. "
-                "Αν σήμα ΜΟΝΟ σε fL-αρμονική: πιθανώς μικρό αντικείμενο ή ομαδικά νομίσματα."
-            ),
-            "tags": ["dual_frequency", "στρατηγική", "πεδίο", "f_optimal", "αξιοπιστία"],
-        },
-        {
-            "question": "Πώς επηρεάζει ο μαγνητικός σίδηρος (Fe/χάλυβας) την ανίχνευση με κλασικό ΗΜ;",
-            "answer": (
-                "Σιδηρομαγνητικά αντικείμενα (Fe, χάλυβας) έχουν μr=100-200, που: "
-                "1. ΜΕΙΩΝΕΙ δραστικά f_char: χαλύβδινο κράνος(a=10cm) → f_char=1.1Hz (πολύ χαμηλό!). "
-                "2. ΕΝΙΣΧΥΕΙ το πρωτεύον πεδίο ×μr (ισχυρότερη επαγωγή). "
-                "Επομένως: για WWII σιδερένια αντικείμενα χρησιμοποίησε πολύ χαμηλές συχνότητες 1-50Hz. "
-                "Ασφαλές παράθυρο αποφεύγοντας Schumann: 10-48Hz (όχι 7.83, 14.3, 20.8, 27.3, 33.8Hz). "
-                "Γεωχημικό halo μαγνητίτη (Fe₃O₄, μr≈1000-10000): f_char_halo << 1Hz, "
-                "ανιχνεύσιμο με DC/quasi-DC παλμό. "
-                "Για κιβώτιο πυρομαχικών Mn: χρήσε fL(⁵⁵Mn)=507Hz ΚΑΙ 1-10Hz για κέλυφος."
-            ),
-            "tags": ["σίδηρος", "WWII", "ferromagnetic", "μr", "χαμηλές_συχνότητες"],
-        },
-        {
-            "question": "Γιατί οι αρμονικές Larmor (fL×n) λειτουργούν εμπειρικά στην ηλεκτρονική ραβδοσκοπία;",
-            "answer": (
-                "Οι fL-αρμονικές λειτουργούν ΌΧΙ λόγω NMR, αλλά γιατί τυχαία συμπίπτουν "
-                "με τη βέλτιστη ΗΜ συχνότητα f_optimal = √(f_char × f_soil) για νομίσματα σε τυπικά βάθη: "
-                "• Χρυσή λίρα(a=1.1cm), 1.5m, μέτριο έδαφος: f_ΗΜ≈1,040Hz = fL(22K)×13≈1,015Hz ✓ "
-                "• Χούφτα λιρών(a=3cm), 1.5m: f_ΗΜ≈380Hz = fL(22K)×5=390Hz ✓ "
-                "• Αργυρά νομίσματα(a=1.5cm), 2m: f_ΗΜ≈640Hz ≈ fL(Ag)×n ✓ "
-                "Αυτό εξηγεί γιατί η μέθοδος έχει εμπειρική αξιοπιστία: "
-                "ο Larmor-based υπολογισμός δίνει σωστές συχνότητες τυχαία, "
-                "αλλά η φυσική αιτία είναι κλασικός ΗΜ, όχι NMR."
-            ),
-            "tags": ["Larmor", "f_optimal", "εμπειρική_αξιοπιστία", "σύμπτωση", "ΗΜ_φυσική"],
+            "tags": ["field-tests", "blind-test", "controls", "reproducibility"],
         },
     ]
