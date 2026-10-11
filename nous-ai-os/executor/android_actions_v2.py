@@ -8,12 +8,15 @@ ALLOWED_PACKAGES = {
     "settings": "com.android.settings",
 }
 
+
 def _cmd(command):
+    """Run a fixed argv command without invoking a shell."""
     try:
-        p = subprocess.run(command, shell=True, text=True, capture_output=True, timeout=15)
+        p = subprocess.run(command, shell=False, text=True, capture_output=True, timeout=15)
         return {"ok": p.returncode == 0, "code": p.returncode, "stdout": p.stdout[-2000:], "stderr": p.stderr[-2000:]}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
 
 def android_actions_status():
     return {
@@ -23,6 +26,7 @@ def android_actions_status():
         "allowed_packages": ALLOWED_PACKAGES,
         "time": time.time(),
     }
+
 
 def open_allowed_app(name):
     name = str(name).strip().lower()
@@ -34,9 +38,10 @@ def open_allowed_app(name):
         return {"ok": False, "policy": policy}
 
     pkg = ALLOWED_PACKAGES[name]
-    result = _cmd(f"monkey -p {pkg} 1")
+    result = _cmd(["monkey", "-p", pkg, "1"])
     write_journal("android_open_allowed_app", {"name": name, "package": pkg, "result": result})
     return result
+
 
 def run_android_action(action, payload=None):
     payload = payload or {}
