@@ -7,7 +7,7 @@ import {
   CircuitBoard,
   Cpu,
   FileSearch,
-  Github,
+  GitBranch,
   Globe,
   Hammer,
   Layers,
@@ -187,7 +187,7 @@ function Index() {
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-mono text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
-              <Github className="size-4" />
+              <GitBranch className="size-4" />
               Άνοιξε το repo
             </a>
             <a
