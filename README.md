@@ -1,13 +1,21 @@
 # Sync My Nous
 
-Το project περιλαμβάνει το αρχικό Sync My Nous frontend και το Nous AI OS backend.
-Το frontend διατηρεί όλα τα υπάρχοντα routes και UI χαρακτηριστικά, ενώ το backend
-έχει ενσωματωθεί στο `nous-ai-os/` ως ανεξάρτητο Python/Flask workspace.
+Το project περιλαμβάνει το Sync My Nous frontend και το Nous AI OS backend.
+Το frontend διατηρεί τα υπάρχοντα routes και UI χαρακτηριστικά, ενώ το backend
+βρίσκεται στο `nous-ai-os/` ως ανεξάρτητο Python/Flask service.
+
+## Αρχιτεκτονική και deployment
+
+- **Frontend:** Vite/TanStack εφαρμογή, με npm και `package-lock.json` ως το μοναδικό JavaScript package manager/lockfile.
+- **Static frontend:** GitHub Pages workflow.
+- **Backend API:** το υπάρχον Render service `nous-ai-os`, στο `https://nous-ai-os-api.onrender.com`.
+- **Secrets:** το `GEMINI_API_KEY` παραμένει στο Render backend. Οι agents χρησιμοποιούν το NOUS token· δεν ενσωματώνουμε API keys ή master tokens στο frontend.
+- **Lovable:** το repository συνεχίζει να συγχρονίζεται με το υπάρχον Lovable project. Οι αλλαγές σε manifests δεν αλλάζουν το Lovable project ή τη σύνδεσή του.
 
 ## Κλειδιά (για agents και developers)
 
-- Το `GEMINI_API_KEY` είναι **ήδη αποθηκευμένο στο Render** (service `nous-ai-os`). Μην το ζητάς και μην το κάνεις commit.
-- Χρειάζεσαι **μόνο το NOUS token** για σύνδεση στο `https://nous-ai-os-api.onrender.com`.
+- Το `GEMINI_API_KEY` είναι ήδη αποθηκευμένο στο Render (service `nous-ai-os`). Μην το ζητάς και μην το κάνεις commit.
+- Χρειάζεσαι μόνο το NOUS token για σύνδεση στο `https://nous-ai-os-api.onrender.com`.
 - Τοπικά, το Gemini key είναι προαιρετικό (fallback σε τοπικό Ollama).
 
 ## Nous AI OS backend
@@ -20,10 +28,8 @@ cp .env.example .env
 python -m executor.router
 ```
 
-Τα runtime δεδομένα (`nous-ai-os/data/`) και τα secrets παραμένουν εκτός Git.
+Το `.env` είναι μόνο για τοπική ανάπτυξη. Τα runtime δεδομένα (`nous-ai-os/data/`) και τα secrets παραμένουν εκτός Git.
 Για τις οδηγίες API, ασφάλειας και deployment δες το [`nous-ai-os/README.md`](nous-ai-os/README.md).
-
-This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
@@ -38,8 +44,10 @@ Continue developing this project in the [Lovable editor](https://lovable.dev/pro
 Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+git clone https://github.com/traianos1985-glitch/sync-my-nous.git
+cd sync-my-nous
+npm ci
 npm run dev
 ```
+
+Run the frontend checks with `npm run check`. Run the backend tests with `npm run test:python`.
