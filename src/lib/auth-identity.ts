@@ -1,8 +1,11 @@
-import { auth } from "./auth";
+async function getAuthSession(request: Request) {
+  const { auth } = await import("./auth");
+  return auth.api.getSession({ headers: request.headers });
+}
 
 export async function getAuthenticatedUserId(request: Request) {
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
+    const session = await getAuthSession(request);
     return session?.user?.id ?? null;
   } catch (error) {
     console.warn("[nous] session lookup failed", error instanceof Error ? error.message : error);
