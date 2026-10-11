@@ -1,7 +1,8 @@
 import json
 
 from executor import app_builder
-from executor.engineering_standards import validate_app_plan
+from executor.engineering_standards import CODE_CHANGE_ENGINEERING_GUIDE, validate_app_plan
+from executor.patch_proposal_enricher import build_patch_draft
 
 
 def valid_plan():
@@ -138,3 +139,17 @@ def test_plan_app_rejects_empty_and_oversized_descriptions(monkeypatch):
     assert app_builder.plan_app("  ")["error"] == "empty_description"
     result = app_builder.plan_app("x" * 8001)
     assert result["error"] == "description_too_long"
+
+
+
+def test_code_upgrade_drafts_include_reviewable_engineering_expectations():
+    draft = build_patch_draft({
+        "analysis": {
+            "root_cause": "Route contract mismatch",
+            "candidate_files": ["executor/router.py"],
+        }
+    })
+
+    assert draft["engineering_standard"] == CODE_CHANGE_ENGINEERING_GUIDE
+    assert "add_focused_regression_tests" in draft["validation_expectations"]
+    assert "require_human_review_before_apply" in draft["validation_expectations"]
