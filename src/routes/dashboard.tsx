@@ -139,17 +139,17 @@ function normalizeStoredChatMessage(value: unknown): ChatMessage | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const candidate = value as Record<string, unknown>;
   if (
-    typeof candidate.id !== "string" ||
-    !candidate.id.trim() ||
-    candidate.id.length > 128 ||
-    (candidate.role !== "user" && candidate.role !== "assistant") ||
-    typeof candidate.text !== "string"
+    typeof candidate["id"] !== "string" ||
+    !candidate["id"].trim() ||
+    candidate["id"].length > 128 ||
+    (candidate["role"] !== "user" && candidate["role"] !== "assistant") ||
+    typeof candidate["text"] !== "string"
   ) {
     return null;
   }
 
-  const citations = Array.isArray(candidate.citations)
-    ? candidate.citations
+  const citations = Array.isArray(candidate["citations"])
+    ? candidate["citations"]
         .filter(
           (item): item is Citation =>
             Boolean(item) &&
@@ -174,16 +174,16 @@ function normalizeStoredChatMessage(value: unknown): ChatMessage | null {
     : undefined;
 
   return {
-    id: candidate.id,
-    role: candidate.role,
-    text: candidate.text.slice(0, maxStoredMessageCharacters),
+    id: candidate["id"],
+    role: candidate["role"],
+    text: candidate["text"].slice(0, maxStoredMessageCharacters),
     ...(citations?.length ? { citations } : {}),
-    ...(candidate.feedback === "positive" || candidate.feedback === "negative"
-      ? { feedback: candidate.feedback }
+    ...(candidate["feedback"] === "positive" || candidate["feedback"] === "negative"
+      ? { feedback: candidate["feedback"] }
       : {}),
-    ...(candidate.error === true ? { error: true } : {}),
-    ...(typeof candidate.retryText === "string"
-      ? { retryText: candidate.retryText.slice(0, maxStoredMessageCharacters) }
+    ...(candidate["error"] === true ? { error: true } : {}),
+    ...(typeof candidate["retryText"] === "string"
+      ? { retryText: candidate["retryText"].slice(0, maxStoredMessageCharacters) }
       : {}),
   };
 }
@@ -200,8 +200,8 @@ function loadStoredChat(): { messages: ChatMessage[]; conversationId: string | n
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const stored = parsed as Record<string, unknown>;
-    const messages = Array.isArray(stored.messages)
-      ? stored.messages
+    const messages = Array.isArray(stored["messages"])
+      ? stored["messages"]
           .map(normalizeStoredChatMessage)
           .filter((message): message is ChatMessage => message !== null)
           .slice(-maxStoredChatMessages)
@@ -209,7 +209,7 @@ function loadStoredChat(): { messages: ChatMessage[]; conversationId: string | n
     if (messages.length === 0) return null;
     return {
       messages,
-      conversationId: normalizeConversationId(stored.conversationId),
+      conversationId: normalizeConversationId(stored["conversationId"]),
     };
   } catch {
     return null;
