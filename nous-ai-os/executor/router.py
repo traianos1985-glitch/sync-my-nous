@@ -17,7 +17,6 @@ from executor.field_engine import add_entry, list_entries, delete_entry, get_map
 from executor.remote_llm import ask_with_image, check_gemini
 from executor.nous_ui import nous_dashboard_html
 from executor.kernel import handle
-from executor.tool_catalog import tool_catalog
 from executor.security import check_token, check_admin_token, validate_startup_security
 from executor.auth_guard import install_auth_guard
 from executor.api_tokens import create_token, list_tokens, revoke_token, token_stats
