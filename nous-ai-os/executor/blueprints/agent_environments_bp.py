@@ -1,6 +1,8 @@
 """Authenticated API for environment inventory, provider probes, and confirmed deployments."""
 from flask import Blueprint, jsonify, request
 
+from executor.security import check_admin_token
+
 from executor.preview_preflight import inspect_preview_compatibility
 from executor.provider_runtime import deploy_provider, probe_provider, provider_inventory, preview_catalog
 
@@ -21,6 +23,8 @@ def probe():
 
 @agent_environments_bp.post("/deploy")
 def deploy():
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "admin_scope_required"}), 403
     data = request.get_json(silent=True) or {}
     result = deploy_provider(
         provider=data.get("provider"), project_path=data.get("project_path", "."),

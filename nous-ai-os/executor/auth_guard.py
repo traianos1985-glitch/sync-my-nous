@@ -3,10 +3,22 @@ import threading
 import time
 
 from flask import jsonify, request
-from executor.security import check_token
+from executor.security import check_token, check_admin_token
 
 PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/robots.txt"}
 PUBLIC_PREFIXES = ("/static/",)
+ADMIN_ONLY_PREFIXES = (
+    "/remote/self-improve/", "/remote/agent/proposals",
+    "/api/ops/memory/vector/",
+)
+ADMIN_ONLY_PATHS = {
+    "/api/ops/react/run", "/api/ops/swarm/run", "/api/ops/self-heal/run",
+    "/api/ops/watchdog/run", "/api/agent-environments/deploy",
+    "/remote/agent/run", "/remote/agent/check",
+    "/remote/team/cycle", "/remote/internet-learning/topic",
+    "/remote/internet-learning/url", "/remote/master/cycle",
+    "/remote/guardian/check", "/remote/technical-intelligence/report",
+}
 MAX_REQUEST_BYTES = 16 * 1024 * 1024
 AUTH_FAILURE_LIMIT = 10
 AUTH_FAILURE_WINDOW_SECONDS = 300
@@ -17,6 +29,11 @@ _AUTH_FAILURES = {}
 
 def is_public(path: str) -> bool:
     return path in PUBLIC_PATHS or path.startswith(PUBLIC_PREFIXES)
+
+
+def is_admin_only(path: str) -> bool:
+    """Central deny-by-default boundary for high-impact operational endpoints."""
+    return path in ADMIN_ONLY_PATHS or path.startswith(ADMIN_ONLY_PREFIXES)
 
 
 def _auth_state(client_ip: str):
@@ -81,6 +98,13 @@ def install_auth_guard(app):
             authenticated = False
         if authenticated:
             _clear_auth_failures(client_ip)
+            if is_admin_only(request.path):
+                try:
+                    if not check_admin_token(request):
+                        return jsonify({"ok": False, "error": "admin_scope_required"}), 403
+                except Exception:
+                    app.logger.exception("NOUS admin authorization check failed")
+                    return jsonify({"ok": False, "error": "admin_scope_required"}), 403
             return None
 
         _, blocked_until = _auth_state(client_ip)

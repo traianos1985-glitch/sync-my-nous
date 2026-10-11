@@ -102,3 +102,34 @@ def test_procfile_uses_single_worker_for_in_process_schedulers():
     content = procfile.read_text(encoding="utf-8")
     assert "--workers 1" in content
     assert "WEB_CONCURRENCY:-2" not in content
+
+
+def test_central_admin_policy_rejects_user_scope_for_sensitive_routes(monkeypatch):
+    import pytest
+    from executor import auth_guard, router
+
+    monkeypatch.setattr(auth_guard, "check_token", lambda _request: True)
+    monkeypatch.setattr(auth_guard, "check_admin_token", lambda _request: False)
+    cases = [
+        ("POST", "/api/ops/react/run"),
+        ("POST", "/api/ops/self-heal/run"),
+        ("POST", "/api/agent-environments/deploy"),
+        ("GET", "/remote/self-improve/status"),
+        ("GET", "/remote/agent/proposals"),
+        ("POST", "/remote/agent/run"),
+        ("POST", "/remote/master/cycle"),
+    ]
+    client = router.app.test_client()
+    for method, path in cases:
+        response = client.open(path, method=method, json={})
+        assert response.status_code == 403, f"{method} {path} was not admin-gated"
+        assert response.get_json()["error"] == "admin_scope_required"
+
+
+def test_central_admin_policy_does_not_require_admin_for_health(monkeypatch):
+    from executor import auth_guard, router
+
+    monkeypatch.setattr(auth_guard, "check_token", lambda _request: True)
+    monkeypatch.setattr(auth_guard, "check_admin_token", lambda _request: False)
+    response = router.app.test_client().get("/health")
+    assert response.status_code == 200
