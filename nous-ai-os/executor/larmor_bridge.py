@@ -157,6 +157,12 @@ DOMAIN_KNOWLEDGE = """
 ║         ΗΛΕΚΤΡΟΝΙΚΗ ΡΑΒΔΟΣΚΟΠΙΑ ΜΕ ΓΕΝΝΗΤΡΙΑ ΣΥΧΝΟΤΗΤΩΝ — ΠΛΗΡΗΣ ΓΝΩΣΗ  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
+ΣΗΜΑΝΤΙΚΗ ΣΗΜΕΙΩΣΗ ΜΟΝΑΔΩΝ / ΒΑΘΜΟΝΟΜΗΣΗΣ (2026-10 audit):
+• Οι τιμές gamma αποθηκεύονται σε Hz/T και ο κώδικας υπολογίζει fL = gamma × B σε Hz.
+• Για B=0.04823 T, ο χαλκός (11.3114 MHz/T) δίνει περίπου 545 kHz, όχι 545 Hz· ο χρυσός 24K δίνει περίπου 35.6 kHz, όχι 35.6 Hz.
+• Παλαιότεροι πίνακες, παραδείγματα αρμονικών και skin-depth σε αυτό το κείμενο βασίζονται σε ασύμβατες μονάδες/αριθμητικά παραδείγματα. Μην τα χρησιμοποιείς ως έγκυρες συστάσεις μέχρι να επανυπολογιστούν και να ελεγχθούν όλα.
+• Ο τύπος Larmor περιγράφει πυρηνική συχνότητα· από μόνος του δεν αποδεικνύει ότι ένα κοινό θαμμένο μεταλλικό αντικείμενο παράγει ανιχνεύσιμη NMR απόκριση με γεννήτρια συχνοτήτων. Η συγκεκριμένη μέθοδος παραμένει πειραματική και απαιτεί τυφλές, επαναλήψιμες δοκιμές.
+
 ━━━ 1. ΑΡΧΗ ΛΕΙΤΟΥΡΓΙΑΣ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Η ηλεκτρονική ραβδοσκοπία βασίζεται στο φαινόμενο NMR (Nuclear Magnetic Resonance):
@@ -565,12 +571,23 @@ DOMAIN_KNOWLEDGE = """
 
 
 def calculate_larmor(material_key: str, b_field_T: float) -> dict:
-    """Calculate fL = (γ/2π) × B and return harmonics + analysis."""
+    """Calculate fL = (γ/2π) × B and return harmonics + analysis.
+
+    ``b_field_T`` must be a finite, positive magnetic flux density in tesla.
+    """
     mat = MATERIALS.get(material_key)
     if not mat:
         return {"error": f"Unknown material: {material_key}"}
 
-    import math
+    if isinstance(b_field_T, bool):
+        return {"error": "b_field_T must be a finite positive number in tesla"}
+    try:
+        b_field_T = float(b_field_T)
+    except (TypeError, ValueError, OverflowError):
+        return {"error": "b_field_T must be a finite positive number in tesla"}
+    if not math.isfinite(b_field_T) or b_field_T <= 0:
+        return {"error": "b_field_T must be a finite positive number in tesla"}
+
     gamma = mat["gamma"]
     f_hz = gamma * b_field_T
     f_khz = f_hz / 1e3
