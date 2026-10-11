@@ -1,6 +1,7 @@
 import json
 
 from executor.app_failure_diagnosis import (
+    _redact_source,
     _validate_changes,
     collect_project_context,
     diagnose_test_failure,
@@ -92,3 +93,11 @@ def test_diagnosis_rejects_invalid_llm_json_and_does_not_write(tmp_path):
         ask_llm=lambda _prompt: {"success": True, "response": "not json"},
     )
     assert result == {"ok": False, "error": "invalid_diagnosis_response"}
+
+
+def test_redacts_obvious_hardcoded_credentials_from_source():
+    source = 'API_KEY=sk_live_123456789\\nTOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890'
+    redacted = _redact_source(source)
+    assert 'sk_live_123456789' not in redacted
+    assert 'ghp_abcdefghijklmnopqrstuvwxyz1234567890' not in redacted
+    assert '[REDACTED]' in redacted
