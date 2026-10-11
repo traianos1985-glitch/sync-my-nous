@@ -81,7 +81,7 @@ The preflight does not apply changes, execute proposed code, run regression test
 or prove UI/API compatibility. A clean report only means these limited static
 checks found no blockers. Review all warnings and the complete diff, then apply the
 change through a separate human-controlled workflow and run the project's full
-test suite. The repair proposal store is runtime state under `data/app_builder_repairs.json`.
+test suite. The repair proposal store is runtime state under `data/app_builder_repairs.json`. It retains at most the 100 most recent proposals; export any review record needed for long-term audit before it is rotated out.
 
 ## Upgrading NOUS itself
 
