@@ -30,10 +30,18 @@ def make_app(monkeypatch, *, token_result=False):
     return app
 
 
-def test_public_health_and_token_prefix_remain_public(monkeypatch):
+def test_public_health_and_token_prefix_is_protected(monkeypatch):
     client = make_app(monkeypatch, token_result=False).test_client()
 
     assert client.get("/health").status_code == 200
+    response = client.get("/token/issue")
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "unauthorized"
+
+
+def test_token_prefix_allows_authenticated_requests(monkeypatch):
+    client = make_app(monkeypatch, token_result=True).test_client()
+
     assert client.get("/token/issue").status_code == 200
 
 
