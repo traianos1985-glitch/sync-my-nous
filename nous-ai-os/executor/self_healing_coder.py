@@ -4,9 +4,11 @@ Iteratively writes code, runs verification/syntax/tests, captures any error trac
 generates reflections, and applies patches until the code passes or max retries are reached.
 """
 import ast
+import shlex
 import subprocess
 import time
 from typing import Any, Dict, List, Optional
+
 
 class SelfHealingCoder:
     def __init__(self, max_attempts: int = 3):
@@ -23,19 +25,22 @@ class SelfHealingCoder:
             return f"Error: {str(e)}"
 
     def run_isolated_test(self, test_command: str = "pytest tests/") -> Dict[str, Any]:
-        """Runs the validation test suite."""
+        """Run a test command as argv, never through a shell."""
         try:
+            command = shlex.split(test_command)
+            if not command:
+                return {"passed": False, "stdout": "", "stderr": "Empty test command."}
             res = subprocess.run(
-                test_command,
-                shell=True,
+                command,
+                shell=False,
                 capture_output=True,
                 text=True,
-                timeout=20
+                timeout=20,
             )
             return {
                 "passed": res.returncode == 0,
                 "stdout": res.stdout[:2000],
-                "stderr": res.stderr[:2000]
+                "stderr": res.stderr[:2000],
             }
         except subprocess.TimeoutExpired:
             return {"passed": False, "stdout": "", "stderr": "Execution timed out."}
@@ -46,7 +51,7 @@ class SelfHealingCoder:
         """Executes the self-healing cycle."""
         current_code = initial_code
         history: List[Dict[str, Any]] = []
-        
+
         for attempt in range(1, self.max_attempts + 1):
             # 1. Syntax check
             syntax_err = self.verify_syntax(current_code)
@@ -89,7 +94,7 @@ class SelfHealingCoder:
                     "error": test_res.get("stderr") or test_res.get("stdout"),
                     "action": "Reflecting on failure traceback"
                 })
-                
+
         return {
             "success": False,
             "filename": filename,
@@ -99,7 +104,9 @@ class SelfHealingCoder:
             "reason": "Max healing attempts reached."
         }
 
+
 DEFAULT_SELF_HEALER = SelfHealingCoder()
+
 
 def self_heal_snippet(filename: str, code: str, test_cmd: Optional[str] = None) -> Dict[str, Any]:
     return DEFAULT_SELF_HEALER.heal_code(filename, code, test_cmd)
