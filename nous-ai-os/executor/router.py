@@ -490,20 +490,50 @@ def larmor_calculate():
 
 @app.route("/larmor/analyze", methods=["POST"])
 def larmor_analyze():
-    data = request.get_json(silent=True) or {}
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "invalid_request_body"}), 400
     session_data = data.get("session_data", "")
     question = data.get("question", "")
     if not session_data:
         return jsonify({"error": "Δεν δόθηκαν δεδομένα για ανάλυση"}), 400
+    if len(str(session_data)) > 12000:
+        return jsonify({"error": "session_data_too_long", "max_characters": 12000}), 400
+    if not isinstance(question, str):
+        return jsonify({"error": "invalid_question"}), 400
+    if len(question) > 1000:
+        return jsonify({"error": "question_too_long", "max_characters": 1000}), 400
     result = analyze_session(session_data, question)
     return jsonify({"analysis": result})
 
 @app.route("/larmor/chat", methods=["POST"])
 def larmor_chat_route():
-    data = request.get_json(silent=True) or {}
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "invalid_request_body"}), 400
     conversation = data.get("conversation", [])
-    if not conversation:
+    if not isinstance(conversation, list) or not conversation:
         return jsonify({"error": "Χωρίς μήνυμα"}), 400
+    if len(conversation) > 20:
+        return jsonify({"error": "conversation_too_long", "max_turns": 20}), 400
+    total_characters = 0
+    for turn in conversation:
+        if not isinstance(turn, dict):
+            return jsonify({"error": "invalid_conversation_turn"}), 400
+        if turn.get("role") not in {"user", "assistant"}:
+            return jsonify({"error": "invalid_conversation_role"}), 400
+        content = turn.get("content")
+        if not isinstance(content, str):
+            return jsonify({"error": "invalid_conversation_content"}), 400
+        if len(content) > 4000:
+            return jsonify({"error": "conversation_turn_too_long", "max_characters": 4000}), 400
+        total_characters += len(content)
+    if total_characters > 16000:
+        return jsonify({"error": "conversation_payload_too_large", "max_characters": 16000}), 400
     reply = larmor_chat(conversation)
     return jsonify({"reply": reply})
 
