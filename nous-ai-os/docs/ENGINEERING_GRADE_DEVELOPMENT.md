@@ -83,6 +83,36 @@ checks found no blockers. Review all warnings and the complete diff, then apply 
 change through a separate human-controlled workflow and run the project's full
 test suite. The repair proposal store is runtime state under `data/app_builder_repairs.json`. It retains at most the 100 most recent proposals; export any review record needed for long-term audit before it is rotated out.
 
+## Environment-aware startup bootstrap
+
+After the global NOUS token guard accepts an authenticated request, the service
+starts a bounded background bootstrap. The report is available from
+`GET /remote/environment/bootstrap/status`; an administrator can request a fresh
+run with `POST /remote/environment/bootstrap/run`. The dashboard exposes the same
+status and manual action.
+
+The bootstrap records runtime/platform details, a bounded project-manifest and
+dependency-name inventory, availability of key Python modules and developer tools,
+filesystem write checks, free disk space, source-control revision when available,
+and a minimal Gemini connectivity probe. It stores the report in
+`data/environment_bootstrap_report.json`. Secret values are never included:
+token and API-key settings are reported only as configured/not-configured flags.
+Only a small allowlist of known runtime directories may be created automatically.
+
+When Gemini connectivity is confirmed, NOUS can ask the configured AI provider for
+evidence-based improvement recommendations based on sanitized diagnostic metadata.
+Recommendations are recorded for review only. The bootstrap does not install
+packages, run AI-generated commands, alter environment variables, edit source code,
+change authentication, or automatically apply AI recommendations. Missing
+dependencies, inaccessible storage, model/quota/network failures, and other
+limitations remain visible findings that require operator review.
+
+The initial check is started in the background after authentication, so it does not
+hold up the first API request. Results are cached briefly to avoid repeated Gemini
+probes on every request. This is a deployment-readiness baseline, not a proof that
+every feature or integration works; feature-specific tests and live integration
+checks remain necessary.
+
 ## App Builder UI/API contract audit
 
 An administrator can call `POST /remote/app-builder/contract-audit` or use the
