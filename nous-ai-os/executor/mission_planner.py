@@ -5,6 +5,7 @@ import time
 from executor.goal_system import list_goals, create_goal_mission
 from executor.decision_memory import record_decision
 from executor.learning_memory import record_lesson
+from executor.id_compat import find_by_id, new_runtime_id
 
 FILE = "data/mission_proposals.json"
 
@@ -90,7 +91,7 @@ def propose_mission_for_goal(goal_id=None):
     description = "Auto-proposed mission to advance goal progress for: " + goal.get("title", "")
 
     proposal = {
-        "id": int(time.time_ns()),
+        "id": new_runtime_id(),
         "status": "pending",
         "created": time.time(),
         "goal_id": goal.get("id"),
@@ -148,10 +149,7 @@ def mission_planner_status():
 
 
 def _find(items, proposal_id):
-    for p in items:
-        if str(p.get("id")) == str(proposal_id):
-            return p
-    return None
+    return find_by_id(items, proposal_id)
 
 
 def approve_mission_proposal(proposal_id):
