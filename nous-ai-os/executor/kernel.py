@@ -11,6 +11,22 @@ from executor.operator_approval import (
 from executor.tool_catalog import get_tool
 
 
+
+def _requires_approval(tool, action, command):
+    if action == "cmd":
+        # Shell commands have a dedicated command_execution approval workflow.
+        return False
+    required = tool.get("approval_required")
+    if required is True:
+        return True
+    if required == "depends_on_action" and action == "agent_solve":
+        # solve_goal invokes Code Forge for these goals, so its dynamic
+        # approval must be applied before that nested code-generation path.
+        lowered = str(command).lower()
+        return any(term in lowered for term in ("plugin", "calculator", "κώδικ", "code"))
+    return False
+
+
 def _approval_result(action, approval_id=None):
     return {
         "ok": False,
@@ -68,7 +84,7 @@ def handle(command, context=None):
         # Generic catalog approvals cover tools without a dedicated approval workflow.
         # The shell command tool has its own command_execution approval and must not
         # be wrapped in a second, incompatible approval claim.
-        if tool and tool.get("approval_required") is True and action != "cmd":
+        if tool and _requires_approval(tool, action, command):
             payload = {"command": command}
             approval_id = context.get("approval_id")
 
