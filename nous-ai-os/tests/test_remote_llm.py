@@ -194,3 +194,11 @@ def test_transient_gemini_server_error_retries_same_model_once():
     assert post.call_count == 2
     assert all(call.args[0].endswith("/gemini-primary:generateContent") for call in post.call_args_list)
     ollama.assert_not_called()
+
+
+def test_configured_gemini_models_are_bounded_for_request_latency():
+    with patch.dict(os.environ, {
+        "GEMINI_MODEL": "primary",
+        "GEMINI_FALLBACK_MODELS": "fallback-one,fallback-two,fallback-three",
+    }, clear=True):
+        assert remote_llm.configured_models() == ["primary", "fallback-one"]
