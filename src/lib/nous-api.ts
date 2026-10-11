@@ -97,7 +97,13 @@ function adaptBody(path: string, body: RequestInit["body"]): RequestInit["body"]
 
 function getStoredToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
-  return window.sessionStorage.getItem(tokenStorageKey) || undefined;
+  // Keep the token across preview iframe reloads and chat navigation. The value
+  // never leaves the browser except as an Authorization header to the NOUS API.
+  return (
+    window.localStorage.getItem(tokenStorageKey) ||
+    window.sessionStorage.getItem(tokenStorageKey) ||
+    undefined
+  );
 }
 
 export function hasConfiguredNousApi(): boolean {
@@ -121,8 +127,7 @@ export function setNousToken(token: string): void {
   if ([...normalizedToken].some((character) => character.charCodeAt(0) > 255)) {
     throw new Error("Το NOUS token πρέπει να αποτελείται μόνο από λατινικούς χαρακτήρες.");
   }
-  if (typeof window !== "undefined")
-    window.sessionStorage.setItem(tokenStorageKey, normalizedToken);
+  if (typeof window !== "undefined") window.localStorage.setItem(tokenStorageKey, normalizedToken);
 }
 
 function setAuthorizationHeader(headers: Headers, token: string | undefined): void {
@@ -136,7 +141,10 @@ function setAuthorizationHeader(headers: Headers, token: string | undefined): vo
 }
 
 export function clearNousToken(): void {
-  if (typeof window !== "undefined") window.sessionStorage.removeItem(tokenStorageKey);
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(tokenStorageKey);
+    window.sessionStorage.removeItem(tokenStorageKey);
+  }
 }
 
 export async function nousStream(path: string, options: NousApiOptions = {}): Promise<Response> {
