@@ -131,3 +131,39 @@ def test_status_returns_not_started_when_report_does_not_exist(tmp_path, monkeyp
     status = bootstrap.environment_bootstrap_status(tmp_path)
     assert status["status"] == "not_started"
     assert status["report_available"] is False
+
+def test_route_inventory_reports_missing_core_routes():
+    from flask import Flask
+
+    app = Flask("bootstrap-test")
+    app.add_url_rule("/health", "health", lambda: {"ok": True})
+    report = bootstrap._route_inventory(app)
+
+    assert report["status"] == "checked"
+    assert report["ok"] is False
+    assert "/remote/status" in report["missing_required_routes"]
+
+
+def test_route_inventory_accepts_registered_core_routes():
+    from flask import Flask
+
+    app = Flask("bootstrap-test")
+    paths = (
+        "/health",
+        "/remote/status",
+        "/remote/environment/bootstrap/status",
+        "/remote/self-diagnosis/status",
+        "/remote/app-builder/status",
+        "/remote/app-builder/test",
+        "/remote/app-builder/diagnose",
+        "/remote/app-builder/repair-review",
+        "/remote/app-builder/contract-audit",
+    )
+    for index, path in enumerate(paths):
+        app.add_url_rule(path, f"route_{index}", lambda: {"ok": True})
+    report = bootstrap._route_inventory(app)
+
+    assert report["ok"] is True
+    assert report["missing_required_routes"] == []
+    assert report["required_routes_checked"] == len(paths)
+
