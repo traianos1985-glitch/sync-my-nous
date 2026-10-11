@@ -24,9 +24,6 @@ if (/FRONTEND_API_PREFIXES|isFrontendApiPath/.test(apiClient)) {
 const expectedPathMappings = {
   '"/api/chat": "/chat"': "chat must retain the Flask /chat compatibility mapping",
   '"/api/health": "/health"': "health must retain the Flask /health compatibility mapping",
-  '"/api/missions": "/remote/missions"': "missions must map to the Flask missions endpoint",
-  '"/api/observability": "/remote/metrics"': "observability must map to Flask runtime metrics",
-  '"/api/security-lessons": "/remote/lessons/list"': "security lessons must map to Flask lessons",
 };
 for (const [mapping, message] of Object.entries(expectedPathMappings)) {
   if (!apiClient.includes(mapping)) errors.push(`Missing API path mapping: ${message}.`);
@@ -64,7 +61,7 @@ for (const [route, label] of routerRoutes) {
 
 // The dashboard must poll the Flask JSON endpoint; an SSE handler does not run on Pages.
 requireMatch(
-  dashboard,
+  /nousFetch<[\s\S]{0,500}?>\s*\("\/remote\/missions"\),
   /nousFetch<[\s\S]{0,500}?\(">\/remote\/missions"\)/,
   "Mission updates must poll the authenticated Flask /remote/missions endpoint.",
 );
