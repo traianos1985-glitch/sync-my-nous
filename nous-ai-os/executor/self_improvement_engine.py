@@ -1,6 +1,8 @@
 import json
 import os
 import shutil
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -59,7 +61,8 @@ def create_patch_request(file_path, new_content, reason="manual"):
     }
 
     path = f"{PATCH_DIR}/{patch['id']}.json"
-    json.dump(patch, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(patch, handle, ensure_ascii=False, indent=2)
 
     write_journal("patch_request_created", {"patch": path, "file": file_path})
     return {"created": True, "patch": patch, "path": path}
@@ -71,7 +74,8 @@ def list_patches():
 
     for path in sorted(Path(PATCH_DIR).glob("*.json")):
         try:
-            items.append(json.load(open(path, "r", encoding="utf-8")))
+            with path.open("r", encoding="utf-8") as handle:
+                items.append(json.load(handle))
         except Exception:
             pass
 
@@ -79,10 +83,9 @@ def list_patches():
 
 
 def _compile_file(file_path):
-    import subprocess
     p = subprocess.run(
-        f"python -m py_compile {file_path}",
-        shell=True,
+        [sys.executable, "-m", "py_compile", str(file_path)],
+        shell=False,
         text=True,
         capture_output=True,
         timeout=30,
@@ -106,20 +109,23 @@ def apply_patch(patch_id):
     if not path.exists():
         return {"ok": False, "error": "patch_not_found", "id": patch_id}
 
-    patch = json.load(open(path, "r", encoding="utf-8"))
+    with path.open("r", encoding="utf-8") as handle:
+        patch = json.load(handle)
     file_path = patch.get("file")
 
     if not allowed_file(file_path):
         patch["status"] = "blocked"
         patch["error"] = "file_not_allowed"
-        json.dump(patch, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump(patch, handle, ensure_ascii=False, indent=2)
         return {"ok": False, "error": "file_not_allowed"}
 
     target = Path(file_path)
     if not target.exists():
         patch["status"] = "failed"
         patch["error"] = "target_not_found"
-        json.dump(patch, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump(patch, handle, ensure_ascii=False, indent=2)
         return {"ok": False, "error": "target_not_found"}
 
     backup = Path(BACKUP_DIR) / f"{patch_id}_{target.name}.bak"
@@ -135,7 +141,8 @@ def apply_patch(patch_id):
             target.write_text(original, encoding="utf-8")
             patch["status"] = "rolled_back"
             patch["error"] = compile_result
-            json.dump(patch, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            with path.open("w", encoding="utf-8") as handle:
+                json.dump(patch, handle, ensure_ascii=False, indent=2)
             write_journal("patch_rolled_back", {"patch_id": patch_id, "file": file_path})
             return {
                 "ok": False,
@@ -147,7 +154,8 @@ def apply_patch(patch_id):
         patch["status"] = "applied"
         patch["applied"] = time.time()
         patch["error"] = None
-        json.dump(patch, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump(patch, handle, ensure_ascii=False, indent=2)
 
         result = {
             "ok": True,
@@ -165,7 +173,8 @@ def apply_patch(patch_id):
         target.write_text(original, encoding="utf-8")
         patch["status"] = "rolled_back"
         patch["error"] = str(e)
-        json.dump(patch, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump(patch, handle, ensure_ascii=False, indent=2)
         return {"ok": False, "rolled_back": True, "error": str(e), "backup": str(backup)}
 
 
