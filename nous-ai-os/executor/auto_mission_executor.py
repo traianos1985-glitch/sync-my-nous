@@ -152,6 +152,7 @@ def auto_mission_executor_status():
     return {
         "time": time.time(),
         "enabled": state.get("enabled", False),
+        "state_error": state.get("error"),
         "safe_actions": sorted(SAFE_AUTO_ACTIONS),
         "blocked_actions": sorted(BLOCKED_AUTO_ACTIONS),
         "run_in_progress": state.get("run_in_progress"),
