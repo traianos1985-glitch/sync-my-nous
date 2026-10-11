@@ -69,6 +69,21 @@ are validated, but a syntactically safe path is not proof that a patch is correc
 An administrator must review the root-cause evidence, inspect every proposed file,
 apply the change through the normal human-controlled workflow, and rerun tests.
 
+A successful diagnosis is stored as a review proposal and returns a `repair_id`.
+Use `POST /remote/app-builder/repair-review` with that ID to run a non-executing
+preflight. It checks allowed paths and file types, Python AST syntax, JSON syntax,
+high-impact/dependency-file warnings, and SHA-256 fingerprints for files that were
+included in the diagnosis context. If a file changed after diagnosis, the proposal
+is blocked as stale and should be regenerated. Existing files that were not part of
+the recorded baseline are also blocked rather than overwritten blindly.
+
+The preflight does not apply changes, execute proposed code, run regression tests,
+or prove UI/API compatibility. A clean report only means these limited static
+checks found no blockers. Review all warnings and the complete diff, then apply the
+change through a separate human-controlled workflow and run the project's full
+test suite. The repair proposal store is runtime state under `data/app_builder_repairs.json`.
+
+
 ## Upgrading NOUS itself
 
 Every proposed source-code change should include:
