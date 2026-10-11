@@ -441,8 +441,8 @@ def chat():
     except Exception:
         pass
 
-    data = request.get_json()
-    cmd = data.get("command", "")
+    data = request.get_json(silent=True) or {}
+    cmd = data.get("command") or data.get("message") or data.get("prompt") or data.get("text") or ""
 
     # ── CHAT INTENT ROUTING ───────────────────────────────────────────────────
     try:
@@ -452,7 +452,7 @@ def chat():
     except Exception:
         pass
 
-    return jsonify(handle(cmd, {}))
+    return jsonify(handle(cmd, {"approval_id": data.get("approval_id")}))
 
 from executor.health import backup as create_backup
 from executor.health import status as health_status
