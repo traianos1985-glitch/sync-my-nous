@@ -2091,8 +2091,7 @@ function Dashboard() {
                     </button>
                     {knowledgeLoadStatus === "error" && (
                       <p role="alert" className="text-sm text-destructive">
-                        Αποτυχία φόρτωσης εγγράφων. Τα υπάρχοντα δεδομένα διατηρούνται·
-                        δοκίμασε ξανά.
+                        Αποτυχία φόρτωσης εγγράφων. Δοκίμασε ξανά.
                       </p>
                     )}
                     {knowledgeLoadStatus === "loading" && (
