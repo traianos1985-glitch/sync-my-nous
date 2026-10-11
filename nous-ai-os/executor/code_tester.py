@@ -1,28 +1,25 @@
-import traceback
+import ast
+
 
 def test_plugin(code: str):
-
+    """Statically validate plugin source without running untrusted Python."""
     try:
-        local_env = {}
+        tree = ast.parse(code)
+    except (SyntaxError, ValueError, TypeError) as exc:
+        return {"success": False, "error": str(exc)}
 
-        exec(code, {}, local_env)
+    has_run = any(
+        isinstance(node, ast.FunctionDef) and node.name == "run"
+        for node in tree.body
+    )
+    if not has_run:
+        return {"success": False, "error": "Missing top-level run() function"}
 
-        if "run" not in local_env:
-            return {
-                "success": False,
-                "error": "Missing run() function"
-            }
-
-        result = local_env["run"]()
-
-        return {
-            "success": True,
-            "result": result
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "trace": traceback.format_exc()
-        }
+    return {
+        "success": True,
+        "execution_skipped": True,
+        "result": {
+            "validation": "static_only",
+            "run_function_found": True,
+        },
+    }
