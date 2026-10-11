@@ -1,5 +1,3 @@
-import json
-
 from executor.app_repair_review import (
     review_repair_proposal,
     save_repair_proposal,
