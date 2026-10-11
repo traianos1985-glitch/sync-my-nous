@@ -21,7 +21,7 @@ Rules:
 """
     res = ask(prompt)
     code = res.get("response", str(res)) if isinstance(res, dict) else str(res)
-    name = f"ai_plugin_{int(time.time())}"
+    name = f"ai_plugin_{time.time_ns()}"
     created = create_plugin(name, code)
 
     if not created.get("success"):
