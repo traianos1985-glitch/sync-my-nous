@@ -26,6 +26,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Report npm audit findings
+        if: always()
+        run: |
+          npm audit --json > /tmp/npm-audit.json || true
+          node -e 'const fs=require("node:fs"); const a=JSON.parse(fs.readFileSync("/tmp/npm-audit.json","utf8")); for (const [name,v] of Object.entries(a.vulnerabilities||{})) console.log(JSON.stringify({name,severity:v.severity,isDirect:v.isDirect,range:v.range,via:(v.via||[]).map(x=>typeof x==="string"?x:{title:x.title,url:x.url,range:x.range,cwe:x.cwe}),fixAvailable:v.fixAvailable})); console.log("auditSummary="+JSON.stringify(a.metadata?.vulnerabilities||{}))'
       - run: npm run check
 
   python:
