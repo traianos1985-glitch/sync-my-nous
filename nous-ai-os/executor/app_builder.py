@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from executor.engineering_standards import APPLICATION_ENGINEERING_GUIDE, validate_app_plan
+
 QUEUE = Path("data/app_builder_queue.json")
 APP_DIR = os.environ.get("NOUS_GENERATED_APPS_DIR", "data/generated_apps")
 APPS_DIR = Path(APP_DIR)
@@ -60,64 +62,73 @@ def _extract_json(text: str) -> dict | None:
 
 
 def plan_app(description: str) -> dict[str, Any]:
-    """Ask LLM to plan + generate full app code. Returns plan with status=pending_approval."""
+    """Generate a structured, review-only application plan with engineering checks."""
     from executor.remote_llm import ask_remote_llm
 
-    prompt = f"""You are an expert Python software engineer building apps for the NOUS AI OS platform.
+    request = str(description or "").strip()
+    if not request:
+        return {"ok": False, "error": "empty_description"}
+    if len(request) > 8000:
+        return {"ok": False, "error": "description_too_long", "max_characters": 8000}
 
-User request: {description}
+    prompt = f"""You are a senior software architect and engineer building complete applications for NOUS AI OS.
 
-Generate a complete, working implementation. Return ONLY valid JSON — no other text, no markdown outside the JSON:
+USER REQUIREMENT:
+{request}
 
+{APPLICATION_ENGINEERING_GUIDE}
+
+Return ONLY valid JSON with this exact top-level shape:
 {{
   "app_name": "snake_case_name",
-  "title": "Human readable title in Greek",
-  "description": "Τι κάνει αυτή η εφαρμογή",
+  "title": "Human-readable title",
+  "description": "Purpose and behavior",
   "tech_stack": ["Python", "Flask"],
   "files": [
-    {{
-      "path": "app_name/main.py",
-      "description": "Short description",
-      "content": "# full working code here"
-    }},
-    {{
-      "path": "app_name/requirements.txt",
-      "description": "Dependencies",
-      "content": "flask\\nrequests"
-    }}
+    {{"path": "app_name/main.py", "description": "Application entry point", "content": "complete source"}},
+    {{"path": "app_name/tests/test_main.py", "description": "Automated regression tests", "content": "complete tests"}},
+    {{"path": "app_name/README.md", "description": "Setup and usage documentation", "content": "complete documentation"}}
   ],
-  "run_command": "python apps/app_name/main.py",
-  "install_notes": "pip install -r apps/app_name/requirements.txt",
-  "notes": "Usage notes in Greek"
+  "run_command": "python main.py",
+  "install_notes": "Reproducible setup instructions",
+  "notes": "Assumptions and limitations"
 }}
 
-Important rules:
-- ALL file content must be complete and working — no placeholders, no TODO comments
-- Path must start with app_name/ (files will be saved under apps/)
-- For web apps use Flask on port 7000
-- For scripts use pure Python with no external dependencies if possible
-- Include requirements.txt only if external packages are needed (not stdlib)
-- Code must be clean, readable, production-quality
+Hard requirements:
+- Return all source, test, documentation, and configuration files needed; do not return only a mockup or calculator unless that is explicitly the requested scope.
+- Every path must begin with the exact app_name plus '/'. Do not use absolute paths, '..', backslashes, or paths outside the application folder.
+- Include a meaningful README.md, at least one automated test file under app_name/tests/, and a real entry point.
+- Tests must cover core behavior and important invalid-input/failure cases; do not merely test that a constant exists.
+- Web UI must provide real interactions and loading/empty/error states; never rely on alert() as the main UI.
+- For web applications use the appropriate stack rather than defaulting blindly to Flask. Keep backend, domain logic, persistence, and UI separated when the scope warrants it.
+- If a database is required, implement real persistence and safe initialization/migrations. Never claim an integration works when credentials or services are unavailable.
+- Use environment configuration for secrets; include a placeholder-only .env.example when useful. Never include real secrets.
+- Do not include TODOs, placeholders, fake endpoints, fabricated success, or markdown outside the JSON.
+- Keep dependencies minimal. Include requirements.txt or package.json only when appropriate.
+- Assume sensible defaults instead of asking follow-up questions; document important assumptions in notes.
 """
 
     result = ask_remote_llm(prompt)
-    if not result.get("success"):
-        return {"ok": False, "error": "LLM απέτυχε: " + str(result.get("error", "unknown"))}
+    if not isinstance(result, dict) or not result.get("success"):
+        error = result.get("error", "unknown") if isinstance(result, dict) else "invalid_llm_response"
+        return {"ok": False, "error": "llm_generation_failed", "details": str(error)[:500]}
 
     raw = result.get("response", "")
     plan_data = _extract_json(raw)
+    if not isinstance(plan_data, dict):
+        return {
+            "ok": False,
+            "error": "invalid_app_plan_json",
+            "details": "Το μοντέλο δεν επέστρεψε έγκυρο JSON. Δεν αποθηκεύτηκε σχέδιο.",
+        }
 
-    if not plan_data or not plan_data.get("files"):
-        app_slug = re.sub(r"[^a-z0-9_]", "_", description.lower()[:30]).strip("_") or "my_app"
-        plan_data = {
-            "app_name": app_slug,
-            "title": description[:60],
-            "description": description,
-            "tech_stack": ["Python"],
-            "files": [{"path": f"{app_slug}/main.py", "description": "Main", "content": raw}],
-            "run_command": f"python apps/{app_slug}/main.py",
-            "install_notes": "",
-            "notes": "",
+    validation_errors = validate_app_plan(plan_data)
+    if validation_errors:
+        return {
+            "ok": False,
+            "error": "app_plan_validation_failed",
+            "validation_errors": validation_errors,
+            "retryable": True,
         }
 
     plan_id = _plan_id()
@@ -125,17 +136,22 @@ Important rules:
         "plan_id": plan_id,
         "status": "pending_approval",
         "created_at": now_iso(),
-        "description": description,
-        "app_name": plan_data.get("app_name", "my_app"),
-        "title": plan_data.get("title", description[:60]),
+        "description": request,
+        "app_name": plan_data["app_name"],
+        "title": plan_data["title"].strip(),
         "tech_stack": plan_data.get("tech_stack", []),
-        "files": plan_data.get("files", []),
+        "files": plan_data["files"],
         "run_command": plan_data.get("run_command", ""),
         "install_notes": plan_data.get("install_notes", ""),
         "notes": plan_data.get("notes", ""),
         "approved_at": None,
         "written_files": [],
         "build_result": None,
+        "engineering_validation": {
+            "ok": True,
+            "checks": ["schema", "safe_paths", "unique_paths", "readme", "automated_test_file", "entrypoint", "size_limits"],
+            "runtime_tests_executed": False,
+        },
     }
 
     q = load_queue()
@@ -143,7 +159,6 @@ Important rules:
     save_queue(q)
 
     return {"ok": True, "plan": plan}
-
 
 def _safe_app_target(rel_path: object, app_name: object) -> Path:
     """Resolve a generated file path and reject traversal and symlink escapes."""
