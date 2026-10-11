@@ -1,4 +1,4 @@
-import { and, count, eq, gte } from "drizzle-orm";
+import { and, count, eq, gte, inArray } from "drizzle-orm";
 import { db } from "./db";
 import { nousObservabilityEvents } from "./db/schema";
 import { recordModelCall, type ModelCallMetric } from "./ai-observability";
@@ -47,6 +47,7 @@ export async function getPersistentDailyBudget(userId: string) {
       and(
         eq(nousObservabilityEvents.userId, userId),
         gte(nousObservabilityEvents.createdAt, start),
+        inArray(nousObservabilityEvents.event, ["model_call", "model_error"]),
       ),
     );
   const used = Number(result?.calls ?? 0);
