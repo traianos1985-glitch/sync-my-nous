@@ -16,10 +16,14 @@ export function SectionPanel({ section }: { section: string }) {
     data: unknown;
   } | null>(null);
   const loadGeneration = useRef(0);
+  const loadController = useRef<AbortController | null>(null);
   const actionGeneration = useRef(0);
 
   const load = useCallback(async () => {
     if (!config) return;
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
     const generation = ++loadGeneration.current;
     setResults(
       Object.fromEntries(
@@ -29,7 +33,7 @@ export function SectionPanel({ section }: { section: string }) {
     await Promise.all(
       config.endpoints.map(async (endpoint) => {
         try {
-          const data = await nousFetch<unknown>(endpoint.path);
+          const data = await nousFetch<unknown>(endpoint.path, { signal: controller.signal });
           if (loadGeneration.current !== generation) return;
           setResults((current) => ({ ...current, [endpoint.path]: { status: "ready", data } }));
         } catch (error) {
@@ -54,6 +58,8 @@ export function SectionPanel({ section }: { section: string }) {
     return () => {
       // Ignore responses from the previous section or an unmounted panel.
       loadGeneration.current += 1;
+      loadController.current?.abort();
+      loadController.current = null;
       actionGeneration.current += 1;
     };
   }, [load]);
