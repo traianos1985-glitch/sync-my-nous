@@ -96,7 +96,7 @@ Code:
 
 
 def forge_plugin(goal):
-    name = "forge_plugin_" + str(int(time.time()))
+    name = "forge_plugin_" + str(time.time_ns())
     code = generate_code(goal)
     ok, msg = safe_check(code)
 
