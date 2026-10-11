@@ -3187,6 +3187,42 @@ def app_builder_approve_route():
     result = approve_and_write(plan_id)
     return jsonify(result)
 
+@app.route("/remote/app-builder/test", methods=["POST"])
+def app_builder_test_route():
+    """Run generated app tests after explicit admin authorization."""
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_request_body"}), 400
+    app_name = data.get("app_name")
+    if not isinstance(app_name, str) or not app_name.strip():
+        return jsonify({"ok": False, "error": "app_name_required"}), 400
+
+    try:
+        timeout_seconds = int(data.get("timeout_seconds", 120))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "invalid_timeout"}), 400
+
+    from executor.app_builder import APPS_DIR
+    from executor.app_validation_runner import run_project_tests
+
+    result = run_project_tests(app_name.strip(), APPS_DIR, timeout_seconds)
+    if result.get("ok"):
+        status_code = 200
+    elif result.get("status") == "timeout":
+        status_code = 408
+    elif result.get("error") in {"app_not_found", "automated_tests_not_found"}:
+        status_code = 404
+    elif result.get("error") in {"invalid_app_name", "invalid_timeout", "timeout_out_of_range"}:
+        status_code = 400
+    elif result.get("error") == "test_runner_unavailable":
+        status_code = 503
+    else:
+        status_code = 422
+    return jsonify(result), status_code
+
+
 @app.route("/remote/app-builder/reject", methods=["POST"])
 def app_builder_reject_route():
     if not check_admin_token(request):
