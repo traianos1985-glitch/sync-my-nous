@@ -772,7 +772,11 @@ def token_create_route():
 
     data = request.get_json(silent=True) or {}
     name = data.get("name", "remote")
-    return jsonify(create_token(name))
+    scope = data.get("scope", "user")
+    try:
+        return jsonify(create_token(name, scope))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @app.route("/token/list")
