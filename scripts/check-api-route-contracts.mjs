@@ -74,6 +74,18 @@ requireMatch(
   "Mission updates must refresh every three seconds while connected.",
 );
 
+
+// Mutating dashboard actions require an admin-scoped token, not just any valid
+// user token accepted by the global request guard.
+for (const handler of ["api_job_update", "api_approval_resolve", "api_tool_execute"]) {
+  const start = flaskDashboardApi.indexOf(`def ${handler}(`);
+  const next = start < 0 ? -1 : flaskDashboardApi.indexOf("\n@dashboard_api_bp.", start + 1);
+  const body = start < 0 ? "" : flaskDashboardApi.slice(start, next < 0 ? undefined : next);
+  if (!body.includes("check_admin_token(request)")) {
+    errors.push(`Dashboard mutation handler ${handler} must require an admin token.`);
+  }
+}
+
 if (errors.length) {
   console.error("API route contract check failed:");
   for (const error of errors) console.error(`- ${error}`);
