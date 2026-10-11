@@ -118,6 +118,30 @@ def _render_request(method: str, path: str, timeout: int = 12) -> dict[str, Any]
         return {"ok": False, "configured": True, "error": "render_api_unreachable_or_invalid_response"}
 
 
+def _vercel_api_probe(timeout: int = 12) -> dict[str, Any]:
+    token = os.environ.get("VERCEL_TOKEN", "").strip()
+    if not token:
+        return {"ok": False, "configured": False, "error": "vercel_token_not_configured"}
+    request = urllib.request.Request(
+        "https://api.vercel.com/v9/projects?limit=1",
+        headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = response.read(65536)
+            parsed = json.loads(body.decode("utf-8")) if body else {}
+            projects = parsed.get("projects", []) if isinstance(parsed, dict) else []
+            return {"ok": 200 <= response.status < 300, "configured": True,
+                    "status_code": response.status,
+                    "projects_visible": len(projects) if isinstance(projects, list) else None}
+    except urllib.error.HTTPError as exc:
+        return {"ok": False, "configured": True, "status_code": exc.code,
+                "error": "vercel_api_rejected_request"}
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return {"ok": False, "configured": True, "error": "vercel_api_unreachable_or_invalid_response"}
+
+
 def probe_provider(provider: str) -> dict[str, Any]:
     provider_id = str(provider or "").strip().lower()
     if provider_id not in _PROVIDER_LABELS:
@@ -131,10 +155,19 @@ def probe_provider(provider: str) -> dict[str, Any]:
             identity = _run_cli([cli, "whoami"], root)
             result.update({"method": "vercel_cli", "cli_installed": True,
                            "version_check_ok": version["ok"], "authenticated": identity["ok"]})
+            if not identity["ok"] and os.environ.get("VERCEL_TOKEN", "").strip():
+                api_probe = _vercel_api_probe()
+                result.update({"method": "vercel_api_fallback", "authenticated": bool(api_probe.get("ok")),
+                               "status_code": api_probe.get("status_code"),
+                               "projects_visible": api_probe.get("projects_visible"),
+                               "error": api_probe.get("error")})
         elif os.environ.get("VERCEL_TOKEN", "").strip():
-            result.update({"method": "vercel_token_present", "cli_installed": False,
-                           "authenticated": None,
-                           "message": "Token presence is known; API connectivity is not verified by this probe."})
+            api_probe = _vercel_api_probe()
+            result.update({"method": "vercel_api", "cli_installed": False,
+                           "authenticated": bool(api_probe.get("ok")),
+                           "status_code": api_probe.get("status_code"),
+                           "projects_visible": api_probe.get("projects_visible"),
+                           "error": api_probe.get("error")})
         else:
             result.update({"method": "vercel_cli", "cli_installed": False, "authenticated": False,
                            "error": "vercel_cli_and_token_not_configured"})
