@@ -19,6 +19,22 @@ This checklist separates repository CI success from end-to-end runtime validatio
 7. Force a tool handler failure; verify the run and approval are marked failed and the associated mission is blocked rather than reported complete.
 8. Confirm the UI displays failed, blocked, queued, running, and completed states consistently with the API response.
 
+## Chat persistence and storage recovery
+
+1. Load the dashboard with no local chat entry, a valid saved chat, malformed JSON, and a saved entry containing invalid message shapes. The UI should recover without crashing and keep only bounded, valid local fallback messages.
+2. Verify that local fallback history is capped at 80 messages and each persisted message/citation is normalized before writing to browser storage.
+3. Corrupt the conversation index in an isolated test environment. The backend must preserve the original bytes, return a controlled storage-unavailable response for chat persistence, and avoid recording secondary learning memory for an unpersisted turn.
+4. Repair the index from a verified backup, then confirm conversation listing, rename, summary update, search and deletion agree on the same conversation ID.
+5. Verify that corrupt auto-mission executor state and corrupt cron state are reported as unavailable and are not replaced with default state automatically.
+
+## Scheduled autonomy and authorization
+
+1. Use a user-scoped token against cron create/remove/toggle, workspace mission creation, NOUS Drive think, knowledge writes/uploads, document uploads and AI self-diagnosis analysis. Each sensitive mutation must return 401 without an admin token.
+2. Confirm the default scheduled jobs remain available and that only morning/evening reports, backup creation and self-reflection are eligible for automatic cron approval.
+3. Attempt to schedule `cleanup_disk`, `restore_data_files`, `implement_capability`, or an unknown action. Each must be rejected before a schedule file is created or changed.
+4. Confirm an existing persisted cron entry with a disallowed action is not executed or auto-approved.
+5. Check diagnostic API responses for unavailable components; they may report error types, but must not disclose exception text, tokens, or private filesystem paths.
+
 ## Android companion device test
 
 1. Build and install the debug APK on a test device.
