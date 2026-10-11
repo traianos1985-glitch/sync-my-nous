@@ -21,7 +21,7 @@
 >
 > - API base: `https://nous-ai-os-api.onrender.com`
 > - Header: `Authorization: Bearer <NOUS_TOKEN>` (or `X-NOUS-TOKEN`)
-> - Frontend: paste it in the dashboard token field, or set `VITE_NOUS_API_TOKEN`.
+> - Frontend: paste it in the dashboard token field. Do not set the token through a `VITE_*` variable: Vite-exposed variables can be embedded in the public frontend bundle.
 >
 > If you must run the Python backend locally, `GEMINI_API_KEY` is optional:
 > leave it empty and AI calls fall back to local Ollama (`NOUS_LOCAL_LLM=1`)
