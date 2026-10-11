@@ -7,9 +7,13 @@ from executor.security import check_token, check_admin_token
 
 PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/robots.txt"}
 PUBLIC_PREFIXES = ("/static/",)
-ADMIN_ONLY_PREFIXES = ("/api/ops/", "/remote/self-improve/", "/remote/agent/proposals")
+ADMIN_ONLY_PREFIXES = (
+    "/remote/self-improve/", "/remote/agent/proposals",
+    "/api/ops/memory/vector/",
+)
 ADMIN_ONLY_PATHS = {
-    "/api/agent-environments/deploy",
+    "/api/ops/react/run", "/api/ops/swarm/run", "/api/ops/self-heal/run",
+    "/api/ops/watchdog/run", "/api/agent-environments/deploy",
     "/remote/agent/run", "/remote/agent/check",
     "/remote/team/cycle", "/remote/internet-learning/topic",
     "/remote/internet-learning/url", "/remote/master/cycle",
