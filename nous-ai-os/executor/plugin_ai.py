@@ -1,7 +1,8 @@
 import time
+
 from executor.llm_core import ask
 from executor.plugin_builder import create_plugin
-from executor.plugin_tester import test_plugin
+
 
 def generate_plugin(goal):
     prompt = f"""
@@ -12,7 +13,7 @@ Create a safe plugin for this goal:
 {goal}
 
 Rules:
-- must define run()
+- must define a top-level run() function
 - run() must return dict
 - no pip
 - no subprocess
@@ -26,5 +27,16 @@ Rules:
     if not created.get("success"):
         return created
 
-    tested = test_plugin(created["plugin"])
-    return {"created": created, "test": tested}
+    # Never import or execute model-generated source during creation. A user can
+    # review the saved plugin and explicitly invoke the existing run-plugin tool.
+    return {
+        "created": created,
+        "test": {
+            "success": True,
+            "execution_skipped": True,
+            "result": {
+                "validation": "static_only",
+                "run_function_found": True,
+            },
+        },
+    }

@@ -1,21 +1,26 @@
-import os, time, ast
+import ast
+import os
+import time
 
 PLUGIN_DIR = "executor/plugins"
 os.makedirs(PLUGIN_DIR, exist_ok=True)
 
+
 def clean_code(code):
-    return str(code).replace("```python","").replace("```","").strip()
+    return str(code).replace("```python", "").replace("```", "").strip()
+
 
 def validate(code):
     try:
-        ast.parse(code)
-    except Exception as e:
-        return False, str(e)
-    if "def run" not in code:
-        return False, "missing run()"
+        tree = ast.parse(code)
+    except (SyntaxError, ValueError, TypeError) as exc:
+        return False, str(exc)
+    if not any(isinstance(node, ast.FunctionDef) and node.name == "run" for node in tree.body):
+        return False, "missing top-level run() function"
     if "pip" in code or "os.system" in code or "subprocess" in code:
         return False, "blocked unsafe keyword"
     return True, "ok"
+
 
 def create_plugin(name, code):
     code = clean_code(code)
