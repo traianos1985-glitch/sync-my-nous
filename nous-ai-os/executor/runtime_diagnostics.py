@@ -80,6 +80,21 @@ def _queue_check() -> dict[str, Any]:
             if not math.isfinite(started) or started <= 0 or started > now or now - started >= 900:
                 stale_running += 1
     store_status = store.get("status") if isinstance(store, dict) else "unavailable"
+    # Keep stable, bounded integrity fields for existing consumers without
+    # exposing arbitrary store metadata or filesystem paths.
+    store_integrity: dict[str, Any] = {"status": store_status}
+    if isinstance(store, dict):
+        error = store.get("error")
+        if isinstance(error, str):
+            if error.startswith("queue_store_unreadable:"):
+                error_type = error.partition(":")[2][:80]
+                store_integrity["error"] = f"queue_store_unreadable:{error_type}"
+            elif error in {"queue_store_not_a_list", "queue_store_integrity_failure"}:
+                store_integrity["error"] = error
+        for key in ("record_count", "malformed_records"):
+            value = store.get(key)
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 10_000_000:
+                store_integrity[key] = value
     degraded = (
         store_status != "healthy"
         or counts["failed"] > 0
@@ -94,7 +109,7 @@ def _queue_check() -> dict[str, Any]:
         "malformed_items": malformed,
         "scanned_items": min(len(items), scan_limit),
         "truncated": truncated,
-        "store_integrity": {"status": store_status},
+        "store_integrity": store_integrity,
     }
 
 
