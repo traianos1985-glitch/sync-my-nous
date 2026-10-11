@@ -202,7 +202,7 @@ function Index() {
               className="inline-flex items-center gap-2 rounded-md px-5 py-3 font-mono text-sm text-primary transition-colors hover:bg-accent"
             >
               <Sparkles className="size-4" />
-              Τεχνική υποδομή που έχει ενσωματωθεί
+              Τεχνική υποδομή
             </a>
           </div>
 
@@ -356,8 +356,8 @@ function Index() {
               Τεχνική υποδομή
             </h2>
             <p className="mt-3 max-w-xl text-muted-foreground">
-              Βασικά δομικά στοιχεία που υπάρχουν ήδη στον κώδικα. Η πραγματική διαθεσιμότητά τους εξαρτάται
-              από το deployment, τις ρυθμίσεις και τις ενεργές υπηρεσίες.
+              Βασικά δομικά στοιχεία που υπάρχουν ήδη στον κώδικα. Η πραγματική διαθεσιμότητά τους
+              εξαρτάται από το deployment, τις ρυθμίσεις και τις ενεργές υπηρεσίες.
             </p>
           </div>
           <span className="hidden font-mono text-xs text-muted-foreground md:block">/roadmap</span>
