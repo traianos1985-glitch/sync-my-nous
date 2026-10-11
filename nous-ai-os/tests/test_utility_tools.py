@@ -86,3 +86,32 @@ def test_url_component_encoding_round_trips_unicode_and_spaces():
     assert decoded == {"ok": True, "decoded": "γειά σου / NOUS"}
     assert utility_tools.decode_url_component("%FF")["error"] == "invalid_url_encoding"
     assert utility_tools.encode_url_component("x" * 10_001)["error"] == "text_too_long"
+
+@pytest.mark.parametrize(
+    ("value", "source", "target", "expected"),
+    [
+        (1, "mi", "m", 1609.344),
+        (1, "gal", "l", 3.785411784),
+        (36, "km/h", "m/s", 10),
+        (212, "f", "c", 100),
+        (-40, "c", "f", -40),
+    ],
+)
+def test_unit_conversion_matches_reference_values(value, source, target, expected):
+    result = utility_tools.convert_units(value, source, target)
+    assert result["ok"] is True
+    assert result["result"] == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("value", "source", "target"),
+    [
+        (-273.16, "c", "k"),
+        (-459.68, "f", "k"),
+        (-0.1, "k", "c"),
+    ],
+)
+def test_temperature_conversion_rejects_below_absolute_zero(value, source, target):
+    result = utility_tools.convert_units(value, source, target)
+    assert result["ok"] is False
+    assert result["error"] == "temperature_below_absolute_zero"
