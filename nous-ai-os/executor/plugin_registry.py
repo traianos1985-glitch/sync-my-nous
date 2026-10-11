@@ -18,13 +18,14 @@ def _plugin_path(name):
 
 
 def list_plugins():
-    root = Path(PLUGIN_DIR)
+    root = Path(PLUGIN_DIR).resolve()
     if not root.is_dir():
         return []
     return sorted(
         path.stem
         for path in root.iterdir()
         if path.is_file()
+        and path.resolve().parent == root
         and path.suffix == ".py"
         and _PLUGIN_NAME.fullmatch(path.stem)
     )
