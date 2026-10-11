@@ -118,20 +118,6 @@ export const sectionConfigs: Record<string, SectionConfig> = {
     ],
     actions: [{ label: "Δημιουργία backup", path: "/remote/brain-backup/create" }],
   },
-  larmor: {
-    endpoints: [
-      { label: "Larmor app", path: "/larmor/ping" },
-      { label: "Ιστορικό", path: "/larmor/history" },
-    ],
-    actions: [
-      {
-        label: "Υπολογισμός (B σε Tesla)",
-        path: "/larmor/calculate",
-        body: { material: "cu" },
-        input: { key: "b_field_T", placeholder: "π.χ. 0.04823" },
-      },
-    ],
-  },
   field: {
     endpoints: [
       { label: "Markers", path: "/field/markers" },
@@ -327,7 +313,7 @@ export const sectionConfigs: Record<string, SectionConfig> = {
         path: "/remote/technical-sources/propose-upgrades",
         body: { limit: 5 },
         confirm:
-          "Να δημιουργηθούν έως 5 προτάσεις τεχνικής αξιολόγησης από τα ήδη καταγεγραμμένα επίσημα release notes; Δεν θα δημιουργηθεί κώδικας, δεν θα εγκατασταθούν πακέτα και δεν θα τροποποιηθούν αρχεία.",
+          "Να δημιουργηθούν έως 5 προτάσεις τε��νικής αξιολόγησης από τα ήδη καταγεγραμμένα επίσημα release notes; Δεν θα δημιουργηθεί κώδικας, δεν θα εγκατασταθούν πακέτα και δεν θα τροποποιηθούν αρχεία.",
       },
     ],
   },
