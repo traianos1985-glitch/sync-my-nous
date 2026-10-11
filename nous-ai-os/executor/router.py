@@ -3836,44 +3836,73 @@ def remote_document_upload_status_route():
 
 
 
+def _conversation_storage_error():
+    # Keep internal file paths and raw storage details out of API responses.
+    app.logger.exception("Conversation storage operation failed")
+    return jsonify({
+        "ok": False,
+        "error": "conversation_storage_unavailable",
+        "message": "Η αποθήκευση συνομιλιών δεν είναι διαθέσιμη αυτή τη στιγμή.",
+    }), 500
+
+
 @app.route("/remote/conversations", methods=["GET"])
 def remote_conversations_list_route():
-    return jsonify(list_conversations())
+    try:
+        return jsonify(list_conversations())
+    except (OSError, ValueError):
+        return _conversation_storage_error()
 
 
 @app.route("/remote/conversations/<conversation_id>", methods=["GET"])
 def remote_conversation_get_route(conversation_id):
-    return jsonify(get_conversation(conversation_id))
+    try:
+        return jsonify(get_conversation(conversation_id))
+    except (OSError, ValueError):
+        return _conversation_storage_error()
 
 
 @app.route("/remote/conversations/<conversation_id>/rename", methods=["POST"])
 def remote_conversation_rename_route(conversation_id):
     data = request.get_json(silent=True) or {}
-    return jsonify(rename_conversation(conversation_id, data.get("title", "")))
+    try:
+        return jsonify(rename_conversation(conversation_id, data.get("title", "")))
+    except (OSError, ValueError):
+        return _conversation_storage_error()
 
 
 @app.route("/remote/conversations/<conversation_id>", methods=["DELETE"])
 def remote_conversation_delete_route(conversation_id):
-    return jsonify(delete_conversation(conversation_id))
-
-
+    try:
+        return jsonify(delete_conversation(conversation_id))
+    except (OSError, ValueError):
+        return _conversation_storage_error()
 
 
 @app.route("/remote/conversations/search", methods=["POST"])
 def remote_conversations_search_route():
     data = request.get_json(silent=True) or {}
-    return jsonify(search_conversations(data.get("query", ""), int(data.get("limit", 8))))
+    try:
+        return jsonify(search_conversations(data.get("query", ""), data.get("limit", 8)))
+    except (OSError, ValueError):
+        return _conversation_storage_error()
 
 
 @app.route("/remote/conversations/<conversation_id>/auto-title", methods=["POST"])
 def remote_conversation_auto_title_route(conversation_id):
-    return jsonify(generate_conversation_title(conversation_id))
+    try:
+        return jsonify(generate_conversation_title(conversation_id))
+    except (OSError, ValueError):
+        return _conversation_storage_error()
 
 
 @app.route("/remote/conversations/auto-title", methods=["POST"])
 def remote_conversations_auto_title_route():
     data = request.get_json(silent=True) or {}
-    return jsonify(auto_title_recent_conversations(int(data.get("limit", 20))))
+    try:
+        return jsonify(auto_title_recent_conversations(data.get("limit", 20)))
+    except (OSError, ValueError):
+        return _conversation_storage_error()
 
 
 
