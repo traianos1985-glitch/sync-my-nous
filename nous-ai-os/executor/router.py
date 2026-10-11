@@ -2684,7 +2684,11 @@ def remote_technical_sources_triage_route():
 def remote_technical_sources_propose_upgrades_route():
     if not check_token(request):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_request_body"}), 400
     limit = data.get("limit", 5)
     result = propose_release_evidence_plans(limit=limit)
     return jsonify(result), (200 if result.get("ok") else 400)
