@@ -117,28 +117,28 @@ const layers = [
 
 const upgrades = [
   {
-    tag: "Προτεραιότητα 2",
-    title: "Βάση δεδομένων στη θέση των JSON αρχείων",
-    text: "Τα data/*.json δεν κλιμακώνουν και χαλάνε σε ταυτόχρονη εγγραφή. SQLite ή Postgres με migrations λύνει μνήμη, αναζήτηση και backup.",
+    tag: "Υλοποιημένο",
+    title: "Σχεσιακή αποθήκευση και δεδομένα ανά χρήστη",
+    text: "Το Drizzle schema περιλαμβάνει χρήστες, sessions, missions, approvals, tool runs, jobs, knowledge documents/chunks και observability events. Η διαθεσιμότητα εξαρτάται από τη σωστή ρύθμιση της βάσης στο περιβάλλον εκτέλεσης.",
     tone: "signal" as const,
   },
   {
-    tag: "Προτεραιότητα 2",
-    title: "Streaming απαντήσεις & queue για μεγάλες εργασίες",
-    text: "Server-sent events για ζωντανό chat και ουρά εργασιών, ώστε οι αποστολές να μην μπλοκάρουν το HTTP request.",
+    tag: "Υλοποιημένο",
+    title: "Streaming chat και lifecycle εργασιών",
+    text: "Υπάρχει endpoint Server-Sent Events για chat και API εργασιών με δημιουργία, ανάκτηση, ακύρωση και retry. Η εκτέλεση κάθε job εξακολουθεί να εξαρτάται από τον αντίστοιχο runtime worker.",
     tone: "signal" as const,
   },
   {
-    tag: "Προτεραιότητα 3",
-    title: "Παρατηρησιμότητα & κόστος",
-    text: "Κεντρικό log με tokens, χρόνο και κόστος ανά κλήση μοντέλου, με όρια ανά ημέρα.",
-    tone: "muted" as const,
+    tag: "Υλοποιημένο",
+    title: "Παρατηρησιμότητα κλήσεων μοντέλων",
+    text: "Το API εκθέτει μετρικές κλήσεων μοντέλων και πρόσφατα events, ενώ το schema αποθηκεύει συμβάντα ανά χρήστη για επιθεώρηση και διάγνωση.",
+    tone: "signal" as const,
   },
   {
-    tag: "Προτεραιότητα 3",
-    title: "Πραγματικά tests αντί smoke",
-    text: "Σενάρια για brain, missions και auth guard, ώστε το CI να πιάνει regressions πριν το deploy.",
-    tone: "muted" as const,
+    tag: "Υλοποιημένο",
+    title: "Regression tests και έλεγχοι ασφαλείας",
+    text: "Το CI εκτελεί lint, typecheck, build, έλεγχο δημόσιου bundle, Python syntax/Ruff/pytest και σάρωση μυστικών. Τα συμβόλαια UI/API ελέγχουν αντιστοίχιση routes και HTTP methods.",
+    tone: "signal" as const,
   },
 ];
 
@@ -202,7 +202,7 @@ function Index() {
               className="inline-flex items-center gap-2 rounded-md px-5 py-3 font-mono text-sm text-primary transition-colors hover:bg-accent"
             >
               <Sparkles className="size-4" />
-              Προτάσεις αναβάθμισης
+              Τεχνική υποδομή που έχει ενσωματωθεί
             </a>
           </div>
 
@@ -353,11 +353,11 @@ function Index() {
         <div className="flex items-end justify-between gap-6">
           <div>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-              Προτάσεις αναβάθμισης
+              Τεχνική υποδομή
             </h2>
             <p className="mt-3 max-w-xl text-muted-foreground">
-              Οι επόμενες τέσσερις βελτιώσεις του project, μετά την ολοκλήρωση του core runtime και
-              του web UI.
+              Βασικά δομικά στοιχεία που υπάρχουν ήδη στον κώδικα. Η πραγματική διαθεσιμότητά τους εξαρτάται
+              από το deployment, τις ρυθμίσεις και τις ενεργές υπηρεσίες.
             </p>
           </div>
           <span className="hidden font-mono text-xs text-muted-foreground md:block">/roadmap</span>
