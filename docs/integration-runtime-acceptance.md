@@ -28,6 +28,8 @@ This checklist separates repository CI success from end-to-end runtime validatio
 5. Verify that corrupt auto-mission executor state and corrupt cron state are reported as unavailable and are not replaced with default state automatically.
 
 ## Scheduled autonomy and authorization
+1. Use a user-scoped token against all `/remote/conversations` list/read/search/rename/delete/auto-title routes. Each must return 401 without an admin token because conversation storage is shared and not yet partitioned per user.
+2. Use a user-scoped token against autonomous repair approve/reject, upgrade-plan mutations, goal-manager project mutations, goal-progress refresh, release-evidence upgrade planning, and App Builder planning. Each must return 401 before filesystem writes, external research, or model calls.
 
 1. Use a user-scoped token against cron create/remove/toggle, workspace mission creation, NOUS Drive think, knowledge writes/uploads, document uploads and AI self-diagnosis analysis. Each sensitive mutation must return 401 without an admin token.
 2. Confirm the default scheduled jobs remain available and that only morning/evening reports, backup creation and self-reflection are eligible for automatic cron approval.
