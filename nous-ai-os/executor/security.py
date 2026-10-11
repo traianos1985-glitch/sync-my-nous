@@ -79,3 +79,17 @@ def check_admin_token(request):
         return bool(header_token and token_allowed(header_token, required_scope="admin"))
     except (OSError, RuntimeError, ValueError, TypeError):
         return False
+
+def validate_startup_security(force_public=False):
+    """Refuse known public/tunnel deployments without the master NOUS_TOKEN."""
+    public_markers = (
+        force_public,
+        os.environ.get("RENDER", "").strip().lower() in TRUTHY,
+        bool(os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()),
+        bool(os.environ.get("NGROK_AUTHTOKEN", "").strip()),
+        os.environ.get("NOUS_PUBLIC_BIND", "").strip().lower() in TRUTHY,
+    )
+    if any(public_markers) and not _env_token():
+        raise RuntimeError(
+            "NOUS_TOKEN is required for public deployments and tunnels; refusing insecure startup"
+        )
