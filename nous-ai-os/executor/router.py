@@ -3864,7 +3864,9 @@ def remote_conversation_get_route(conversation_id):
 
 @app.route("/remote/conversations/<conversation_id>/rename", methods=["POST"])
 def remote_conversation_rename_route(conversation_id):
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
     try:
         return jsonify(rename_conversation(conversation_id, data.get("title", "")))
     except (OSError, ValueError):
@@ -3881,7 +3883,9 @@ def remote_conversation_delete_route(conversation_id):
 
 @app.route("/remote/conversations/search", methods=["POST"])
 def remote_conversations_search_route():
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
     try:
         return jsonify(search_conversations(data.get("query", ""), data.get("limit", 8)))
     except (OSError, ValueError):
@@ -3898,7 +3902,9 @@ def remote_conversation_auto_title_route(conversation_id):
 
 @app.route("/remote/conversations/auto-title", methods=["POST"])
 def remote_conversations_auto_title_route():
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
     try:
         return jsonify(auto_title_recent_conversations(data.get("limit", 20)))
     except (OSError, ValueError):
