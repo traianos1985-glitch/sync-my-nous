@@ -106,3 +106,13 @@ def test_section_panel_endpoints_and_actions_use_supported_http_methods():
                     f"{expected_method} {ui_path} (backend methods: {', '.join(supported)})"
                 )
     assert not mismatches, "Section-panel HTTP method mismatches: " + "; ".join(mismatches)
+
+def test_home_runtime_overview_is_rendered_by_the_home_dashboard():
+    root = Path(__file__).resolve().parents[2]
+    dashboard_source = (root / "src" / "routes" / "dashboard.tsx").read_text(encoding="utf-8")
+    home_start = dashboard_source.index(') : section === "home" ? (')
+    home_end = dashboard_source.index(') : (', home_start + 1)
+    home_renderer = dashboard_source[home_start:home_end]
+    assert '<SectionPanel section="home" />' in home_renderer, (
+        "Home section config exists but is not rendered in the Home dashboard"
+    )
