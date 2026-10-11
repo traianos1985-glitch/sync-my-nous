@@ -9,7 +9,10 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "check": "npm run lint && npm run build",
+    "check": "npm run lint && npm run typecheck && npm run build && npm run check:public-bundle",
+    "typecheck": "tsc --noEmit",
+    "check:public-bundle": "node scripts/check-public-bundle-secrets.mjs",
+    "format:check": "prettier --check .",
     "test:python": "cd nous-ai-os && python -m pytest -q",
     "format": "prettier --write ."
   },
