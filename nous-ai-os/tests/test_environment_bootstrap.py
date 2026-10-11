@@ -167,3 +167,20 @@ def test_route_inventory_accepts_registered_core_routes():
     assert report["missing_required_routes"] == []
     assert report["required_routes_checked"] == len(paths)
 
+def test_bootstrap_refuses_symlinked_runtime_data_directory(tmp_path):
+    app_root = tmp_path / "app"
+    outside = tmp_path / "outside"
+    app_root.mkdir()
+    outside.mkdir()
+    (app_root / "data").symlink_to(outside, target_is_directory=True)
+
+    report = bootstrap.run_environment_bootstrap(
+        app_root,
+        probe_gemini=False,
+        analyze_with_ai=False,
+    )
+
+    assert report["status"] == "blocked"
+    assert not (outside / "generated_apps").exists()
+    assert not (outside / "environment_bootstrap_report.json").exists()
+
