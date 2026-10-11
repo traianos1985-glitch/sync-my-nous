@@ -86,6 +86,35 @@ for (const handler of ["api_job_update", "api_approval_resolve", "api_tool_execu
   }
 }
 
+
+const privilegedRouterHandlers = [
+  "tunnel_start_route",
+  "tunnel_stop_route",
+  "tunnel_save_token_route",
+  "backup_route",
+  "read_file_route",
+  "image_preview_route",
+  "remote_nous_drive_approve",
+  "remote_nous_drive_reject",
+  "remote_executive_run_route",
+  "app_builder_run_app_route",
+  "app_builder_stop_app_route",
+  "larmor_inject_knowledge",
+  "inject_guerrilla_knowledge",
+  "inject_cache_knowledge",
+  "remote_mission_planner_approve",
+  "remote_mission_planner_reject",
+  "remote_goals_v2_create_mission_route",
+];
+for (const handler of privilegedRouterHandlers) {
+  const start = flaskRouter.indexOf(`def ${handler}(`);
+  const next = start < 0 ? -1 : flaskRouter.indexOf("\n@app.route", start + 1);
+  const body = start < 0 ? "" : flaskRouter.slice(start, next < 0 ? undefined : next);
+  if (!body.includes("check_admin_token(request)")) {
+    errors.push(`Privileged router handler ${handler} must require an admin token.`);
+  }
+}
+
 if (errors.length) {
   console.error("API route contract check failed:");
   for (const error of errors) console.error(`- ${error}`);
