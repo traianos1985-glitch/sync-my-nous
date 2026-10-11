@@ -5,6 +5,7 @@ human review, sandboxing, or actual test execution.
 """
 from __future__ import annotations
 
+import ast
 import re
 from typing import Any
 
@@ -139,6 +140,11 @@ def validate_app_plan(plan: Any) -> list[str]:
         total_bytes += size
         if size > _MAX_FILE_BYTES:
             errors.append(f"file_too_large:{normalized}")
+        if normalized.lower().endswith(".py"):
+            try:
+                ast.parse(content, filename=normalized)
+            except SyntaxError as exc:
+                errors.append(f"invalid_python_syntax:{normalized}:{exc.lineno or 0}")
 
     if total_bytes > _MAX_TOTAL_BYTES:
         errors.append("plan_too_large")
