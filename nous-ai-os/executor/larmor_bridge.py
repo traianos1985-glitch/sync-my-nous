@@ -623,7 +623,7 @@ def skin_depth_m(sigma_S_per_m: float, freq_hz: float) -> float:
 
 def ping_larmor_app() -> dict:
     try:
-        r = requests.get(LARMOR_APP_URL, timeout=8, verify=False)
+        r = requests.get(LARMOR_APP_URL, timeout=8)
         online = r.status_code == 200 and "Larmor" in r.text
         return {"online": online, "status_code": r.status_code, "url": LARMOR_APP_URL}
     except Exception as e:
