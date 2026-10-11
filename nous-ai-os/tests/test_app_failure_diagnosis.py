@@ -101,3 +101,15 @@ def test_redacts_obvious_hardcoded_credentials_from_source():
     assert 'sk_live_123456789' not in redacted
     assert 'ghp_abcdefghijklmnopqrstuvwxyz1234567890' not in redacted
     assert '[REDACTED]' in redacted
+
+
+def test_context_includes_original_file_fingerprints_for_stale_review(tmp_path):
+    import hashlib
+
+    root = tmp_path / "apps"
+    app = root / "sample_app"
+    app.mkdir(parents=True)
+    source = "print('review me')\\n"
+    (app / "main.py").write_text(source, encoding="utf-8")
+    result = collect_project_context("sample_app", root)
+    assert result["baseline_hashes"]["sample_app/main.py"] == hashlib.sha256(source.encode()).hexdigest()
