@@ -1,6 +1,4 @@
 import importlib
-import json
-from pathlib import Path
 
 
 def _module(tmp_path, monkeypatch):
