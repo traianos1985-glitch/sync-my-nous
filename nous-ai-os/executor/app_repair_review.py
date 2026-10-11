@@ -63,6 +63,9 @@ def save_repair_proposal(
         return {"ok": False, "error": "valid_diagnosis_required"}
     if diagnosis.get("app_name") != app_name or diagnosis.get("writes_performed") is not False:
         return {"ok": False, "error": "invalid_diagnosis_metadata"}
+    reported_errors = diagnosis.get("change_validation_errors", [])
+    if not isinstance(reported_errors, list) or reported_errors:
+        return {"ok": False, "error": "diagnosis_contains_rejected_changes"}
     changes, errors = _validate_changes(app_name, diagnosis.get("changes", []))
     if errors:
         return {"ok": False, "error": "invalid_proposed_changes", "details": errors}
