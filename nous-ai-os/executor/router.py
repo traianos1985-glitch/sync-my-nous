@@ -475,7 +475,14 @@ def larmor_materials():
 def larmor_calculate():
     data = request.get_json(silent=True) or {}
     material = data.get("material", "cu")
-    b_field = float(data.get("b_field_T", 0.048))
+    try:
+        b_field = float(data.get("b_field_T", 0.048))
+    except (TypeError, ValueError, OverflowError):
+        return jsonify({"error": "b_field_T must be a finite positive number in tesla"}), 400
+    if not math.isfinite(b_field) or b_field <= 0:
+        return jsonify({"error": "b_field_T must be a finite positive number in tesla"}), 400
+    if material not in MATERIALS:
+        return jsonify({"error": f"Unknown material: {material}"}), 400
     return jsonify(calculate_larmor(material, b_field))
 
 @app.route("/larmor/analyze", methods=["POST"])
