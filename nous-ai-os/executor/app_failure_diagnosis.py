@@ -9,6 +9,15 @@ _SLUG = re.compile(r"^[a-z][a-z0-9_-]{0,59}$")
 _ALLOWED = {".py", ".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".json", ".toml", ".ini", ".md", ".txt", ".yml", ".yaml", ".sql"}
 _SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
 _DENY = {".env", ".env.local", ".env.production", "secrets.json", "credentials.json", "id_rsa", "id_ed25519"}
+_SECRET_ASSIGNMENT = re.compile(r"(?i)\\b(api[_-]?key|access[_-]?token|auth[_-]?token|secret|password|private[_-]?key)\\b(\\s*[:=]\\s*)([\"'][^\"'\\n]{4,}[\"']|[^\\s,;]{8,})")
+_GITHUB_TOKEN = re.compile(r"\\bgh[pousr]_[A-Za-z0-9_]{20,}\\b")
+_AWS_KEY = re.compile(r"\\bAKIA[0-9A-Z]{16}\\b")
+
+
+def _redact_source(source: str) -> str:
+    source = _SECRET_ASSIGNMENT.sub(lambda m: m.group(1) + m.group(2) + \"[REDACTED]\", source)
+    source = _GITHUB_TOKEN.sub(\"[REDACTED_GITHUB_TOKEN]\", source)
+    return _AWS_KEY.sub(\"[REDACTED_AWS_KEY]\", source)
 
 def _json_object(raw: str) -> dict[str, Any] | None:
     try:
@@ -43,7 +52,7 @@ def collect_project_context(app_name: str, apps_root: str | Path) -> dict[str, A
             if path.stat().st_size > 48000:
                 truncated = True
                 continue
-            source = path.read_text(encoding="utf-8")[:min(12000, 60000-total)]
+            source = _redact_source(path.read_text(encoding="utf-8")[:min(12000, 60000-total)])
         except (OSError, UnicodeError, ValueError):
             continue
         if not source:
@@ -52,7 +61,7 @@ def collect_project_context(app_name: str, apps_root: str | Path) -> dict[str, A
         total += len(source)
         if len(source) >= 12000:
             truncated = True
-    return {"ok": True, "app_name": app_name, "files": files, "total_characters": total, "truncated": truncated, "secrets_excluded": True}
+    return {"ok": True, "app_name": app_name, "files": files, "total_characters": total, "truncated": truncated, "sensitive_files_excluded": True, "secret_patterns_redacted": True}
 
 def _validate_changes(app_name: str, changes: Any) -> tuple[list[dict[str, str]], list[str]]:
     if not isinstance(changes, list):
@@ -137,6 +146,6 @@ def diagnose_test_failure(app_name: str, apps_root: str | Path, test_result: dic
         "validation_plan": [str(v)[:1000] for v in validation[:20]],
         "risks": [str(v)[:1000] for v in risks[:20]], "changes": changes,
         "change_validation_errors": errors, "context_files": [v["path"] for v in context["files"]],
-        "context_truncated": context["truncated"], "secrets_excluded": True,
+        "context_truncated": context["truncated"], "sensitive_files_excluded": True,\n        "secret_patterns_redacted": True,
         "writes_performed": False, "tests_rerun": False, "human_review_required": True,
     }
