@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 import time
 
 REPORT_FILE = "data/self_diagnosis_report.json"
@@ -22,7 +23,7 @@ def _run(cmd):
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         return {"ok": p.returncode == 0, "code": p.returncode, "stdout": p.stdout, "stderr": p.stderr}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": type(e).__name__}
 
 
 def _save(report):
@@ -36,7 +37,13 @@ def self_diagnosis_status():
     try:
         return {"ok": True, "exists": True, "report": json.load(open(REPORT_FILE, "r", encoding="utf-8"))}
     except Exception as e:
-        return {"ok": False, "exists": True, "error": str(e)}
+        return {"ok": False, "exists": True, "error": type(e).__name__}
+
+
+def _internal_diagnostic_headers():
+    """Authenticate in-process Flask probes without exposing the token in reports."""
+    token = os.environ.get("NOUS_TOKEN", "").strip()
+    return {"Authorization": f"Bearer {token}"} if token else {}
 
 
 def run_self_diagnosis():
@@ -51,7 +58,7 @@ def run_self_diagnosis():
     compile_results = {}
     for f in CHECK_FILES:
         if os.path.exists(f):
-            r = _run(["python", "-m", "py_compile", f])
+            r = _run([sys.executable, "-m", "py_compile", f])
             compile_results[f] = r
             if not r.get("ok"):
                 report["ok"] = False
@@ -76,8 +83,9 @@ def run_self_diagnosis():
         ]
 
         endpoint_results = []
+        headers = _internal_diagnostic_headers()
         for path in endpoints:
-            r = client.get(path)
+            r = client.get(path, headers=headers)
             ok = r.status_code < 400
             endpoint_results.append({"path": path, "status": r.status_code, "ok": ok, "json": r.is_json})
             if not ok:
@@ -86,7 +94,7 @@ def run_self_diagnosis():
 
         report["checks"]["endpoints"] = endpoint_results
 
-        audit = client.get("/remote/dashboard-action-audit")
+        audit = client.get("/remote/dashboard-action-audit", headers=headers)
         if audit.is_json:
             data = audit.get_json()
             report["checks"]["dashboard_action_audit"] = data
@@ -105,7 +113,7 @@ def run_self_diagnosis():
 
     except Exception as e:
         report["ok"] = False
-        report["problems"].append({"type": "self_diagnosis_exception", "error": str(e)})
+        report["problems"].append({"type": "self_diagnosis_exception", "error": type(e).__name__})
 
     git = _run(["git", "status", "--short"])
     report["checks"]["git_status"] = git

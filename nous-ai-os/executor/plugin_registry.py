@@ -11,8 +11,12 @@ def _plugin_path(name):
         return None
 
     root = Path(PLUGIN_DIR).resolve()
-    path = (root / f"{name}.py").resolve()
-    if path.parent != root or not path.is_file():
+    candidate = root / f"{name}.py"
+    # Refuse symlinks even when they point to another file inside this directory.
+    if candidate.is_symlink() or not candidate.is_file():
+        return None
+    path = candidate.resolve()
+    if path.parent != root:
         return None
     return path
 
@@ -25,6 +29,7 @@ def list_plugins():
         path.stem
         for path in root.iterdir()
         if path.is_file()
+        and not path.is_symlink()
         and path.resolve().parent == root
         and path.suffix == ".py"
         and _PLUGIN_NAME.fullmatch(path.stem)

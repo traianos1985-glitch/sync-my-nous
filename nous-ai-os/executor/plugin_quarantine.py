@@ -1,5 +1,5 @@
+import os
 import re
-import shutil
 from pathlib import Path
 
 PLUGIN_DIR = Path("executor/plugins")
@@ -12,15 +12,33 @@ def quarantine(name):
         return {"success": False, "error": "invalid_plugin_name"}
 
     plugin_root = PLUGIN_DIR.resolve()
-    source = (plugin_root / f"{name}.py").resolve()
-    if source.parent != plugin_root or not source.is_file():
+    candidate = plugin_root / f"{name}.py"
+    if candidate.is_symlink() or not candidate.is_file():
         return {"success": False, "error": "plugin_not_found"}
+    source = candidate.resolve()
+    if source.parent != plugin_root:
+        return {"success": False, "error": "invalid_plugin_path"}
 
+    QUARANTINE_DIR.mkdir(parents=True, exist_ok=True)
     quarantine_root = QUARANTINE_DIR.resolve()
-    quarantine_root.mkdir(parents=True, exist_ok=True)
-    destination = (quarantine_root / f"{name}.py").resolve()
+    destination = quarantine_root / f"{name}.py"
     if destination.parent != quarantine_root:
         return {"success": False, "error": "invalid_quarantine_path"}
+    if destination.exists() or destination.is_symlink():
+        return {"success": False, "error": "quarantine_destination_exists"}
 
-    shutil.move(str(source), str(destination))
+    # Atomic hard-link creation refuses an existing destination instead of
+    # allowing a move to overwrite a previously quarantined artifact.
+    try:
+        os.link(source, destination, follow_symlinks=False)
+        try:
+            source.unlink()
+        except OSError:
+            destination.unlink(missing_ok=True)
+            raise
+    except FileExistsError:
+        return {"success": False, "error": "quarantine_destination_exists"}
+    except OSError as exc:
+        return {"success": False, "error": f"quarantine_failed:{type(exc).__name__}"}
+
     return {"success": True, "quarantined": name, "path": str(destination)}

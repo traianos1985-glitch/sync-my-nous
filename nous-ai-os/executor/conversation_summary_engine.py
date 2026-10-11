@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from executor.conversation_manager import get_conversation, save_json, CONV_DIR
+from executor.conversation_manager import get_conversation, save_json, CONV_DIR, update_index, list_conversations
 
 REPORTS = Path("data/reports")
 
@@ -106,12 +106,16 @@ def update_conversation_summary(conversation_id: str) -> dict[str, Any]:
     if not isinstance(messages, list):
         messages = []
 
+    # Do not mutate a conversation when the shared history index is corrupt.
+    list_conversations(limit=1)
     summary = summarize_messages(messages[-80:])
 
     conv["summary"] = summary
     conv["summary_updated_at"] = now_iso()
+    conv["updated_at"] = conv["summary_updated_at"]
 
     save_json(CONV_DIR / f"{conversation_id}.json", conv)
+    update_index(conv)
 
     report = {
         "ok": True,
@@ -123,7 +127,7 @@ def update_conversation_summary(conversation_id: str) -> dict[str, Any]:
         "summary": summary,
     }
 
-    report_path = REPORTS / f"conversation_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    report_path = REPORTS / f"conversation_summary_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.json"
     save_json(report_path, report)
     report["report_path"] = str(report_path)
 

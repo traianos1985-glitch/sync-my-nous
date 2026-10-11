@@ -59,6 +59,7 @@ def _load_unlocked():
         state.setdefault("last_run", None)
         return state
     except (OSError, ValueError, TypeError):
+        # Preserve corrupt state for diagnosis; callers must fail closed.
         return {"enabled": False, "runs": [], "last_run": None, "error": "state_load_failed"}
 
 
@@ -151,6 +152,7 @@ def auto_mission_executor_status():
     return {
         "time": time.time(),
         "enabled": state.get("enabled", False),
+        "state_error": state.get("error"),
         "safe_actions": sorted(SAFE_AUTO_ACTIONS),
         "blocked_actions": sorted(BLOCKED_AUTO_ACTIONS),
         "run_in_progress": state.get("run_in_progress"),
@@ -164,6 +166,8 @@ def auto_mission_executor_status():
 def set_auto_mission_executor_enabled(enabled):
     with _state_lock():
         state = _load_unlocked()
+        if state.get("error") == "state_load_failed":
+            return {"ok": False, "error": "state_load_failed", "enabled": False}
         state["enabled"] = bool(enabled)
         _save_unlocked(state)
     return {"ok": True, "enabled": bool(enabled), "status": auto_mission_executor_status()}
@@ -183,6 +187,8 @@ def run_auto_mission_executor(max_missions=1, max_steps_per_mission=3, trigger="
     # same candidate missions at the same time. The lock is not held in actions.
     with _state_lock():
         state = _load_unlocked()
+        if state.get("error") == "state_load_failed":
+            return {"ok": False, "error": "state_load_failed"}
         if state.get("run_in_progress"):
             return {"ok": False, "error": "run_already_in_progress"}
         run_id = str(time.time_ns())
@@ -257,6 +263,8 @@ def run_auto_mission_executor(max_missions=1, max_steps_per_mission=3, trigger="
         )
         with _state_lock():
             state = _load_unlocked()
+            if state.get("error") == "state_load_failed":
+                raise RuntimeError("state_load_failed_during_run")
             state["last_run"] = run
             state.setdefault("runs", []).append(run)
             state["runs"] = state["runs"][-50:]
@@ -266,6 +274,7 @@ def run_auto_mission_executor(max_missions=1, max_steps_per_mission=3, trigger="
     except Exception:
         with _state_lock():
             state = _load_unlocked()
-            state.pop("run_in_progress", None)
-            _save_unlocked(state)
+            if state.get("error") != "state_load_failed":
+                state.pop("run_in_progress", None)
+                _save_unlocked(state)
         raise
