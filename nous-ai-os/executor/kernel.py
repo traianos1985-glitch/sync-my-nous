@@ -65,7 +65,10 @@ def handle(command, context=None):
     if t == "tool":
         action = intent.get("action")
         tool = get_tool(action)
-        if tool and tool.get("approval_required") is True:
+        # Generic catalog approvals cover tools without a dedicated approval workflow.
+        # The shell command tool has its own command_execution approval and must not
+        # be wrapped in a second, incompatible approval claim.
+        if tool and tool.get("approval_required") is True and action != "cmd":
             payload = {"command": command}
             approval_id = context.get("approval_id")
 
