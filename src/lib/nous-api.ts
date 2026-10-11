@@ -57,6 +57,33 @@ const BACKEND_PATH_MAP: Record<string, string> = {
   "/api/health": "/health",
 };
 
+// These routes are implemented by the web app (TanStack server handlers), not
+// by the Render Flask API. Keep their requests same-origin so session cookies
+// reach the correct server. The NOUS token is still attached by the shared
+// request code; this does not change token storage or authentication policy.
+const SAME_ORIGIN_API_PREFIXES = [
+  "/api/approvals",
+  "/api/audit",
+  "/api/evaluation",
+  "/api/feedback",
+  "/api/jobs",
+  "/api/knowledge",
+  "/api/missions",
+  "/api/observability",
+  "/api/security-audit",
+  "/api/security-lessons",
+  "/api/status",
+  "/api/tools/execute",
+];
+
+function requestUrl(path: string): string {
+  const pathname = path.split("?")[0] ?? path;
+  const isSameOrigin = SAME_ORIGIN_API_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+  return isSameOrigin ? path : `${apiBase}${resolvePath(path)}`;
+}
+
 function resolvePath(path: string): string {
   const [pathname, query] = path.split("?");
   const mapped = BACKEND_PATH_MAP[pathname ?? ""] ?? pathname;
@@ -155,10 +182,10 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
     signal: controller.signal,
   };
   try {
-    response = await fetch(`${apiBase}${resolvePath(path)}`, request);
+    response = await fetch(requestUrl(path), request);
     if (shouldRetry(request, response, 0)) {
       await waitForRenderRecovery();
-      response = await fetch(`${apiBase}${resolvePath(path)}`, request);
+      response = await fetch(requestUrl(path), request);
     }
   } catch (error) {
     if (options.signal?.aborted) throw new DOMException("Request aborted", "AbortError");
@@ -196,10 +223,10 @@ export async function nousFetch<T>(path: string, options: NousApiOptions = {}): 
     signal: controller.signal,
   };
   try {
-    response = await fetch(`${apiBase}${resolvePath(path)}`, request);
+    response = await fetch(requestUrl(path), request);
     if (shouldRetry(request, response, 0)) {
       await waitForRenderRecovery();
-      response = await fetch(`${apiBase}${resolvePath(path)}`, request);
+      response = await fetch(requestUrl(path), request);
     }
   } catch (error) {
     if (options.signal?.aborted) throw new DOMException("Request aborted", "AbortError");
