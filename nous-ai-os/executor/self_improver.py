@@ -1,11 +1,11 @@
 import os
 
 from executor.snapshots import create_snapshot, rollback
-from executor.plugin_loader import load_plugins
+from executor.plugin_registry import list_plugins
 
 def analyze_system():
 
-    plugins = load_plugins()
+    plugins = list_plugins()
 
     issues = []
 

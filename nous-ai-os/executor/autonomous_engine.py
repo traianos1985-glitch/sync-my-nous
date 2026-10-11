@@ -17,7 +17,6 @@ class AutonomousEngine:
         missing = []
 
         targets = [
-            ("executor/plugin_loader.py", "plugin system"),
             ("executor/self_healing.py", "self healing"),
             ("executor/local_llm.py", "local llm bridge"),
             ("executor/command_parser.py", "advanced parser")
@@ -37,36 +36,6 @@ class AutonomousEngine:
     def generate_code(self, target):
 
         file = target["file"]
-
-        if "plugin_loader" in file:
-
-            return '''
-import os
-import importlib
-
-PLUGIN_DIR = "plugins"
-
-def load_plugins():
-
-    loaded = []
-
-    if not os.path.exists(PLUGIN_DIR):
-        os.makedirs(PLUGIN_DIR)
-
-    for file in os.listdir(PLUGIN_DIR):
-
-        if file.endswith(".py"):
-
-            name = file[:-3]
-
-            module = importlib.import_module(
-                f"plugins.{name}"
-            )
-
-            loaded.append(name)
-
-    return loaded
-'''
 
         if "self_healing" in file:
 
