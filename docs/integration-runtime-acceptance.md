@@ -87,6 +87,11 @@ This checklist separates repository CI success from end-to-end runtime validatio
 - The approval payload binds provider, resolved workspace-contained project path, and production/preview mode. The approve route claims the approval once, revalidates the path and provider, and stores only a secret-safe result summary.
 - A replayed approval ID must never launch a second deployment. Test both endpoints and confirm that preview Vercel deployments do not include the production flag.
 
+## Browser-safe runtime identifiers
+
+- Newly created mission, task, goal, and planner proposal IDs must remain within JavaScript's safe integer range when represented as JSON numbers.
+- Existing nanosecond timestamp IDs may be resolved after browser rounding only when the numeric fallback uniquely identifies one record; ambiguous legacy IDs must fail closed.
+- Exercise mission execution and planner selection with IDs round-tripped through JavaScript Number semantics.
 
 ## Environment bootstrap and AI review boundary
 

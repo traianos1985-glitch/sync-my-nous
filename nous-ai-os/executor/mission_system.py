@@ -14,6 +14,7 @@ from executor.mission_contracts import build_plan_contract, verify_plan_contract
 from executor.mission_completion import find_explicit_failure, verify_mission_completion, verify_task_completion
 from executor.audit_safety import audit_summary, payload_fingerprint
 from executor.runtime_governance import ActionPayloadError, validate_action_payload
+from executor.id_compat import find_by_id, new_runtime_id
 
 FILE = "data/missions.json"
 
@@ -138,7 +139,7 @@ def create_mission(title, description="", tasks=None):
 
     now = time.time()
     mission = {
-        "id": int(time.time_ns()),
+        "id": new_runtime_id(),
         "title": title.strip(),
         "description": str(description),
         "status": "active",
@@ -150,7 +151,7 @@ def create_mission(title, description="", tasks=None):
     }
 
     for task in tasks:
-        task_id = int(time.time_ns()) + len(mission["tasks"])
+        task_id = new_runtime_id(task.get("id") for task in mission["tasks"])
         mission["tasks"].append({
             "id": task_id,
             "title": str(task.get("title", task.get("action", "task"))),
@@ -210,10 +211,7 @@ def create_standard_mission(kind):
 
 
 def _find_mission(items, mission_id):
-    for mission in items:
-        if isinstance(mission, dict) and str(mission.get("id")) == str(mission_id):
-            return mission
-    return None
+    return find_by_id(items, mission_id)
 
 
 def approve_task(mission_id, task_id):
