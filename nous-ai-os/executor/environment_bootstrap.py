@@ -26,6 +26,7 @@ _LOCK_NAME = "environment_bootstrap.lock"
 _CACHE_SECONDS = 15 * 60
 _STALE_LOCK_SECONDS = 3 * 60
 _MAX_PROJECT_ENTRIES = 80
+_MAX_AI_RESPONSE_CHARS = 32_000
 _SAFE_MANIFESTS = {
     "requirements.txt", "requirements-dev.txt", "pyproject.toml",
     "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
@@ -309,7 +310,7 @@ def _probe_gemini() -> dict[str, Any]:
         try:
             response = requests.post(
                 f"{GEMINI_API_BASE}/{model}:generateContent",
-                params={"key": key},
+                headers={"x-goog-api-key": key},
                 json=payload,
                 timeout=(3, 10),
             )
@@ -374,8 +375,9 @@ def _parse_ai_recommendations(raw: str) -> list[dict[str, Any]]:
             "detail": detail.strip()[:1200],
             "area": str(area)[:80],
             "priority": priority if priority in {"critical", "high", "medium", "low"} else "medium",
-            "safe_to_automate": item.get("safe_to_automate") is True,
-            "requires_human_approval": item.get("requires_human_approval") is not False,
+            # Model output is advisory and cannot grant itself execution authority.
+            "safe_to_automate": False,
+            "requires_human_approval": True,
         })
     return accepted
 
@@ -435,9 +437,14 @@ def _ai_assessment(
         return {"status": "provider_error", "recommendations": []}
     if not isinstance(result, dict) or not result.get("success"):
         return {"status": "provider_unavailable", "recommendations": []}
-    recommendations = _parse_ai_recommendations(str(result.get("response", "")))
+    raw_response = result.get("response")
+    if not isinstance(raw_response, str):
+        return {"status": "invalid_response", "recommendations": []}
+    if len(raw_response) > _MAX_AI_RESPONSE_CHARS:
+        return {"status": "response_too_large", "recommendations": []}
+    recommendations = _parse_ai_recommendations(raw_response)
     return {
-        "status": "completed" if recommendations or str(result.get("response", "")).strip() else "empty",
+        "status": "completed" if recommendations or raw_response.strip() else "empty",
         "provider": str(result.get("provider", "unknown"))[:60],
         "model": str(result.get("model", "unknown"))[:100],
         "recommendations": recommendations,
