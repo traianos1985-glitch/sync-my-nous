@@ -1,5 +1,6 @@
 """Review-only diagnosis of failed generated-app tests."""
 from __future__ import annotations
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -37,6 +38,7 @@ def collect_project_context(app_name: str, apps_root: str | Path) -> dict[str, A
     if not project.is_dir():
         return {"ok": False, "error": "app_not_found"}
     files, total, truncated = [], 0, False
+    baseline_hashes = {}
     for path in sorted(project.rglob("*")):
         if len(files) >= 30 or total >= 60000:
             truncated = True
@@ -52,7 +54,9 @@ def collect_project_context(app_name: str, apps_root: str | Path) -> dict[str, A
             if path.stat().st_size > 48000:
                 truncated = True
                 continue
-            source = _redact_source(path.read_text(encoding="utf-8")[:min(12000, 60000-total)])
+            raw_source = path.read_text(encoding="utf-8")[:min(12000, 60000-total)]
+            source = _redact_source(raw_source)
+            baseline_hashes[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
         except (OSError, UnicodeError, ValueError):
             continue
         if not source:
@@ -61,7 +65,7 @@ def collect_project_context(app_name: str, apps_root: str | Path) -> dict[str, A
         total += len(source)
         if len(source) >= 12000:
             truncated = True
-    return {"ok": True, "app_name": app_name, "files": files, "total_characters": total, "truncated": truncated, "sensitive_files_excluded": True, "secret_patterns_redacted": True}
+    return {"ok": True, "app_name": app_name, "files": files, "total_characters": total, "truncated": truncated, "sensitive_files_excluded": True, "secret_patterns_redacted": True, "baseline_hashes": baseline_hashes}
 
 def _validate_changes(app_name: str, changes: Any) -> tuple[list[dict[str, str]], list[str]]:
     if not isinstance(changes, list):
@@ -145,7 +149,7 @@ def diagnose_test_failure(app_name: str, apps_root: str | Path, test_result: dic
         "summary": summary[:4000], "root_causes": roots[:12],
         "validation_plan": [str(v)[:1000] for v in validation[:20]],
         "risks": [str(v)[:1000] for v in risks[:20]], "changes": changes,
-        "change_validation_errors": errors, "context_files": [v["path"] for v in context["files"]],
+        "change_validation_errors": errors, "context_files": [v["path"] for v in context["files"]],\n        "baseline_hashes": context["baseline_hashes"],
         "context_truncated": context["truncated"], "sensitive_files_excluded": True,
         "secret_patterns_redacted": True,
         "writes_performed": False, "tests_rerun": False, "human_review_required": True,
