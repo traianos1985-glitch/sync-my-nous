@@ -89,3 +89,46 @@ def test_shell_command_uses_its_dedicated_approval_workflow(monkeypatch):
     assert result["output"]["approval_id"] == "shell-approval"
     assert result["output"]["approval_required"] is True
     assert dispatched[0][0]["action"] == "cmd"
+
+
+def test_dynamic_agent_solve_requires_approval_when_it_will_generate_code(monkeypatch):
+    monkeypatch.setattr(kernel, "save", lambda _entry: None)
+    monkeypatch.setattr(
+        kernel,
+        "get_tool",
+        lambda _name: {"approval_required": "depends_on_action"},
+    )
+    monkeypatch.setattr(kernel, "list_approvals", lambda status=None: [])
+    monkeypatch.setattr(
+        kernel,
+        "request_approval",
+        lambda action, payload, reason: {"id": 456, "action": action, "payload": payload},
+    )
+    dispatched = []
+    monkeypatch.setattr(kernel, "run_tool", lambda *args: dispatched.append(args))
+
+    result = kernel.handle("agent solve create a plugin", {})
+
+    assert result["output"]["approval_required"] is True
+    assert result["output"]["action"] == "agent_solve"
+    assert result["output"]["approval_id"] == "456"
+    assert dispatched == []
+
+
+def test_dynamic_agent_solve_without_code_generation_keeps_normal_dispatch(monkeypatch):
+    monkeypatch.setattr(kernel, "save", lambda _entry: None)
+    monkeypatch.setattr(
+        kernel,
+        "get_tool",
+        lambda _name: {"approval_required": "depends_on_action"},
+    )
+    monkeypatch.setattr(
+        kernel,
+        "run_tool",
+        lambda intent, context: {"status": "completed", "action": intent["action"]},
+    )
+
+    result = kernel.handle("agent solve research the weather", {})
+
+    assert result["output"]["status"] == "completed"
+    assert result["output"]["action"] == "agent_solve"
