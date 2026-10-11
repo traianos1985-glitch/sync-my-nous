@@ -1,4 +1,5 @@
-from executor import code_forge, plugin_ai, plugin_builder, plugin_quarantine, plugin_registry
+from executor import code_forge, code_tester, debug_engine
+from executor import plugin_ai, plugin_builder, plugin_quarantine, plugin_registry
 
 
 def test_generated_plugin_validation_never_executes_source(tmp_path):
@@ -102,3 +103,43 @@ def test_quarantine_rejects_path_traversal(tmp_path, monkeypatch):
 
     assert result == {"success": False, "error": "invalid_plugin_name"}
     assert outside.exists()
+
+
+def test_legacy_code_tester_never_executes_source(tmp_path):
+    marker = tmp_path / "code-tester-executed.txt"
+    source = (
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed')\n"
+        "def run():\n"
+        "    return {'ok': True}\n"
+    )
+
+    result = code_tester.test_plugin(source)
+
+    assert result["success"] is True
+    assert result["execution_skipped"] is True
+    assert result["result"]["validation"] == "static_only"
+    assert not marker.exists()
+
+
+def test_legacy_debug_engine_never_executes_source(tmp_path):
+    marker = tmp_path / "debug-engine-executed.txt"
+    source = (
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed')\n"
+        "VALUE = 42\n"
+    )
+
+    result = debug_engine.run_code(source)
+
+    assert result["execution_skipped"] is True
+    assert result["output"]["validation"] == "static_only"
+    assert "VALUE" in result["output"]["defined_names"]
+    assert not marker.exists()
+
+
+def test_legacy_code_tester_rejects_source_without_run():
+    assert code_tester.test_plugin("VALUE = 1\n") == {
+        "success": False,
+        "error": "Missing top-level run() function",
+    }
