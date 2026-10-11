@@ -507,16 +507,27 @@ def larmor_chat_route():
 
 @app.route("/larmor/em-calculator", methods=["POST"])
 def larmor_em_calculator():
-    """Calculate optimal EM frequency for a buried metallic object (classical Faraday/eddy-current model)."""
+    """Calculate an experimental skin-depth scale for a metallic object."""
     data = request.get_json(silent=True) or {}
-    metal_key   = data.get("metal", "22k_alloy")
-    radius_cm   = float(data.get("radius_cm", 3.0))
-    depth_m     = float(data.get("depth_m", 1.5))
-    soil_key    = data.get("soil", "medium")
-    age_key     = data.get("age", "guerrilla")
+    metal_key = data.get("metal", "22k_alloy")
+    try:
+        radius_cm = float(data.get("radius_cm", 3.0))
+        depth_m = float(data.get("depth_m", 1.5))
+    except (TypeError, ValueError, OverflowError):
+        return jsonify({"error": "radius_cm and depth_m must be finite positive numbers"}), 400
+    if not math.isfinite(radius_cm) or radius_cm <= 0 or radius_cm > 10_000:
+        return jsonify({"error": "radius_cm must be finite and in (0, 10000]"}), 400
+    if not math.isfinite(depth_m) or depth_m <= 0 or depth_m > 1_000:
+        return jsonify({"error": "depth_m must be finite and in (0, 1000]"}), 400
+    soil_key = data.get("soil", "medium")
+    age_key = data.get("age", "guerrilla")
+    if soil_key not in SOIL_TYPES:
+        return jsonify({"error": f"Unknown soil type: {soil_key}"}), 400
+    if age_key not in AGE_FACTORS:
+        return jsonify({"error": f"Unknown age category: {age_key}"}), 400
 
-    soil  = SOIL_TYPES.get(soil_key, SOIL_TYPES["medium"])
-    age   = AGE_FACTORS.get(age_key, AGE_FACTORS["guerrilla"])
+    soil = SOIL_TYPES[soil_key]
+    age = AGE_FACTORS[age_key]
 
     result = optimal_em_frequency_hz(
         metal_key  = metal_key,
