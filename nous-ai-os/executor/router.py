@@ -1111,6 +1111,8 @@ def remote_executive_memory_v3_status():
 
 @app.route("/remote/executive-memory-v3/search", methods=["POST"])
 def remote_executive_memory_v3_search():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(search_executive_memory(data.get("query", "")))
 
@@ -1354,6 +1356,8 @@ def nous_weather_status():
 # ── NOUS Capabilities: GPS ─────────────────────────────────────────────────────
 @app.route("/nous/gps/update", methods=["POST"])
 def nous_gps_update():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     lat, lon = data.get("lat"), data.get("lon")
     if lat is None or lon is None:
@@ -1372,6 +1376,8 @@ def nous_gps_track():
 
 @app.route("/nous/gps/clear", methods=["POST"])
 def nous_gps_clear():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     return jsonify(gps_clear_track())
 
 # ── NOUS Capabilities: Voice ───────────────────────────────────────────────────
@@ -1925,6 +1931,8 @@ def remote_lessons_list():
 
 @app.route("/remote/lessons/search", methods=["POST"])
 def remote_lessons_search():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(search_lessons(data.get("query", "")))
 
@@ -1957,6 +1965,8 @@ def remote_decision_memory_list_route():
 
 @app.route("/remote/decision-memory/search", methods=["POST"])
 def remote_decision_memory_search_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(search_decisions(data.get("query", ""), data.get("limit", 20)))
 
@@ -3809,6 +3819,8 @@ def app_builder_download_route(app_name):
 
 @app.route("/remote/document-chat/ask", methods=["POST"])
 def remote_document_chat_ask_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     msg = (
         data.get("message")
@@ -3990,6 +4002,8 @@ def remote_knowledge_status_route():
 
 @app.route("/remote/knowledge/search", methods=["POST"])
 def remote_knowledge_search_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(search_knowledge(data.get("query", ""), int(data.get("limit", 5))))
 
@@ -4011,6 +4025,8 @@ def remote_knowledge_remember_route():
 
 @app.route("/remote/code-lessons/search", methods=["POST"])
 def remote_code_lessons_search_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(search_code_lessons(data.get("query", ""), int(data.get("limit", 8))))
 
@@ -4044,12 +4060,16 @@ def remote_error_learning_status_route():
 
 @app.route("/remote/error-learning/search-errors", methods=["POST"])
 def remote_error_learning_search_errors_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(search_errors(data.get("query", ""), int(data.get("limit", 8))))
 
 
 @app.route("/remote/error-learning/search-solutions", methods=["POST"])
 def remote_error_learning_search_solutions_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(search_solutions(data.get("query", ""), int(data.get("limit", 8))))
 
@@ -4116,6 +4136,8 @@ FIELD_VISION_PROMPTS = {
 
 @app.route("/field/analyze-image", methods=["POST"])
 def field_analyze_image_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         data = request.get_json(silent=True) or {}
         image_b64 = data.get("image_b64", "")
@@ -4146,6 +4168,8 @@ def field_analyze_image_route():
 
 @app.route("/field/add", methods=["POST"])
 def field_add_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         data = request.get_json(silent=True) or {}
         title = data.get("title", "").strip()
@@ -4178,6 +4202,8 @@ def field_list_route():
 
 @app.route("/field/delete", methods=["POST"])
 def field_delete_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         data = request.get_json(silent=True) or {}
         entry_id = data.get("id", "")
@@ -4216,6 +4242,8 @@ def larmor_history_load():
 
 @app.route("/larmor/history", methods=["POST"])
 def larmor_history_save():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     """Persist Larmor chat history to disk."""
     try:
         import json as _json
