@@ -1,7 +1,7 @@
 """Authenticated API for environment inventory, provider probes, and confirmed deployments."""
 from flask import Blueprint, jsonify, request
 
-from executor.provider_runtime import deploy_provider, probe_provider, provider_inventory
+from executor.provider_runtime import deploy_provider, probe_provider, provider_inventory, preview_catalog
 
 agent_environments_bp = Blueprint("agent_environments", __name__, url_prefix="/api/agent-environments")
 
@@ -29,3 +29,8 @@ def deploy():
         return jsonify(result), 200
     status = 403 if result.get("error") == "explicit_confirmation_required" else 400
     return jsonify(result), status
+
+
+@agent_environments_bp.get("/previews")
+def previews():
+    return jsonify(preview_catalog())

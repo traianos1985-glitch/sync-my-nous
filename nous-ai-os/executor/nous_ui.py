@@ -336,6 +336,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
       <button class="navItem" data-sec="scheduler" onclick="showSection('scheduler')"><span class="ni">⏱</span> Scheduler</button>
       <button class="navItem" data-sec="deploy" onclick="showSection('deploy')"><span class="ni">🚀</span> Deploy</button>
       <button class="navItem" data-sec="agent-environments" onclick="showSection('agent-environments');loadAgentEnvironments()"><span class="ni">🧩</span> Agent Environments</button>
+      <button class="navItem" data-sec="agent-previews" onclick="showSection('agent-previews');loadAgentPreviews()"><span class="ni">👁️</span> Agent Preview Lab</button>
       <button class="navItem" data-sec="backup" onclick="showSection('backup')"><span class="ni">☁</span> Backup</button>
       <button class="navItem" data-sec="larmor" onclick="showSection('larmor');larmorLoadHistory()"><span class="ni">🧲</span> Larmor Monitor</button>
       <button class="navItem" data-sec="field" onclick="showSection('field');fieldDiaryLoad();fieldMarkersLoad()"><span class="ni">🔍</span> Πεδίο & Χάρτης</button>
@@ -596,6 +597,11 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
             <option value="replit">Replit (workspace probe only)</option>
             <option value="lovable">Lovable (Git sync probe only)</option>
             <option value="codespaces">GitHub Codespaces (workspace probe only)</option>
+            <option value="bolt">Bolt.new (preview/import)</option>
+            <option value="v0">v0 by Vercel (preview/import)</option>
+            <option value="stackblitz">StackBlitz (live preview)</option>
+            <option value="codesandbox">CodeSandbox (sandbox preview)</option>
+            <option value="railway">Railway (sandbox docs)</option>
           </select>
           <button class="miniBtn" onclick="probeAgentProvider()">Probe Selected Provider</button>
           <div style="height:1px;background:var(--line);margin:16px 0;"></div>
@@ -611,6 +617,21 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
           <input id="agentDeployConfirm" placeholder="DEPLOY" autocomplete="off" maxlength="20" style="display:block;width:100%;max-width:420px;padding:10px;margin:6px 0 12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;">
           <button class="miniBtn" onclick="deployAgentProvider()">🚀 Deploy with Selected Provider</button>
           <pre id="agentProviderOperationResult" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px;">No operation run yet.</pre>
+        </div>
+      </section>
+
+      <section id="agent-previews" class="section">
+        <div class="hero">
+          <h1>👁️ Agent Preview Lab</h1>
+          <p>Άνοιξε το ίδιο GitHub project σε γνωστά AI coding agents και browser sandboxes για να δεις το live preview τους.</p>
+        </div>
+        <div class="card">
+          <h3>Preview & Import Workspaces</h3>
+          <p style="color:var(--muted);font-size:13px;">Τα links ανοίγουν τον πάροχο. Η δημιουργία sandbox, το import private repo και το build μπορεί να απαιτούν login, δικαιώματα ή ενέργεια μέσα στον πάροχο.</p>
+          <button class="miniBtn" onclick="loadAgentPreviews()">Refresh Preview Options</button>
+          <div id="agentPreviewRepository" style="margin:10px 0;color:var(--muted);font-size:13px;">Detecting GitHub repository…</div>
+          <div id="agentPreviewCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">Loading preview providers…</div>
+          <pre id="agentPreviewStatus" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px;"></pre>
         </div>
       </section>
 
@@ -5568,6 +5589,41 @@ async function deployAgentProvider(){
   }catch(e){
     if(resultEl)resultEl.textContent="Deployment failed: "+String(e);
   }
+}
+
+
+
+// ── Multi-agent preview launchpad ──
+async function loadAgentPreviews(){
+  const cards=document.getElementById("agentPreviewCards");
+  const repoEl=document.getElementById("agentPreviewRepository");
+  const statusEl=document.getElementById("agentPreviewStatus");
+  if(!cards||!repoEl)return;
+  cards.textContent="Loading preview providers…";
+  try{
+    const d=await getJson("/api/agent-environments/previews");
+    if(!d||d.ok!==true)throw new Error("preview_catalog_unavailable");
+    repoEl.textContent=d.github_repository?"Detected GitHub repository: "+d.github_repository:"No GitHub origin detected in the configured workspace. Open a provider homepage and import a repository manually.";
+    cards.innerHTML=(d.previews||[]).map(function(p){
+      const repoLine=p.repository_url?'<button class="miniBtn" style="margin-top:8px;" onclick="copyAgentPreviewRepo('+JSON.stringify(p.repository_url)+')">Copy GitHub URL</button>':'';
+      return '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;">'
+        +'<div style="font-weight:800;">'+escHtml(p.label)+'</div>'
+        +'<div style="font-size:12px;color:var(--muted);">'+escHtml(p.description)+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);">'+(p.ready?'GitHub repository detected':'Manual import required')+'</div>'
+        +'<a href="'+escHtml(p.url)+'" target="_blank" rel="noopener noreferrer" class="miniBtn" style="text-decoration:none;display:inline-block;">Open '+escHtml(p.label)+' ↗</a>'
+        +repoLine
+        +'<a href="'+escHtml(p.documentation)+'" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--accent2);">Documentation ↗</a>'
+        +'</div>';
+    }).join("");
+    if(statusEl)statusEl.textContent=(d.notes||[]).join("\\n");
+  }catch(e){
+    cards.textContent="Could not load preview providers: "+String(e);
+  }
+}
+function copyAgentPreviewRepo(url){
+  if(typeof copyText==="function"){copyText(url);return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(function(){alert("GitHub URL copied.");}).catch(function(){prompt("Copy GitHub URL",url);});return;}
+  prompt("Copy GitHub URL",url);
 }
 
 </script>

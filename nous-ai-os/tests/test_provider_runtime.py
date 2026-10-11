@@ -72,3 +72,39 @@ def test_vercel_api_probe_uses_token_without_returning_it(monkeypatch):
     assert result == {"ok": True, "configured": True, "status_code": 200, "projects_visible": 1}
     assert captured["authorization"] == "Bearer must-not-appear-in-output"
     assert "must-not-appear-in-output" not in repr(result)
+
+
+
+def test_github_repo_slug_accepts_https_and_ssh_without_leaking_credentials():
+    assert provider_runtime._github_repo_slug("https://github.com/acme/demo.git") == "acme/demo"
+    assert provider_runtime._github_repo_slug("git@github.com:acme/demo.git") == "acme/demo"
+    assert provider_runtime._github_repo_slug("https://user:secret@github.com/acme/demo.git") is None
+
+
+def test_github_repo_slug_rejects_non_github_and_malformed_urls():
+    assert provider_runtime._github_repo_slug("https://example.com/acme/demo.git") is None
+    assert provider_runtime._github_repo_slug("git@github.com:../demo.git") is None
+
+
+def test_preview_catalog_returns_direct_launch_links_for_github_origin(monkeypatch, tmp_path):
+    monkeypatch.setenv("NOUS_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.setattr(provider_runtime.shutil, "which", lambda name: "/usr/bin/git" if name == "git" else None)
+    monkeypatch.setattr(provider_runtime, "_run_cli", lambda args, cwd, timeout=12: {
+        "ok": True, "stdout": "git@github.com:acme/demo.git", "stderr": ""
+    })
+    result = provider_runtime.preview_catalog()
+    assert result["github_repository"] == "https://github.com/acme/demo"
+    previews = {item["id"]: item for item in result["previews"]}
+    assert previews["stackblitz"]["url"] == "https://stackblitz.com/github/acme/demo"
+    assert previews["codesandbox"]["url"] == "https://codesandbox.io/p/sandbox/github/acme/demo"
+    assert previews["v0"]["repository_url"] == "https://github.com/acme/demo"
+    assert all(item["ready"] for item in result["previews"])
+
+
+def test_preview_catalog_falls_back_to_provider_homepages_without_github(monkeypatch, tmp_path):
+    monkeypatch.setenv("NOUS_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.setattr(provider_runtime.shutil, "which", lambda _name: None)
+    result = provider_runtime.preview_catalog()
+    assert result["github_repository"] is None
+    assert all(not item["ready"] for item in result["previews"])
+    assert all(item["url"].startswith("https://") for item in result["previews"])

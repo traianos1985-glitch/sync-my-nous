@@ -22,3 +22,12 @@ Do not put credentials in the repository, UI, diagnostic output, or project file
 ## Explicit non-capabilities
 
 A Lovable or Replit marker does not prove access to a provider account. The adapter does not claim projects, change account settings, modify external integrations, or deploy to a provider without the explicit deployment confirmation. Render's service ID refers to the service configured by the owner; the local path is not uploaded to Render by this API operation.
+
+## Agent preview launchpad
+
+The /api/agent-environments/previews endpoint returns safe launch links for StackBlitz, CodeSandbox, v0, Bolt.new, and Railway sandbox documentation. If the configured workspace has a GitHub origin, only the validated owner/repository slug is used to build provider links; remote URLs containing embedded credentials are rejected.
+
+- StackBlitz and CodeSandbox receive direct GitHub import/preview links.
+- v0 and Bolt open their official workspace pages and show the detected repository URL for copy/import.
+- Railway is documented as an isolated sandbox option, but this UI does not provision a Railway sandbox. Provisioning can consume resources and needs a separately configured, owner-authorized integration.
+- Opening a preview provider does not guarantee a successful build; private repositories require provider authorization, and preview behavior depends on framework support.

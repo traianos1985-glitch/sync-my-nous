@@ -16,11 +16,18 @@ from executor.agent_environment_adapters import inspect_agent_environment
 _PROVIDER_LABELS = {
     "vercel": "Vercel", "render": "Render", "replit": "Replit",
     "lovable": "Lovable", "codespaces": "GitHub Codespaces", "generic": "Generic runtime",
+    "bolt": "Bolt.new", "v0": "v0 by Vercel", "stackblitz": "StackBlitz",
+    "codesandbox": "CodeSandbox", "railway": "Railway",
 }
 _DOCS = {
     "vercel": "https://vercel.com/docs", "render": "https://render.com/docs",
     "replit": "https://docs.replit.com/", "lovable": "https://docs.lovable.dev/",
     "codespaces": "https://docs.github.com/en/codespaces",
+    "bolt": "https://support.bolt.new/building/quickstart",
+    "v0": "https://v0.app/docs/git-import",
+    "stackblitz": "https://developer.stackblitz.com/guides/user-guide/available-environments",
+    "codesandbox": "https://codesandbox.io/",
+    "railway": "https://docs.railway.com/sandboxes",
 }
 
 
@@ -61,6 +68,9 @@ def provider_inventory() -> dict[str, Any]:
             "vercel": "probe_and_deploy", "render": "probe_and_deploy",
             "replit": "workspace_probe", "lovable": "git_sync_probe",
             "codespaces": "workspace_probe",
+            "bolt": "github_preview_launcher", "v0": "github_preview_launcher",
+            "stackblitz": "github_preview_launcher", "codesandbox": "github_preview_launcher",
+            "railway": "sandbox_preview_documentation",
         }[provider_id]
         providers.append({
             "id": provider_id, "label": label, "detected": provider_id in detected_ids,
@@ -71,12 +81,14 @@ def provider_inventory() -> dict[str, Any]:
         })
     return {
         "ok": True, "workspace": str(root), "environment": report, "providers": providers,
-        "deployable_providers": ["vercel", "render"],
+        "deployable_providers": ["vercel", "render"], "preview_providers": ["stackblitz", "codesandbox", "v0", "bolt"],
         "notes": [
             "Detection is not proof of permission or connectivity.",
             "Provider credentials are used only by the relevant operation and are never returned.",
             "Deployments require an authenticated NOUS request and the exact confirmation phrase DEPLOY.",
             "Lovable and Replit expose workspace/Git context only; no unsupported deploy API is assumed.",
+            "Browser preview launchers open provider UIs; they do not claim a remote sandbox has started.",
+            "Railway sandbox provisioning is documented but is not triggered by this preview launcher.",
         ],
     }
 
@@ -197,6 +209,73 @@ def probe_provider(provider: str) -> dict[str, Any]:
         result.update({"method": "read_only_inventory", "workspace_exists": root.is_dir()})
     return result
 
+
+
+def _github_repo_slug(remote_url: str) -> str | None:
+    """Return only owner/repository from a GitHub remote, never credentials or arbitrary URLs."""
+    value = (remote_url or "").strip()
+    match = re.fullmatch(r"(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?", value, re.IGNORECASE)
+    if not match:
+        return None
+    owner, repo = match.group(1), match.group(2)
+    if owner in {".", ".."} or repo in {".", ".."}:
+        return None
+    return owner + "/" + repo
+
+
+def preview_catalog() -> dict[str, Any]:
+    """Build safe provider launch links for preview/import; never starts external compute."""
+    root = workspace_root()
+    git_path = shutil.which("git")
+    remote = _run_cli([git_path, "remote", "get-url", "origin"], root) if git_path else {"ok": False}
+    slug = _github_repo_slug(remote.get("stdout", "")) if remote.get("ok") else None
+    github_url = "https://github.com/" + slug if slug else None
+    previews = [
+        {
+            "id": "stackblitz", "label": "StackBlitz", "kind": "direct_github_preview",
+            "url": "https://stackblitz.com/github/" + slug if slug else "https://stackblitz.com/",
+            "ready": bool(slug), "requires_github_repo": True,
+            "description": "Άνοιγμα repository σε browser IDE με WebContainer preview όπου υποστηρίζεται.",
+            "documentation": _DOCS["stackblitz"],
+        },
+        {
+            "id": "codesandbox", "label": "CodeSandbox", "kind": "github_import_preview",
+            "url": "https://codesandbox.io/p/sandbox/github/" + slug if slug else "https://codesandbox.io/",
+            "ready": bool(slug), "requires_github_repo": True,
+            "description": "Εισαγωγή repository σε sandbox και preview όταν υποστηρίζεται το project.",
+            "documentation": _DOCS["codesandbox"],
+        },
+        {
+            "id": "v0", "label": "v0 by Vercel", "kind": "guided_github_import",
+            "url": "https://v0.app", "ready": bool(slug), "requires_github_repo": True,
+            "repository_url": github_url,
+            "description": "Άνοιξε το v0 και εισήγαγε το GitHub URL μέσω Git Import για sandbox preview.",
+            "documentation": _DOCS["v0"],
+        },
+        {
+            "id": "bolt", "label": "Bolt.new", "kind": "guided_github_import",
+            "url": "https://bolt.new", "ready": bool(slug), "requires_github_repo": True,
+            "repository_url": github_url,
+            "description": "Άνοιξε το Bolt και εισήγαγε το repository από το workspace του για live preview.",
+            "documentation": _DOCS["bolt"],
+        },
+        {
+            "id": "railway", "label": "Railway Sandboxes", "kind": "guided_sandbox",
+            "url": "https://docs.railway.com/sandboxes", "ready": bool(slug), "requires_github_repo": True,
+            "repository_url": github_url,
+            "description": "Για backend preview απαιτείται ξεχωριστή ρύθμιση Railway sandbox και credentials.",
+            "documentation": _DOCS["railway"],
+        },
+    ]
+    return {
+        "ok": True, "workspace": str(root), "github_repository": github_url,
+        "previews": previews,
+        "notes": [
+            "Opening a provider link does not guarantee a successful build or preview.",
+            "Private repositories require the user to authorize the provider.",
+            "No sandbox is created and no deployment is triggered by this catalog endpoint.",
+        ],
+    }
 
 def deploy_provider(provider: str, project_path: str = ".", mode: str = "preview",
                     confirmation: str = "") -> dict[str, Any]:
