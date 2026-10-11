@@ -71,3 +71,21 @@ def test_approved_risky_tool_runs_once_and_finishes_approval(monkeypatch):
     assert len(dispatched) == 1
     assert dispatched[0][0]["action"] == "run_plugin"
     assert finished[0][0:2] == ("123", "completed")
+
+
+def test_shell_command_uses_its_dedicated_approval_workflow(monkeypatch):
+    monkeypatch.setattr(kernel, "save", lambda _entry: None)
+    monkeypatch.setattr(kernel, "get_tool", lambda _name: {"approval_required": True})
+    dispatched = []
+    monkeypatch.setattr(
+        kernel,
+        "run_tool",
+        lambda intent, context: dispatched.append((intent, context))
+        or {"ok": False, "approval_required": True, "approval_id": "shell-approval"},
+    )
+
+    result = kernel.handle("cmd pwd", {})
+
+    assert result["output"]["approval_id"] == "shell-approval"
+    assert result["output"]["approval_required"] is True
+    assert dispatched[0][0]["action"] == "cmd"
