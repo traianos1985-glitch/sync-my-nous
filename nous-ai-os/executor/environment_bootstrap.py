@@ -395,7 +395,25 @@ def _ai_assessment(
         "capabilities": report.get("capabilities"),
         "modules": report.get("modules"),
         "manifest_inventory": report.get("manifest_inventory"),
-        "source_map": report.get("source_map"),
+        "source_map": {
+            "root_name": report.get("source_map", {}).get("root_name"),
+            "file_count": report.get("source_map", {}).get("file_count"),
+            "total_indexed_bytes": report.get("source_map", {}).get("total_indexed_bytes"),
+            "truncated": report.get("source_map", {}).get("truncated"),
+            "language_counts": report.get("source_map", {}).get("language_counts"),
+            "entrypoints": report.get("source_map", {}).get("entrypoints", [])[:60],
+            "test_paths": report.get("source_map", {}).get("test_paths", [])[:60],
+            "python_modules": [
+                {
+                    "path": module.get("path"),
+                    "imports": module.get("imports", [])[:25],
+                    "definitions": module.get("definitions", [])[:20],
+                    "routes": module.get("routes", [])[:40],
+                    "syntax_parsed": module.get("syntax_parsed"),
+                }
+                for module in report.get("source_map", {}).get("python_modules", [])[:40]
+            ],
+        },
         "checks": report.get("checks"),
         "findings": report.get("findings"),
         "safe_repairs_applied": report.get("safe_repairs_applied"),
