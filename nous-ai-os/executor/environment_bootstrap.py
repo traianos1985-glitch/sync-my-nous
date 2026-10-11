@@ -557,15 +557,20 @@ def run_environment_bootstrap(
 def environment_bootstrap_status(root: str | Path | None = None) -> dict[str, Any]:
     """Read the latest report without exposing credentials or environment values."""
     global _LAST_RESULT
+    app_root = _app_root(root)
+    lock_path = app_root / "data" / _LOCK_NAME
+    if _WORKER is not None and _WORKER.is_alive():
+        return {"ok": True, "status": "running", "report_available": _LAST_RESULT is not None}
+    try:
+        if lock_path.exists() and time.time() - lock_path.stat().st_mtime <= _STALE_LOCK_SECONDS:
+            return {"ok": True, "status": "running", "report_available": (app_root / "data" / _REPORT_NAME).is_file()}
+    except OSError:
+        pass
     if _LAST_RESULT is not None:
         return dict(_LAST_RESULT)
-    app_root = _app_root(root)
     report = _read_json(app_root / "data" / _REPORT_NAME)
     if report is not None:
         return report
-    lock_path = app_root / "data" / _LOCK_NAME
-    if lock_path.exists():
-        return {"ok": True, "status": "running", "report_available": False}
     return {
         "ok": True,
         "status": "not_started",
