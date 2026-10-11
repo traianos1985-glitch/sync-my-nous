@@ -144,3 +144,17 @@ def test_review_rejects_unknown_repair_id(tmp_path):
         "ok": False,
         "error": "repair_not_found",
     }
+
+
+def test_save_rejects_diagnosis_with_rejected_changes(tmp_path):
+    root = tmp_path / "apps"
+    (root / "sample_app").mkdir(parents=True)
+    diagnosis = _diagnosis("sample_app", [], {})
+    diagnosis["change_validation_errors"] = ["change_0_unsafe_path"]
+    result = save_repair_proposal(
+        "sample_app", root, diagnosis, tmp_path / "repairs.json"
+    )
+    assert result == {
+        "ok": False,
+        "error": "diagnosis_contains_rejected_changes",
+    }
