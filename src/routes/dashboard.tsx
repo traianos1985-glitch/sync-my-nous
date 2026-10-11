@@ -32,7 +32,6 @@ import {
   hasConfiguredNousApi,
   hasStoredNousToken,
   nousFetch,
-  nousStream,
   setNousToken,
 } from "@/lib/nous-api";
 
@@ -258,7 +257,8 @@ function Dashboard() {
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     setVoiceSupported(Boolean(Recognition && "speechSynthesis" in window));
     return () => {
-      window.clearInterval(statusTimer);\n      if (missionPollRef.current !== null) window.clearInterval(missionPollRef.current);
+      window.clearInterval(statusTimer);
+      if (missionPollRef.current !== null) window.clearInterval(missionPollRef.current);
       recognitionRef.current?.stop();
       chatAbortRef.current?.abort();
       window.speechSynthesis?.cancel();
