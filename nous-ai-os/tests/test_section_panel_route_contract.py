@@ -1,32 +1,46 @@
 import re
 from pathlib import Path
 
+_ROUTE_DECORATOR = re.compile(
+    r"""(?m)^\s*@([A-Za-z_]\w*)\.(route|get|post|put|patch|delete)\(\s*["']([^"']+)["']([^)]*)\)"""
+)
+_METHODS_ARG = re.compile(r"""methods\s*=\s*\[([^\]]*)\]""")
+_METHOD_NAME = re.compile(r"""["'](GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)["']""", re.I)
 
-def _backend_routes(root: Path) -> set[str]:
+
+def _backend_routes(root: Path) -> dict[str, set[str]]:
     files = [
         root / "nous-ai-os" / "executor" / "router.py",
         root / "nous-ai-os" / "executor" / "dashboard_api.py",
         *sorted((root / "nous-ai-os" / "executor" / "blueprints").glob("*.py")),
     ]
-    routes: set[str] = set()
+    routes: dict[str, set[str]] = {}
     for file_path in files:
         source = file_path.read_text(encoding="utf-8")
         prefixes = {
             name: prefix.rstrip("/")
             for name, prefix in re.findall(
-                r"(?s)(\w+)\s*=\s*Blueprint\([^)]*?url_prefix\s*=\s*[\"']([^\"']*)[\"']",
+                r"""(?s)(\w+)\s*=\s*Blueprint\([^)]*?url_prefix\s*=\s*["']([^"']*)["']""",
                 source,
             )
         }
-        decorators = re.findall(
-            r"(?m)^\s*@([A-Za-z_]\w*)\.(?:route|get|post|put|patch|delete)\(\s*[\"']([^\"']+)[\"']",
-            source,
-        )
-        for owner, path in decorators:
+        for match in _ROUTE_DECORATOR.finditer(source):
+            owner, decorator, path, arguments = match.groups()
             prefix = prefixes.get(owner, "")
             combined = (prefix + "/" + path.lstrip("/")) if prefix else path
-            routes.add(re.sub(r"/+", "/", combined))
-
+            normalized = re.sub(r"/+", "/", combined).rstrip("/") or "/"
+            if decorator == "route":
+                methods_match = _METHODS_ARG.search(arguments)
+                methods = (
+                    {method.upper() for method in _METHOD_NAME.findall(methods_match.group(1))}
+                    if methods_match
+                    else {"GET", "HEAD", "OPTIONS"}
+                )
+            else:
+                methods = {decorator.upper(), "OPTIONS"}
+                if decorator.lower() == "get":
+                    methods.add("HEAD")
+            routes.setdefault(normalized, set()).update(methods)
     return routes
 
 
@@ -41,19 +55,54 @@ def _route_matches(ui_path: str, backend_path: str) -> bool:
     )
 
 
-def test_every_section_panel_endpoint_and_action_has_a_backend_route():
-    root = Path(__file__).resolve().parents[2]
+def _ui_contract(root: Path) -> tuple[set[str], set[str]]:
     config_path = root / "src" / "components" / "nous" / "section-configs.ts"
     config_source = config_path.read_text(encoding="utf-8")
-    ui_paths = {
-        match.split("?", maxsplit=1)[0]
-        for match in re.findall(r"path:\s*[\"']([^\"']+)[\"']", config_source)
+    # SectionPanel loads endpoints with GET and dispatches actions with POST.
+    endpoint_blocks = re.findall(r"(?s)\bendpoints:\s*\[(.*?)\]", config_source)
+    action_blocks = re.findall(r"(?s)\bactions:\s*\[(.*?)\]", config_source)
+    endpoints = {
+        path.split("?", maxsplit=1)[0].rstrip("/") or "/"
+        for block in endpoint_blocks
+        for path in re.findall(r"""path:\s*["']([^"']+)["']""", block)
     }
-    backend_paths = _backend_routes(root)
+    actions = {
+        path.split("?", maxsplit=1)[0].rstrip("/") or "/"
+        for block in action_blocks
+        for path in re.findall(r"""path:\s*["']([^"']+)["']""", block)
+    }
+    return endpoints, actions
+
+
+def test_every_section_panel_endpoint_and_action_has_a_backend_route():
+    root = Path(__file__).resolve().parents[2]
+    endpoints, actions = _ui_contract(root)
+    backend_routes = _backend_routes(root)
 
     missing = sorted(
         ui_path
-        for ui_path in ui_paths
-        if not any(_route_matches(ui_path, backend_path) for backend_path in backend_paths)
+        for ui_path in endpoints | actions
+        if not any(_route_matches(ui_path, backend_path) for backend_path in backend_routes)
     )
     assert not missing, f"Section-panel paths without backend routes: {missing}"
+
+
+def test_section_panel_endpoints_and_actions_use_supported_http_methods():
+    root = Path(__file__).resolve().parents[2]
+    endpoints, actions = _ui_contract(root)
+    backend_routes = _backend_routes(root)
+
+    mismatches = []
+    for expected_method, paths in (("GET", endpoints), ("POST", actions)):
+        for ui_path in sorted(paths):
+            matching = [
+                methods
+                for backend_path, methods in backend_routes.items()
+                if _route_matches(ui_path, backend_path)
+            ]
+            if matching and not any(expected_method in methods for methods in matching):
+                supported = sorted(set().union(*matching))
+                mismatches.append(
+                    f"{expected_method} {ui_path} (backend methods: {', '.join(supported)})"
+                )
+    assert not mismatches, "Section-panel HTTP method mismatches: " + "; ".join(mismatches)
