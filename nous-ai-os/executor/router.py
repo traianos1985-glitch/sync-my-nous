@@ -180,6 +180,24 @@ app.register_blueprint(dashboard_api_bp)
 # Fail-closed auth για ΟΛΑ τα endpoints (δες executor/auth_guard.py)
 install_auth_guard(app)
 
+# Start bounded environment diagnostics only after the global token guard has
+# accepted a request. The background worker never edits source or installs code.
+@app.before_request
+def _trigger_nous_environment_bootstrap():
+    if request.method == "OPTIONS" or request.path in {"/", "/health"}:
+        return None
+    if request.path.startswith(("/static/", "/token/")):
+        return None
+    if request.path in {
+        "/remote/environment/bootstrap/status",
+        "/remote/environment/bootstrap/run",
+    }:
+        return None
+    from executor.environment_bootstrap import start_environment_bootstrap
+
+    start_environment_bootstrap(app=app)
+    return None
+
 try:
     reconcile_scheduler_loop_state()
     reconcile_auto_mission_scheduler()
@@ -1671,6 +1689,23 @@ def remote_safety_rollback():
         return jsonify({"ok": False, "error": "Δεν δόθηκε incident_id"})
     from executor.safety_net import manual_rollback
     return jsonify(manual_rollback(incident_id))
+
+@app.route("/remote/environment/bootstrap/status")
+def remote_environment_bootstrap_status():
+    from executor.environment_bootstrap import environment_bootstrap_status, start_environment_bootstrap
+
+    start_environment_bootstrap(app=app)
+    return jsonify(environment_bootstrap_status())
+
+
+@app.route("/remote/environment/bootstrap/run", methods=["POST"])
+def remote_environment_bootstrap_run():
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    from executor.environment_bootstrap import start_environment_bootstrap
+
+    return jsonify(start_environment_bootstrap(force=True, app=app)), 202
+
 
 @app.route("/remote/self-diagnosis/status")
 def remote_self_diagnosis_status():
