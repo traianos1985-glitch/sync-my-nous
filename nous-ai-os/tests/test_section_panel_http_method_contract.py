@@ -13,7 +13,7 @@ SECTION_CONFIG = REPO_ROOT / "src" / "components" / "nous" / "section-configs.ts
 def _configured_calls():
     source = SECTION_CONFIG.read_text(encoding="utf-8")
     calls = []
-    path_pattern = re.compile(r"""\\bpath\\s*:\\s*["']([^"']+)["']""")
+    path_pattern = re.compile(r"""\bpath\s*:\s*["']([^"']+)["']""")
     for match in path_pattern.finditer(source):
         before = source[:match.start()]
         endpoint_pos = before.rfind("endpoints:")
