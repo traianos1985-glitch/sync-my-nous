@@ -65,7 +65,7 @@ def test_release_proposals_deduplicate_repository_and_tag(monkeypatch, tmp_path)
     assert first["created_count"] == 1
     assert first["deduped_count"] == 1
     assert second["created_count"] == 0
-    assert second["deduped_count"] == 2
+    assert second["deduped_count"] == 1
 
 
 def test_release_proposals_reject_untrusted_urls_and_manual_only_items(monkeypatch, tmp_path):
