@@ -1,3 +1,5 @@
+import hashlib
+
 from executor.app_repair_review import (
     review_repair_proposal,
     save_repair_proposal,
@@ -29,7 +31,6 @@ def test_save_and_review_python_proposal_without_writing_app_files(tmp_path):
     original = "def answer():\n    return 41\n"
     target = app / "main.py"
     target.write_text(original, encoding="utf-8")
-    import hashlib
     baseline = hashlib.sha256(original.encode()).hexdigest()
     store = tmp_path / "data" / "repairs.json"
 
@@ -62,7 +63,6 @@ def test_preflight_blocks_python_syntax_error(tmp_path):
     app.mkdir(parents=True)
     original = "pass\n"
     (app / "main.py").write_text(original, encoding="utf-8")
-    import hashlib
     store = tmp_path / "repairs.json"
     saved = save_repair_proposal(
         "sample_app", root,
