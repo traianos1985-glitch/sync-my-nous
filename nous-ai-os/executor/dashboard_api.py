@@ -36,6 +36,7 @@ from executor.upload_processing_engine import UPLOADS, process_uploaded_file
 from executor.tool_catalog import tool_catalog
 from executor.intent import detect_intent
 from executor.tools import run_tool
+from executor.security import check_admin_token
 
 dashboard_api_bp = Blueprint("dashboard_api", __name__, url_prefix="/api")
 
@@ -330,6 +331,8 @@ def api_jobs():
 
 @dashboard_api_bp.patch("/jobs")
 def api_job_update():
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "admin_required"}), 403
     data = request.get_json(silent=True) or {}
     job_id = data.get("id")
     action = data.get("action")
@@ -374,6 +377,8 @@ def api_approvals():
 
 @dashboard_api_bp.patch("/approvals")
 def api_approval_resolve():
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "admin_required"}), 403
     data = request.get_json(silent=True) or {}
     mission_id, task_id = _split_approval(data.get("id"))
     status = data.get("status")
@@ -392,6 +397,8 @@ def api_approval_resolve():
 
 @dashboard_api_bp.post("/tools/execute")
 def api_tool_execute():
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "admin_required"}), 403
     """Εκτέλεση του εγκεκριμένου task: τρέχει το επόμενο task του mission.
 
     Οι ενέργειες περνούν από το allowlist του `mission_system` (SAFE_TASK_ACTIONS /
