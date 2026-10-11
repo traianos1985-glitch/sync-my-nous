@@ -27,14 +27,18 @@ This checklist separates repository CI success from end-to-end runtime validatio
 4. Repair the index from a verified backup, then confirm conversation listing, rename, summary update, search and deletion agree on the same conversation ID.
 5. Verify that corrupt auto-mission executor state and corrupt cron state are reported as unavailable and are not replaced with default state automatically.
 
+## Shared-state authorization
+
+- A user-scoped token must receive HTTP 401 on conversation list/read/search/rename/delete/auto-title routes because conversation storage is shared and is not yet partitioned per user.
+- A user-scoped token must receive HTTP 401 on autonomous repair approval/rejection, upgrade-plan mutations, goal-manager project mutations, goal-progress refresh, release-evidence upgrade planning, and App Builder planning. Reject requests before filesystem writes, external research, or model calls.
+
 ## Scheduled autonomy and authorization
-1. Use a user-scoped token against all `/remote/conversations` list/read/search/rename/delete/auto-title routes. Each must return 401 without an admin token because conversation storage is shared and not yet partitioned per user.
-2. Use a user-scoped token against autonomous repair approve/reject, upgrade-plan mutations, goal-manager project mutations, goal-progress refresh, release-evidence upgrade planning, and App Builder planning. Each must return 401 before filesystem writes, external research, or model calls.
-3. Use a user-scoped token against cron create/remove/toggle, workspace mission creation, NOUS Drive think, knowledge writes/uploads, document uploads and AI self-diagnosis analysis. Each sensitive mutation must return 401 without an admin token.
-4. Confirm the default scheduled jobs remain available and that only morning/evening reports, backup creation and self-reflection are eligible for automatic cron approval.
-5. Attempt to schedule `cleanup_disk`, `restore_data_files`, `implement_capability`, or an unknown action. Each must be rejected before a schedule file is created or changed.
-6. Confirm an existing persisted cron entry with a disallowed action is not executed or auto-approved.
-7. Check diagnostic API responses for unavailable components; they may report error types, but must not disclose exception text, tokens, or private filesystem paths.
+
+1. Use a user-scoped token against cron create/remove/toggle, workspace mission creation, NOUS Drive think, knowledge writes/uploads, document uploads and AI self-diagnosis analysis. Each sensitive mutation must return 401 without an admin token.
+2. Confirm the default scheduled jobs remain available and that only morning/evening reports, backup creation and self-reflection are eligible for automatic cron approval.
+3. Attempt to schedule `cleanup_disk`, `restore_data_files`, `implement_capability`, or an unknown action. Each must be rejected before a schedule file is created or changed.
+4. Confirm an existing persisted cron entry with a disallowed action is not executed or auto-approved.
+5. Check diagnostic API responses for unavailable components; they may report error types, but must not disclose exception text, tokens, or private filesystem paths.
 
 ## Android companion device test
 
