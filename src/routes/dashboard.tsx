@@ -2012,6 +2012,9 @@ function Dashboard() {
                 Ανανέωση προτάσεων
               </button>
             </div>
+            <div className="mt-4">
+              <SectionPanel section="home" />
+            </div>
           </div>
         ) : (
           <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
