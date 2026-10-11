@@ -23,7 +23,6 @@ Do not put credentials in the repository, UI, diagnostic output, or project file
 
 A Lovable or Replit marker does not prove access to a provider account. The adapter does not claim projects, change account settings, modify external integrations, or deploy to a provider without the explicit deployment confirmation. Render's service ID refers to the service configured by the owner; the local path is not uploaded to Render by this API operation.
 
-
 ## Agent preview launchpad
 
 The /api/agent-environments/previews endpoint returns safe launch links for StackBlitz, CodeSandbox, v0, Bolt.new, and Railway sandbox documentation. If the configured workspace has a GitHub origin, only the validated owner/repository slug is used to build provider links; remote URLs containing embedded credentials are rejected.
