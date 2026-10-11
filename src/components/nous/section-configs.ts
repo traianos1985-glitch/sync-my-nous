@@ -199,9 +199,7 @@ export const sectionConfigs: Record<string, SectionConfig> = {
     actions: [{ label: "Κύκλος μάθησης", path: "/remote/learning/run", body: { max_topics: 1 } }],
   },
   bootstrap: {
-    endpoints: [
-      { label: "Environment bootstrap", path: "/remote/environment/bootstrap/status" },
-    ],
+    endpoints: [{ label: "Environment bootstrap", path: "/remote/environment/bootstrap/status" }],
     actions: [
       {
         label: "Πλήρης διάγνωση περιβάλλοντος",
