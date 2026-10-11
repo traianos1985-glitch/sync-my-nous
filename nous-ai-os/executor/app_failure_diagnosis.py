@@ -9,15 +9,15 @@ _SLUG = re.compile(r"^[a-z][a-z0-9_-]{0,59}$")
 _ALLOWED = {".py", ".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".json", ".toml", ".ini", ".md", ".txt", ".yml", ".yaml", ".sql"}
 _SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
 _DENY = {".env", ".env.local", ".env.production", "secrets.json", "credentials.json", "id_rsa", "id_ed25519"}
-_SECRET_ASSIGNMENT = re.compile(r"(?i)\\b(api[_-]?key|access[_-]?token|auth[_-]?token|secret|password|private[_-]?key)\\b(\\s*[:=]\\s*)([\"'][^\"'\\n]{4,}[\"']|[^\\s,;]{8,})")
-_GITHUB_TOKEN = re.compile(r"\\bgh[pousr]_[A-Za-z0-9_]{20,}\\b")
-_AWS_KEY = re.compile(r"\\bAKIA[0-9A-Z]{16}\\b")
+_SECRET_ASSIGNMENT = re.compile(r"(?i)\b(api[_-]?key|access[_-]?token|auth[_-]?token|secret|password|private[_-]?key)\b(\s*[:=]\s*)(\S{8,})")
+_GITHUB_TOKEN = re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b")
+_AWS_KEY = re.compile(r"\bAKIA[0-9A-Z]{16}\b")
 
 
 def _redact_source(source: str) -> str:
-    source = _SECRET_ASSIGNMENT.sub(lambda m: m.group(1) + m.group(2) + \"[REDACTED]\", source)
-    source = _GITHUB_TOKEN.sub(\"[REDACTED_GITHUB_TOKEN]\", source)
-    return _AWS_KEY.sub(\"[REDACTED_AWS_KEY]\", source)
+    source = _SECRET_ASSIGNMENT.sub(lambda m: m.group(1) + m.group(2) + "[REDACTED]", source)
+    source = _GITHUB_TOKEN.sub("[REDACTED_GITHUB_TOKEN]", source)
+    return _AWS_KEY.sub("[REDACTED_AWS_KEY]", source)
 
 def _json_object(raw: str) -> dict[str, Any] | None:
     try:
