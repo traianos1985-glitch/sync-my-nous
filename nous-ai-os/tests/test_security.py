@@ -138,3 +138,19 @@ def test_concurrent_token_creation_preserves_every_token(app):
     assert len({item["token"] for item in created}) == 20
     assert api_tokens.token_stats()["active"] == 20
     assert all(api_tokens.token_allowed(item["token"]) for item in created)
+
+
+def test_token_management_routes_are_not_globally_public(app):
+    # Token management handlers have their own admin check; the global guard
+    # must still require authentication as defense in depth.
+    @app.route("/token/create", methods=["POST"])
+    def token_create_probe():
+        return {"ok": True}
+
+    response = app.test_client().post(
+        "/token/create",
+        json={"name": "probe"},
+        environ_overrides={"REMOTE_ADDR": "8.8.8.8"},
+    )
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "unauthorized"
