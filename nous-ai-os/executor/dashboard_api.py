@@ -213,6 +213,8 @@ def api_knowledge_list():
 
 @dashboard_api_bp.post("/knowledge")
 def api_knowledge_upload():
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
     upload = request.files.get("file")
     if upload is None or not upload.filename:
         return jsonify({"ok": False, "error": "missing_file"}), 400
