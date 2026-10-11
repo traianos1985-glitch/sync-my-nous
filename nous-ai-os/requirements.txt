@@ -1,6 +1,6 @@
 flask>=3.0,<4
 requests>=2.32,<3
-beautifulsoup4>=4.12,<5
+beautifulsoup4>=4.15.0,<5
 psutil>=5.9,<7
 pyngrok>=7.2,<8
 python-dotenv>=1.2.4,<2
