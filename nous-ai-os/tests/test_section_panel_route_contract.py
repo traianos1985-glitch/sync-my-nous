@@ -111,7 +111,10 @@ def test_home_runtime_overview_is_rendered_by_the_home_dashboard():
     root = Path(__file__).resolve().parents[2]
     dashboard_source = (root / "src" / "routes" / "dashboard.tsx").read_text(encoding="utf-8")
     home_start = dashboard_source.index(') : section === "home" ? (')
-    home_end = dashboard_source.index(') : (', home_start + 1)
+    home_end = dashboard_source.index(
+        '        ) : (\\n          <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">',
+        home_start,
+    )
     home_renderer = dashboard_source[home_start:home_end]
     assert '<SectionPanel section="home" />' in home_renderer, (
         "Home section config exists but is not rendered in the Home dashboard"
