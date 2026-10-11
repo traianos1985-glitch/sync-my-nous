@@ -314,7 +314,7 @@ def test_chat_history_storage_failure_is_explicit_and_skips_secondary_memory(mon
         monkeypatch.setattr(brain, name, lambda *_a, **_k: False)
     monkeypatch.setattr(brain, "should_skip_knowledge_and_web", lambda _message: True)
     monkeypatch.setattr(brain, "extract_urls", lambda _message: [])
-    monkeypatch.setattr(agent_loop, "run_agent", lambda *_a, **_k: {"ok": False, "mode": "llm_unavailable"})
+    monkeypatch.setattr(agent_loop, "run_agent", lambda *_a, **_k: {"ok": False, "mode": "unavailable"})
     monkeypatch.setattr(brain, "try_llm_answer", lambda *_a, **_k: "This answer must be persisted first.")
     monkeypatch.setattr(
         brain,
