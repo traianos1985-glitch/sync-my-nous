@@ -52,3 +52,26 @@ def test_dashboard_section_paths_resolve_to_registered_backend_routes():
         "Dashboard section-configs.ts contains paths with no registered Flask route: "
         + ", ".join(missing)
     )
+
+
+def test_every_configured_section_is_reachable_from_navigation():
+    root = Path(__file__).resolve().parents[2]
+    config_source = SECTION_CONFIG.read_text(encoding="utf-8")
+    nav_source = (root / "src" / "components" / "nous" / "nav.ts").read_text(encoding="utf-8")
+
+    config_body = config_source.split("export const sectionConfigs", maxsplit=1)[1]
+    configured_sections = {
+        quoted or bare
+        for quoted, bare in re.findall(
+            r'^\\s{2}(?:"([^"]+)"|([A-Za-z_$][\\w$]*))\\s*:\\s*\\{',
+            config_body,
+            flags=re.MULTILINE,
+        )
+    }
+    nav_sections = set(re.findall(r'\\bid\\s*:\\s*["\\']([^"\\']+)["\\']', nav_source))
+    unreachable = sorted(configured_sections - nav_sections)
+
+    assert not unreachable, (
+        "Configured dashboard sections are not reachable from navigation: "
+        + ", ".join(unreachable)
+    )
