@@ -77,3 +77,40 @@ def test_shared_state_and_autonomous_routes_require_admin(
 
     assert response.status_code == 401
     assert response.get_json()["error"] == "unauthorized"
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
+        "/remote/executive-memory-v3/search",
+        "/remote/decision-memory/search",
+        "/remote/document-chat/ask",
+        "/nous/gps/update",
+        "/nous/gps/clear",
+        "/field/analyze-image",
+        "/field/add",
+        "/field/delete",
+        "/larmor/history",
+        "/remote/knowledge/search",
+        "/remote/lessons/search",
+        "/remote/code-lessons/search",
+        "/remote/error-learning/search-errors",
+        "/remote/error-learning/search-solutions",
+    ],
+)
+def test_shared_private_memory_and_persistent_user_data_require_admin(
+    monkeypatch, route
+):
+    from executor import router
+
+    monkeypatch.setenv("NOUS_TOKEN", "shared-data-admin-boundary-master-token")
+    monkeypatch.setattr(router, "check_admin_token", lambda _request: False)
+
+    response = router.app.test_client().post(
+        route,
+        json={},
+        headers={"Authorization": "Bearer shared-data-admin-boundary-master-token"},
+    )
+
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "unauthorized"
