@@ -18,7 +18,8 @@ def _navigation_ids():
 
 def _configured_sections():
     source = CONFIG_PATH.read_text(encoding="utf-8")
-    return set(re.findall(r"(?m)^  ([a-z][a-z0-9-]*): \{", source))
+    matches = re.findall(r'''(?m)^  (?:"([^"]+)"|([a-z][a-z0-9-]*)): \{''', source)
+    return {quoted or bare for quoted, bare in matches}
 
 
 def test_every_navigation_item_has_a_rendered_section():
