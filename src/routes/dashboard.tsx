@@ -365,7 +365,9 @@ function Dashboard() {
     }>
   >([]);
   const [knowledgeUpload, setKnowledgeUpload] = useState("idle");
-  const [knowledgeLoadStatus, setKnowledgeLoadStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [knowledgeLoadStatus, setKnowledgeLoadStatus] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
   const [evaluationMetrics, setEvaluationMetrics] = useState<{
     total: number;
     positive: number;
@@ -2089,14 +2091,17 @@ function Dashboard() {
                     </button>
                     {knowledgeLoadStatus === "error" && (
                       <p role="alert" className="text-sm text-destructive">
-                        Αποτυχία φόρτωσης εγγράφων. Τα υπάρχοντα δεδομένα διατηρούνται· δοκίμασε ξανά.
+                        Αποτυχία φόρτωσης εγγράφων. Τα υπάρχοντα δεδομένα διατηρούνται·
+                        δοκίμασε ξανά.
                       </p>
                     )}
                     {knowledgeLoadStatus === "loading" && (
                       <p className="text-sm text-muted-foreground">Φόρτωση εγγράφων…</p>
                     )}
                     {knowledgeLoadStatus === "idle" && knowledgeDocuments.length === 0 && (
-                      <p className="text-sm text-muted-foreground">Δεν υπάρχουν αποθηκευμένα έγγραφα.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Δεν υπάρχουν αποθηκευμένα έγγραφα.
+                      </p>
                     )}
                     <div className="space-y-2">
                       {knowledgeDocuments.map((document) => (
