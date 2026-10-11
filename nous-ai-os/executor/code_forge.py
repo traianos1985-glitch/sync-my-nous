@@ -1,12 +1,9 @@
 import ast
-import os
 import time
 from pathlib import Path
 
 from executor.llm_core import ask
-
-WORKDIR = "forge"
-os.makedirs(WORKDIR, exist_ok=True)
+from executor.plugin_builder import create_plugin
 
 BLOCKED = ["os.system", "subprocess.Popen", "rm -rf", "pip install", "eval(", "exec("]
 
@@ -48,11 +45,9 @@ Rules:
     return clean(res.get("response", str(res)) if isinstance(res, dict) else str(res))
 
 
-def test_code(path):
-    """Statically validate a generated plugin; never execute generated source here."""
+def _validate_source(source, filename="<generated>"):
     try:
-        source = Path(path).read_text(encoding="utf-8")
-        tree = ast.parse(source, filename=str(path))
+        tree = ast.parse(source, filename=filename)
         has_run = any(
             isinstance(node, ast.FunctionDef) and node.name == "run"
             for node in tree.body
@@ -67,8 +62,17 @@ def test_code(path):
             },
             "execution_skipped": True,
         }
-    except (OSError, SyntaxError, ValueError, TypeError) as exc:
+    except (SyntaxError, ValueError, TypeError) as exc:
         return {"success": False, "error": str(exc)}
+
+
+def test_code(path):
+    """Statically validate a generated plugin; never execute generated source."""
+    try:
+        source = Path(path).read_text(encoding="utf-8")
+    except (OSError, ValueError, TypeError) as exc:
+        return {"success": False, "error": str(exc)}
+    return _validate_source(source, filename=str(path))
 
 
 def fix_code(goal, code, error):
@@ -92,33 +96,41 @@ Code:
 
 
 def forge_plugin(goal):
-    name = "forge_plugin_" + str(int(time.time()))
-    path = f"{WORKDIR}/{name}.py"
-
+    name = "forge_plugin_" + str(time.time_ns())
     code = generate_code(goal)
     ok, msg = safe_check(code)
 
     if not ok:
         return {"success": False, "stage": "safe_check", "error": msg, "code": code}
 
-    Path(path).write_text(code, encoding="utf-8")
-    test = test_code(path)
-
+    test = _validate_source(code)
     if not test.get("success"):
         fixed = fix_code(goal, code, test.get("error"))
         ok, msg = safe_check(fixed)
-
         if not ok:
-            return {"success": False, "stage": "fix_safe_check", "error": msg, "code": fixed}
-
-        Path(path).write_text(fixed, encoding="utf-8")
-        test = test_code(path)
+            return {
+                "success": False,
+                "stage": "fix_safe_check",
+                "error": msg,
+                "code": fixed,
+            }
+        code = fixed
+        test = _validate_source(code)
 
     if not test.get("success"):
-        return {"success": False, "stage": "final_test", "test": test, "path": path}
+        return {"success": False, "stage": "final_test", "test": test}
 
-    final = f"executor/plugins/{name}.py"
-    os.makedirs("executor/plugins", exist_ok=True)
-    Path(final).write_text(Path(path).read_text(encoding="utf-8"), encoding="utf-8")
+    created = create_plugin(name, code)
+    if not created.get("success"):
+        return {
+            "success": False,
+            "stage": "save_plugin",
+            "error": created.get("error", "plugin_creation_failed"),
+        }
 
-    return {"success": True, "plugin": name, "path": final, "test": test}
+    return {
+        "success": True,
+        "plugin": created["plugin"],
+        "path": created["path"],
+        "test": test,
+    }

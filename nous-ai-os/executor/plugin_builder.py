@@ -1,9 +1,9 @@
 import ast
-import os
-import time
+import re
+from pathlib import Path
 
 PLUGIN_DIR = "executor/plugins"
-os.makedirs(PLUGIN_DIR, exist_ok=True)
+_PLUGIN_NAME = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 
 
 def clean_code(code):
@@ -15,7 +15,10 @@ def validate(code):
         tree = ast.parse(code)
     except (SyntaxError, ValueError, TypeError) as exc:
         return False, str(exc)
-    if not any(isinstance(node, ast.FunctionDef) and node.name == "run" for node in tree.body):
+    if not any(
+        isinstance(node, ast.FunctionDef) and node.name == "run"
+        for node in tree.body
+    ):
         return False, "missing top-level run() function"
     if "pip" in code or "os.system" in code or "subprocess" in code:
         return False, "blocked unsafe keyword"
@@ -27,11 +30,22 @@ def create_plugin(name, code):
     ok, msg = validate(code)
     if not ok:
         return {"success": False, "error": msg, "code": code}
+    if not isinstance(name, str) or not _PLUGIN_NAME.fullmatch(name):
+        return {"success": False, "error": "invalid_plugin_name"}
 
-    safe = "".join(c for c in name if c.isalnum() or c == "_") or f"plugin_{int(time.time())}"
-    path = f"{PLUGIN_DIR}/{safe}.py"
+    root = Path(PLUGIN_DIR).resolve()
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        path = root / f"{name}.py"
+        if path.parent != root:
+            return {"success": False, "error": "invalid_plugin_path"}
+        # Exclusive creation refuses existing files and symlinks (O_EXCL),
+        # avoiding accidental overwrite through a symlink or name collision.
+        with path.open("x", encoding="utf-8") as stream:
+            stream.write(code)
+    except FileExistsError:
+        return {"success": False, "error": "plugin_already_exists"}
+    except OSError as exc:
+        return {"success": False, "error": str(exc)}
 
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(code)
-
-    return {"success": True, "plugin": safe, "path": path}
+    return {"success": True, "plugin": name, "path": str(path)}
