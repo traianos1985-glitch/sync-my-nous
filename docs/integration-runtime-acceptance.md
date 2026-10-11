@@ -27,6 +27,11 @@ This checklist separates repository CI success from end-to-end runtime validatio
 4. Repair the index from a verified backup, then confirm conversation listing, rename, summary update, search and deletion agree on the same conversation ID.
 5. Verify that corrupt auto-mission executor state and corrupt cron state are reported as unavailable and are not replaced with default state automatically.
 
+## Shared-state authorization
+
+- A user-scoped token must receive HTTP 401 on conversation list/read/search/rename/delete/auto-title routes because conversation storage is shared and is not yet partitioned per user.
+- A user-scoped token must receive HTTP 401 on autonomous repair approval/rejection, upgrade-plan mutations, goal-manager project mutations, goal-progress refresh, release-evidence upgrade planning, and App Builder planning. Reject requests before filesystem writes, external research, or model calls.
+
 ## Scheduled autonomy and authorization
 
 1. Use a user-scoped token against cron create/remove/toggle, workspace mission creation, NOUS Drive think, knowledge writes/uploads, document uploads and AI self-diagnosis analysis. Each sensitive mutation must return 401 without an admin token.

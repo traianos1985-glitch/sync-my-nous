@@ -1092,14 +1092,14 @@ def remote_goal_manager_v2_projects():
 
 @app.route("/remote/goal-manager-v2/generate", methods=["POST"])
 def remote_goal_manager_v2_generate():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     return jsonify(generate_projects_from_goals())
 
 
 @app.route("/remote/goal-manager-v2/update-progress", methods=["POST"])
 def remote_goal_manager_v2_update():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     return jsonify(update_project_progress())
 
@@ -1134,14 +1134,14 @@ def remote_upgrade_planner_plans():
 
 @app.route("/remote/upgrade-planner/propose", methods=["POST"])
 def remote_upgrade_planner_propose():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     return jsonify(propose_upgrade_plan())
 
 
 @app.route("/remote/upgrade-planner/approve", methods=["POST"])
 def remote_upgrade_planner_approve():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(approve_upgrade_plan(data.get("plan_id")))
@@ -1149,7 +1149,7 @@ def remote_upgrade_planner_approve():
 
 @app.route("/remote/upgrade-planner/reject", methods=["POST"])
 def remote_upgrade_planner_reject():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(reject_upgrade_plan(data.get("plan_id"), data.get("reason", "User rejected upgrade plan")))
@@ -1695,7 +1695,7 @@ def remote_autonomous_repair_propose():
 
 @app.route("/remote/autonomous-repair/approve", methods=["POST"])
 def remote_autonomous_repair_approve():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(approve_repair_proposal(data.get("proposal_id")))
@@ -1703,7 +1703,7 @@ def remote_autonomous_repair_approve():
 
 @app.route("/remote/autonomous-repair/reject", methods=["POST"])
 def remote_autonomous_repair_reject():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     return jsonify(reject_repair_proposal(
@@ -2085,7 +2085,7 @@ def remote_goals_v2_link_mission_route():
 
 @app.route("/remote/goals-v2/refresh", methods=["POST"])
 def remote_goals_v2_refresh_route():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     goal_id = data.get("id")
@@ -2782,7 +2782,7 @@ def remote_technical_sources_triage_route():
 
 @app.route("/remote/technical-sources/propose-upgrades", methods=["POST"])
 def remote_technical_sources_propose_upgrades_route():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     data = request.get_json(silent=True)
     if data is None:
@@ -3267,7 +3267,7 @@ def app_builder_list_route():
 
 @app.route("/remote/app-builder/plan", methods=["POST"])
 def app_builder_plan_route():
-    if not check_token(request):
+    if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     description = data.get("description", "").strip()
@@ -3904,6 +3904,8 @@ def _conversation_storage_error():
 
 @app.route("/remote/conversations", methods=["GET"])
 def remote_conversations_list_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         return jsonify(list_conversations())
     except (OSError, ValueError):
@@ -3912,6 +3914,8 @@ def remote_conversations_list_route():
 
 @app.route("/remote/conversations/<conversation_id>", methods=["GET"])
 def remote_conversation_get_route(conversation_id):
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         return jsonify(get_conversation(conversation_id))
     except (OSError, ValueError):
@@ -3920,6 +3924,8 @@ def remote_conversation_get_route(conversation_id):
 
 @app.route("/remote/conversations/<conversation_id>/rename", methods=["POST"])
 def remote_conversation_rename_route(conversation_id):
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         data = {}
@@ -3931,6 +3937,8 @@ def remote_conversation_rename_route(conversation_id):
 
 @app.route("/remote/conversations/<conversation_id>", methods=["DELETE"])
 def remote_conversation_delete_route(conversation_id):
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         return jsonify(delete_conversation(conversation_id))
     except (OSError, ValueError):
@@ -3939,6 +3947,8 @@ def remote_conversation_delete_route(conversation_id):
 
 @app.route("/remote/conversations/search", methods=["POST"])
 def remote_conversations_search_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         data = {}
@@ -3950,6 +3960,8 @@ def remote_conversations_search_route():
 
 @app.route("/remote/conversations/<conversation_id>/auto-title", methods=["POST"])
 def remote_conversation_auto_title_route(conversation_id):
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         return jsonify(generate_conversation_title(conversation_id))
     except (OSError, ValueError):
@@ -3958,6 +3970,8 @@ def remote_conversation_auto_title_route(conversation_id):
 
 @app.route("/remote/conversations/auto-title", methods=["POST"])
 def remote_conversations_auto_title_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         data = {}
