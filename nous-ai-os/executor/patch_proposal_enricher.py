@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from executor.engineering_standards import CODE_CHANGE_ENGINEERING_GUIDE
+
 ROOT = Path.cwd()
 DATA = ROOT / "data"
 REPORTS = DATA / "reports"
@@ -83,7 +85,17 @@ def build_patch_draft(proposal: dict[str, Any]) -> dict[str, Any]:
         "candidate_files": analysis.get("candidate_files", []),
         "keywords": analysis.get("keywords", []),
         "draft_status": "needs_concrete_diff",
-        "proposed_next_step": "Use existing executor.patch_generator.generate_patch_from_analysis to create patches list and diff.",
+        "engineering_standard": CODE_CHANGE_ENGINEERING_GUIDE,
+        "validation_expectations": [
+            "record_root_cause_and_acceptance_criteria",
+            "inspect_callers_routes_and_ui_contracts",
+            "add_focused_regression_tests",
+            "check_authorization_and_failure_paths",
+            "run_syntax_lint_and_relevant_tests",
+            "document_unrun_checks_and_rollback_plan",
+            "require_human_review_before_apply",
+        ],
+        "proposed_next_step": "Use existing executor.patch_generator.generate_patch_from_analysis to create patches list and diff, then satisfy the engineering validation expectations before human review.",
     }
 
 
