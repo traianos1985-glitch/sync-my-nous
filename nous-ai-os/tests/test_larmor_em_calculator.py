@@ -9,6 +9,7 @@ from executor.larmor_bridge import (
     characteristic_frequency_hz,
     optimal_em_frequency_hz,
     skin_depth_in_metal_m,
+    get_knowledge_chunks,
 )
 
 
@@ -46,11 +47,7 @@ def test_optimal_em_rejects_invalid_numeric_inputs(kwargs: dict[str, float]) -> 
     values.update(kwargs)
     result = optimal_em_frequency_hz("cu", **values)
     assert "error" in result
-
-from executor.larmor_bridge import get_knowledge_chunks
-
-
-def test_knowledge_chunks_do_not_repeat_legacy_hz_values() -> None:
+\n\ndef test_knowledge_chunks_do_not_repeat_legacy_hz_values() -> None:
     answers = " ".join(item["answer"] for item in get_knowledge_chunks())
     assert "545Hz" not in answers
     assert "78.1Hz" not in answers
