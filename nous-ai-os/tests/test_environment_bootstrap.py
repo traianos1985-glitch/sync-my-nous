@@ -1,6 +1,4 @@
 import json
-from pathlib import Path
-
 import executor.environment_bootstrap as bootstrap
 
 
