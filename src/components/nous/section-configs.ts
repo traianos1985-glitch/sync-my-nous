@@ -12,6 +12,20 @@ export type SectionConfig = {
 };
 
 export const sectionConfigs: Record<string, SectionConfig> = {
+  home: {
+    endpoints: [
+      { label: "Runtime overview", path: "/remote/ops/status" },
+      { label: "Reality checks", path: "/remote/reality/status" },
+      { label: "Missions", path: "/remote/missions/status" },
+    ],
+  },
+  control: {
+    endpoints: [
+      { label: "Provider registry", path: "/remote/deploy/providers" },
+      { label: "Safety status", path: "/remote/safety/status" },
+      { label: "Runtime operations", path: "/remote/ops/status" },
+    ],
+  },
   goals: {
     endpoints: [{ label: "Goals", path: "/remote/goals-v2/status" }],
     actions: [
