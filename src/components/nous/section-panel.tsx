@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, RotateCcw } from "lucide-react";
 import { nousFetch } from "@/lib/nous-api";
 import { sectionConfigs, type SectionAction } from "@/components/nous/section-configs";
@@ -15,9 +15,12 @@ export function SectionPanel({ section }: { section: string }) {
     ok: boolean;
     data: unknown;
   } | null>(null);
+  const loadGeneration = useRef(0);
+  const actionGeneration = useRef(0);
 
   const load = useCallback(async () => {
     if (!config) return;
+    const generation = ++loadGeneration.current;
     setResults(
       Object.fromEntries(
         config.endpoints.map((endpoint) => [endpoint.path, { status: "loading" }]),
@@ -27,8 +30,10 @@ export function SectionPanel({ section }: { section: string }) {
       config.endpoints.map(async (endpoint) => {
         try {
           const data = await nousFetch<unknown>(endpoint.path);
+          if (loadGeneration.current !== generation) return;
           setResults((current) => ({ ...current, [endpoint.path]: { status: "ready", data } }));
         } catch (error) {
+          if (loadGeneration.current !== generation) return;
           setResults((current) => ({
             ...current,
             [endpoint.path]: {
@@ -44,7 +49,13 @@ export function SectionPanel({ section }: { section: string }) {
   useEffect(() => {
     setActionResult(null);
     setInputs({});
+    setRunning(null);
     void load();
+    return () => {
+      // Ignore responses from the previous section or an unmounted panel.
+      loadGeneration.current += 1;
+      actionGeneration.current += 1;
+    };
   }, [load]);
 
   if (!config) return null;
@@ -60,6 +71,7 @@ export function SectionPanel({ section }: { section: string }) {
       return;
     }
     if (action.confirm && !window.confirm(action.confirm)) return;
+    const generation = ++actionGeneration.current;
     setRunning(action.path);
     try {
       const body = {
@@ -71,17 +83,19 @@ export function SectionPanel({ section }: { section: string }) {
         body: JSON.stringify(body),
         timeoutMs: 90_000,
       });
+      if (actionGeneration.current !== generation) return;
       const ok = !(isRecord(data) && data["ok"] === false);
       setActionResult({ label: action.label, ok, data });
       await load();
     } catch (error) {
+      if (actionGeneration.current !== generation) return;
       setActionResult({
         label: action.label,
         ok: false,
         data: error instanceof Error ? error.message : "Η ενέργεια απέτυχε",
       });
     } finally {
-      setRunning(null);
+      if (actionGeneration.current === generation) setRunning(null);
     }
   };
 
