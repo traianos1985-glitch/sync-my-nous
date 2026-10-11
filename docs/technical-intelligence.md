@@ -61,3 +61,11 @@ The self-upgrade planner is proposal-only. Approving a plan records that it is a
 - `POST /remote/technical-sources/propose-upgrades` explicitly creates up to 5 review-only upgrade plans from classified items in the latest triage queue. It requires the normal NOUS token; it is not called by either scan.
 - Proposal creation rechecks the fixed official repository allowlist, deduplicates by repository and release tag, retains the source URL and bounded excerpt, and adds a checklist to verify actual project usage, complete release notes, compatibility, and tests.
 - A keyword signal is not proof that the upstream project is used by this deployment or that an update is required. The action does not infer affected files, install dependencies, generate code, modify source files, or execute release-note content. Implementation remains a separate reviewed PR with passing CI.
+
+
+## Hosted-runtime resilience
+
+- Official release-source requests run with a bounded worker pool, so configured per-source timeouts do not add up serially across all sources.
+- The report preserves the configured source order and records unexpected worker failures as sanitized per-source errors; successful sources remain usable as partial evidence.
+- Release-evidence proposal creation fails explicitly when the source queue is `unavailable` or `not_scanned`. An empty successful HTTP response is not treated as proof that release evidence was retrieved.
+- Proposal generation remains review-only; no release text is executed and no dependency or source changes are applied.
