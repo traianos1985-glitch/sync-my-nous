@@ -9,7 +9,7 @@ from executor.local_llm_adapter import ask_ollama
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_GEMINI_FALLBACK_MODELS = "gemini-2.5-flash-lite"
-TIMEOUT = 60
+TIMEOUT = 25
 
 SYSTEM_PROMPT = (
     "Είσαι ο ΝΟΥΣ, ένας έξυπνος AI βοηθός στα ελληνικά. "
@@ -33,7 +33,8 @@ def configured_models() -> list[str]:
     fallbacks = os.environ.get(
         "GEMINI_FALLBACK_MODELS", DEFAULT_GEMINI_FALLBACK_MODELS
     ).split(",")
-    return list(dict.fromkeys([primary, *(model.strip() for model in fallbacks if model.strip())]))
+    # Keep worst-case retry/fallback latency bounded for the single-process service.
+    return list(dict.fromkeys([primary, *(model.strip() for model in fallbacks if model.strip())]))[:2]
 
 
 def _call_gemini(
