@@ -821,19 +821,43 @@ def answer_chat(
         answer = safe_llm_fallback()
         mode = "llm_guard"
 
+    # Persist the primary conversation record before updating secondary memory.
+    # A broken history index must not fall through as if the answer were durable.
+    try:
+        conv = append_turn(
+            user_message=message,
+            assistant_answer=answer,
+            mode=mode,
+            conversation_id=conversation_id,
+            title=message,
+        )
+    except (OSError, ValueError):
+        storage_message = (
+            "Η απάντηση δεν αποθηκεύτηκε στο ιστορικό του NOUS επειδή υπάρχει "
+            "πρόβλημα στην αποθήκευση συνομιλιών. Τα υπάρχοντα δεδομένα δεν "
+            "αντικαταστάθηκαν· έλεγξε τη διάγνωση αποθήκευσης και δοκίμασε ξανά."
+        )
+        return {
+            "ok": False,
+            "executed": False,
+            "source": "chat_brain_v3",
+            "mode": "degraded",
+            "error": "conversation_storage_unavailable",
+            "answer": storage_message,
+            "response": storage_message,
+            "text": storage_message,
+            "human_answer": storage_message,
+        }
+
     try:
         learn_from_chat_result(message, answer, mode, sources)
     except Exception:
         pass
 
-    remember_turn(message, answer, mode)
-    conv = append_turn(
-        user_message=message,
-        assistant_answer=answer,
-        mode=mode,
-        conversation_id=conversation_id,
-        title=message,
-    )
+    try:
+        remember_turn(message, answer, mode)
+    except Exception:
+        pass
 
     try:
         if conv.get("conversation_id") and int(conv.get("messages", 0)) >= 10:
