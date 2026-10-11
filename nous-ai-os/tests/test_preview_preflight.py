@@ -1,5 +1,9 @@
 import json
 
+from flask import Flask
+
+from executor import blueprints
+from executor.blueprints import agent_environments_bp as agent_environment_routes
 from executor.preview_preflight import inspect_preview_compatibility
 
 
@@ -71,3 +75,43 @@ def test_preflight_ignores_manifest_symlink_outside_workspace(monkeypatch, tmp_p
     assert result["detected"]["package_json"] is False
     assert result["project_types"] == ["unknown"]
     assert "secret" not in repr(result)
+
+
+def test_previews_endpoint_enriches_existing_cards_with_preflight(monkeypatch):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environment_routes.agent_environments_bp)
+    monkeypatch.setattr(agent_environment_routes, "preview_catalog", lambda: {
+        "ok": True, "previews": [{"id": "stackblitz", "description": "Open preview"}]
+    })
+    monkeypatch.setattr(agent_environment_routes, "inspect_preview_compatibility", lambda _path: {
+        "ok": True, "project_types": ["node"],
+        "detected": {"package_json": True},
+        "providers": [{"id": "stackblitz", "fit": "good", "recommended": True,
+                       "reasons": ["Node manifest and scripts found"]}],
+        "limitations": ["Static inspection only"],
+    })
+
+    response = app.test_client().get("/api/agent-environments/previews")
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["previews"][0]["compatibility"]["recommended"] is True
+    assert "Preflight: Καλή αντιστοίχιση" in data["previews"][0]["description"]
+    assert data["preflight"]["project_types"] == ["node"]
+
+
+def test_preflight_api_rejects_outside_workspace(monkeypatch, tmp_path):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environment_routes.agent_environments_bp)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.setenv("NOUS_WORKSPACE_ROOT", str(workspace))
+
+    response = app.test_client().post("/api/agent-environments/preflight", json={
+        "project_path": str(outside)
+    })
+
+    assert response.status_code == 400
+    assert response.get_json() == {"ok": False, "error": "project_path_outside_workspace"}
