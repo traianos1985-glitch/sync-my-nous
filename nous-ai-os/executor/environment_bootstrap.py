@@ -312,9 +312,43 @@ def _ai_assessment(
     }
 
 
+def _route_inventory(app: Any) -> dict[str, Any]:
+    if app is None:
+        return {"status": "not_provided"}
+    try:
+        rules = list(app.url_map.iter_rules())
+        by_path: dict[str, set[str]] = {}
+        for rule in rules:
+            by_path.setdefault(str(rule.rule), set()).update(
+                str(method).upper() for method in rule.methods
+            )
+        required = (
+            "/health",
+            "/remote/status",
+            "/remote/environment/bootstrap/status",
+            "/remote/self-diagnosis/status",
+            "/remote/app-builder/status",
+            "/remote/app-builder/test",
+            "/remote/app-builder/diagnose",
+            "/remote/app-builder/repair-review",
+            "/remote/app-builder/contract-audit",
+        )
+        missing = [path for path in required if path not in by_path]
+        return {
+            "status": "checked",
+            "route_count": len(rules),
+            "required_routes_checked": len(required),
+            "missing_required_routes": missing,
+            "ok": not missing,
+        }
+    except Exception:
+        return {"status": "unavailable", "ok": False}
+
+
 def run_environment_bootstrap(
     root: str | Path | None = None,
     *,
+    app: Any = None,
     probe_gemini: bool = True,
     analyze_with_ai: bool = True,
     ask_llm: Callable[[str], dict[str, Any]] | None = None,
@@ -442,6 +476,15 @@ def run_environment_bootstrap(
     except OSError:
         report["checks"]["disk"] = {"ok": False, "status": "unavailable"}
 
+    report["checks"]["flask_routes"] = _route_inventory(app)
+    if report["checks"]["flask_routes"].get("status") == "checked" and not report["checks"]["flask_routes"].get("ok"):
+        report["findings"].append({
+            "severity": "warning",
+            "code": "required_routes_missing",
+            "detail": "One or more expected core routes are not registered in this Flask app.",
+            "paths": report["checks"]["flask_routes"].get("missing_required_routes", []),
+        })
+
     report["checks"]["source_control"] = {"git_available": report["capabilities"]["git"]}
     if report["capabilities"]["git"]:
         try:
@@ -511,7 +554,7 @@ def environment_bootstrap_status(root: str | Path | None = None) -> dict[str, An
     }
 
 
-def _bootstrap_worker(force: bool) -> None:
+def _bootstrap_worker(force: bool, app: Any = None) -> None:
     global _LAST_RESULT
     app_root = _app_root()
     data_dir = app_root / "data"
@@ -542,7 +585,7 @@ def _bootstrap_worker(force: bool) -> None:
         if not force and existing and time.time() - float(existing.get("finished_at", 0)) < _CACHE_SECONDS:
             _LAST_RESULT = existing
             return
-        _LAST_RESULT = run_environment_bootstrap()
+        _LAST_RESULT = run_environment_bootstrap(app=app)
     except Exception:
         _LAST_RESULT = {
             "ok": False,
@@ -561,15 +604,37 @@ def _bootstrap_worker(force: bool) -> None:
                 pass
 
 
-def start_environment_bootstrap(force: bool = False) -> dict[str, Any]:
+def start_environment_bootstrap(force: bool = False, app: Any = None) -> dict[str, Any]:
     """Start bootstrap once in the background; repeated requests are idempotent."""
-    global _WORKER
+    global _WORKER, _LAST_RESULT
     with _BOOTSTRAP_LOCK:
         if _WORKER is not None and _WORKER.is_alive():
             return {"ok": True, "status": "running", "started": False}
+        app_root = _app_root()
+        data_dir = app_root / "data"
+        if not force:
+            cached = _LAST_RESULT or _read_json(data_dir / _REPORT_NAME)
+            if cached is not None:
+                try:
+                    fresh = time.time() - float(cached.get("finished_at", 0)) < _CACHE_SECONDS
+                except (TypeError, ValueError):
+                    fresh = False
+                if fresh:
+                    _LAST_RESULT = cached
+                    return {
+                        "ok": bool(cached.get("ok")),
+                        "status": str(cached.get("status", "degraded")),
+                        "started": False,
+                    }
+            lock_path = data_dir / _LOCK_NAME
+            try:
+                if lock_path.exists() and time.time() - lock_path.stat().st_mtime <= _STALE_LOCK_SECONDS:
+                    return {"ok": True, "status": "running", "started": False}
+            except OSError:
+                pass
         _WORKER = threading.Thread(
             target=_bootstrap_worker,
-            args=(bool(force),),
+            args=(bool(force), app),
             name="nous-environment-bootstrap",
             daemon=True,
         )
