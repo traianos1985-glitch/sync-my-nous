@@ -294,3 +294,65 @@ def test_weather_cache_is_separated_by_requested_city(tmp_path, monkeypatch):
     assert athens["location"].startswith("Αθήνα")
     assert patras["location"].startswith("Πάτρα")
     assert len(calls) == 4
+
+
+def test_chat_history_storage_failure_is_explicit_and_skips_secondary_memory(monkeypatch):
+    import executor.chat_brain_v3 as brain
+    import executor.agent_loop as agent_loop
+
+    for name in (
+        "natural_chat_answer", "capability_answer", "identity_answer", "casual_answer",
+        "answer_from_knowledge_memory", "answer_from_conversations",
+        "cross_conversation_context", "deep_research", "answer_from_web",
+        "summarize_search_results", "memory_question_answer", "user_statement_answer",
+    ):
+        monkeypatch.setattr(brain, name, lambda *_a, **_k: None)
+    for name in (
+        "has_document_intent", "has_conversation_search_intent", "has_cross_memory_intent",
+        "has_deep_research_intent", "has_internet_intent", "has_calc_intent",
+    ):
+        monkeypatch.setattr(brain, name, lambda *_a, **_k: False)
+    monkeypatch.setattr(brain, "should_skip_knowledge_and_web", lambda _message: True)
+    monkeypatch.setattr(brain, "extract_urls", lambda _message: [])
+    monkeypatch.setattr(agent_loop, "run_agent", lambda *_a, **_k: {"ok": False, "mode": "llm_unavailable"})
+    monkeypatch.setattr(brain, "try_llm_answer", lambda *_a, **_k: "This answer must be persisted first.")
+    monkeypatch.setattr(
+        brain,
+        "append_turn",
+        lambda **_kwargs: (_ for _ in ()).throw(ValueError("private storage path")),
+    )
+    side_effects = []
+    monkeypatch.setattr(brain, "learn_from_chat_result", lambda *_a, **_k: side_effects.append("learn"))
+    monkeypatch.setattr(brain, "remember_turn", lambda *_a, **_k: side_effects.append("remember"))
+
+    result = brain.answer_chat("Please explain storage reliability")
+
+    assert result["ok"] is False
+    assert result["error"] == "conversation_storage_unavailable"
+    assert "private storage path" not in result["answer"]
+    assert side_effects == []
+
+
+def test_chat_route_returns_503_for_conversation_storage_failure(monkeypatch):
+    import executor.router as router
+
+    monkeypatch.setenv("NOUS_TOKEN", "testtoken123")
+    monkeypatch.setattr(router, "_chat_intent_route", lambda _msg: None)
+    monkeypatch.setattr(
+        router,
+        "chatgpt_style_response",
+        lambda *_a, **_k: {
+            "ok": False,
+            "error": "conversation_storage_unavailable",
+            "answer": "The history store is unavailable.",
+        },
+    )
+
+    response = router.app.test_client().post(
+        "/chat",
+        json={"message": "Hello"},
+        headers={"Authorization": "Bearer testtoken123"},
+    )
+
+    assert response.status_code == 503
+    assert response.get_json()["error"] == "conversation_storage_unavailable"
