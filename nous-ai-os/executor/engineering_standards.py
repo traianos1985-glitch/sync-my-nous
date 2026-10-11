@@ -146,14 +146,9 @@ def validate_app_plan(plan: Any) -> list[str]:
     if not any(
         "/tests/" in f"/{path}/"
         and (
-            PathName := path.rsplit("/", 1)[-1]
-        )
-        and (
-            PathName.startswith("test_")
-            or ".test."
-            in PathName
-            or ".spec."
-            in PathName
+            path.rsplit("/", 1)[-1].startswith("test_")
+            or ".test." in path.rsplit("/", 1)[-1]
+            or ".spec." in path.rsplit("/", 1)[-1]
         )
         for path in paths
     ):
