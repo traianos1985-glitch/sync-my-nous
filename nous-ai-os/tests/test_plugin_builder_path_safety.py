@@ -1,7 +1,7 @@
 from executor import code_forge, plugin_builder
 
 
-_VALID_PLUGIN = "def run():\\n    return {'ok': True}\\n"
+_VALID_PLUGIN = "def run():\n    return {'ok': True}\n"
 
 
 def test_plugin_builder_refuses_symlink_destination(tmp_path, monkeypatch):
@@ -37,13 +37,13 @@ def test_plugin_builder_refuses_overwriting_existing_plugin(tmp_path, monkeypatc
     plugin_dir = tmp_path / "plugins"
     plugin_dir.mkdir()
     existing = plugin_dir / "existing.py"
-    existing.write_text("ORIGINAL = True\\n", encoding="utf-8")
+    existing.write_text("ORIGINAL = True\n", encoding="utf-8")
     monkeypatch.setattr(plugin_builder, "PLUGIN_DIR", str(plugin_dir))
 
     result = plugin_builder.create_plugin("existing", _VALID_PLUGIN)
 
     assert result == {"success": False, "error": "plugin_already_exists"}
-    assert existing.read_text(encoding="utf-8") == "ORIGINAL = True\\n"
+    assert existing.read_text(encoding="utf-8") == "ORIGINAL = True\n"
 
 
 def test_code_forge_cannot_overwrite_symlink_target(tmp_path, monkeypatch):
