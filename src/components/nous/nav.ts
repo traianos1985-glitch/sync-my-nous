@@ -50,6 +50,7 @@ export const navGroups: NavGroup[] = [
     advanced: true,
     items: [
       { id: "diagnosis", icon: "🩺", label: "Diagnosis" },
+      { id: "bootstrap", icon: "🧰", label: "Environment Bootstrap" },
       { id: "repair", icon: "🛠", label: "Repair" },
       { id: "selfheal", icon: "🧬", label: "Self Heal" },
       { id: "intelligence", icon: "🧭", label: "Intelligence" },
