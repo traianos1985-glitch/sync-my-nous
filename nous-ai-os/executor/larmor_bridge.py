@@ -70,17 +70,18 @@ _MU0 = 4 * math.pi * 1e-7
 
 def characteristic_frequency_hz(sigma: float, mu_r: float, radius_m: float) -> float:
     """
-    Classical EM characteristic frequency of a metallic object.
+    Estimate the skin-depth crossover frequency for a metallic object.
 
-    f_char = 1 / (σ × μ₀ × μr × a²)
+    f_char = 1 / (π × σ × μ₀ × μr × a²)
 
-    Below this frequency, the AC field fully penetrates the object (δ_metal ≥ a).
-    Above it, eddy currents shield the interior — response drops.
-    Maximum eddy current INDUCTION occurs near f_char.
+    With δ = 1 / √(π × f × μ₀ × μr × σ), this makes δ approximately
+    equal to the object's characteristic radius a. It is a scale estimate,
+    not proof of a resonance or a guaranteed detection optimum.
     """
-    if sigma <= 0 or radius_m <= 0:
+    values = (sigma, mu_r, radius_m)
+    if any(isinstance(value, bool) or not math.isfinite(value) or value <= 0 for value in values):
         return 0.0
-    return 1.0 / (sigma * _MU0 * mu_r * radius_m ** 2)
+    return 1.0 / (math.pi * sigma * _MU0 * mu_r * radius_m ** 2)
 
 
 def skin_depth_in_metal_m(sigma: float, mu_r: float, freq_hz: float) -> float:
@@ -98,34 +99,46 @@ def optimal_em_frequency_hz(
     age_factor: float = 1.0,
 ) -> dict:
     """
-    Calculate the OPTIMAL DETECTION FREQUENCY for a buried metallic object
-    using the Classical EM (Faraday/eddy-current) resonance model.
+    Return a classical-EM skin-depth scale and a separate soil penetration limit.
 
-    Returns f_char (target characteristic), f_soil_limit (max for soil penetration),
-    and f_optimal (geometric mean compromise).
+    f_optimal_hz currently aliases f_char_hz as an experimental heuristic;
+    it is not a validated detection optimum. age_factor scales the effective
+    soil path used for the penetration-limit estimate, not the metal properties.
     """
     metal = METAL_EM_PROPERTIES.get(metal_key)
     if not metal:
         return {"error": f"Άγνωστο υλικό: {metal_key}"}
 
+    values = {
+        "radius_m": radius_m,
+        "depth_m": depth_m,
+        "soil_sigma": soil_sigma,
+        "age_factor": age_factor,
+    }
+    for name, value in values.items():
+        if isinstance(value, bool):
+            return {"error": f"{name} must be a finite positive number"}
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError, OverflowError):
+            return {"error": f"{name} must be a finite positive number"}
+        if not math.isfinite(numeric) or numeric <= 0:
+            return {"error": f"{name} must be a finite positive number"}
+        values[name] = numeric
+
+    radius_m = values["radius_m"]
+    depth_m = values["depth_m"]
+    soil_sigma = values["soil_sigma"]
+    age_factor = values["age_factor"]
     sigma_m = metal["sigma"]
     mu_r = metal["mu_r"]
 
-    # f_char: maximum eddy-current response of the object
     f_char = characteristic_frequency_hz(sigma_m, mu_r, radius_m)
+    if f_char <= 0 or not math.isfinite(f_char):
+        return {"error": "target parameters are outside the supported numeric range"}
 
-    # f_soil_limit: skin depth in soil equals target depth
-    # δ_soil = 503/√(f×σ_soil) = depth_m → f = (503/depth_m)²/σ_soil
-    # (age_factor is accounted for separately via f_char being lower for older/larger halos)
-    if soil_sigma > 0 and depth_m > 0:
-        f_soil_limit = (503.0 / depth_m) ** 2 / soil_sigma
-    else:
-        f_soil_limit = 1e9
-
-    # f_optimal: in practice f_char is the detection optimum.
-    # The soil penetration limit (f_soil_limit) is almost never binding
-    # for audio/VLF frequencies at typical buried-object depths.
-    # We return f_char as the recommended detection frequency.
+    effective_depth_m = 1.5 * age_factor * depth_m
+    f_soil_limit = (503.0 / effective_depth_m) ** 2 / soil_sigma
     f_optimal = f_char
 
     # Skin depth in soil at f_optimal
@@ -140,6 +153,8 @@ def optimal_em_frequency_hz(
         "metal": metal["name"],
         "radius_m": radius_m,
         "depth_m": depth_m,
+        "age_factor": age_factor,
+        "effective_depth_m": round(effective_depth_m, 3),
         "f_char_hz": round(f_char, 1),
         "f_soil_limit_hz": round(f_soil_limit, 1),
         "f_optimal_hz": round(f_optimal, 1),
@@ -148,6 +163,7 @@ def optimal_em_frequency_hz(
         "penetration_ratio": round(penetration_ratio, 2),
         "fully_penetrated": penetration_ratio >= 1.0,
         "notes": metal["notes"],
+        "model_note": "Experimental skin-depth estimate; not a validated metal-detection resonance or guaranteed optimum.",
     }
 
 
