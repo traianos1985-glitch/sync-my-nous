@@ -85,7 +85,7 @@ def test_rejects_oversized_generated_files():
 
 def test_rejects_python_syntax_errors_before_approval():
     plan = valid_plan()
-    plan["files"][0]["content"] = "def broken(:\\n    pass"
+    plan["files"][0]["content"] = "def broken(:\n    pass"
 
     errors = validate_app_plan(plan)
 
