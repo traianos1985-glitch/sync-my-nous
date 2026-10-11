@@ -29,7 +29,7 @@ def _ui_contract(ui_source: str) -> tuple[list[dict[str, str]], list[str]]:
         return [], ["appbuilder_section_not_found"]
     section = match.group("section")
     endpoint_match = re.search(r"(?s)\bendpoints:\s*\[(.*?)\]\s*,\s*actions:", section)
-    action_match = re.search(r"(?s)\bactions:\s*\[(.*)\]\s*$", section)
+    action_match = re.search(r"(?s)\bactions:\s*\[(.*)\]\s*,?\s*$", section)
     if not endpoint_match or not action_match:
         return [], ["appbuilder_endpoints_or_actions_not_parseable"]
 
