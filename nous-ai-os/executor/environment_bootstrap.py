@@ -87,6 +87,23 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
                 pass
 
 
+def _ensure_runtime_directory(path: Path, app_root: Path) -> None:
+    """Create a known runtime directory without following symlink escapes."""
+    relative = path.relative_to(app_root)
+    current = app_root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise OSError("runtime_directory_symlink_not_allowed")
+        if current.exists() and not current.is_dir():
+            raise OSError("runtime_path_not_directory")
+        current.mkdir(exist_ok=True)
+        try:
+            current.resolve().relative_to(app_root)
+        except ValueError as exc:
+            raise OSError("runtime_path_outside_app_root") from exc
+
+
 def _write_probe(directory: Path) -> bool:
     try:
         with tempfile.NamedTemporaryFile(
@@ -405,7 +422,7 @@ def run_environment_bootstrap(
         path = app_root / relative
         try:
             existed = path.is_dir()
-            path.mkdir(parents=True, exist_ok=True)
+            _ensure_runtime_directory(path, app_root)
             if not path.is_dir():
                 raise OSError("path_not_directory")
             if not existed:
@@ -522,6 +539,9 @@ def run_environment_bootstrap(
     report["duration_seconds"] = round(report["finished_at"] - started, 3)
 
     try:
+        if data_dir.is_symlink():
+            raise OSError("report_directory_symlink_not_allowed")
+        data_dir.resolve().relative_to(app_root)
         _atomic_json(data_dir / _REPORT_NAME, report)
     except OSError:
         report["ok"] = False
