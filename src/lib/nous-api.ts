@@ -55,9 +55,6 @@ async function createApiError(response: Response): Promise<NousApiError> {
 const BACKEND_PATH_MAP: Record<string, string> = {
   "/api/chat": "/chat",
   "/api/health": "/health",
-  "/api/missions": "/remote/missions",
-  "/api/observability": "/remote/metrics",
-  "/api/security-lessons": "/remote/lessons/list",
 };
 
 function requestUrl(path: string): string {
