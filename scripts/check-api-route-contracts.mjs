@@ -61,8 +61,8 @@ for (const [route, label] of routerRoutes) {
 
 // The dashboard must poll the Flask JSON endpoint; an SSE handler does not run on Pages.
 requireMatch(
-  /nousFetch<[\s\S]{0,500}?>\s*\("\/remote\/missions"\),
-  /nousFetch<[\s\S]{0,500}?\(">\/remote\/missions"\)/,
+  dashboard,
+  /nousFetch<[\s\S]{0,500}?>\s*\("\/remote\/missions"\)/,
   "Mission updates must poll the authenticated Flask /remote/missions endpoint.",
 );
 if (dashboard.includes('nousStream("/api/missions/stream")')) {
