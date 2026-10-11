@@ -195,7 +195,7 @@ def _trigger_nous_environment_bootstrap():
         return None
     from executor.environment_bootstrap import start_environment_bootstrap
 
-    start_environment_bootstrap()
+    start_environment_bootstrap(app=app)
     return None
 
 try:
@@ -1694,7 +1694,7 @@ def remote_safety_rollback():
 def remote_environment_bootstrap_status():
     from executor.environment_bootstrap import environment_bootstrap_status, start_environment_bootstrap
 
-    start_environment_bootstrap()
+    start_environment_bootstrap(app=app)
     return jsonify(environment_bootstrap_status())
 
 
@@ -1704,7 +1704,7 @@ def remote_environment_bootstrap_run():
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     from executor.environment_bootstrap import start_environment_bootstrap
 
-    return jsonify(start_environment_bootstrap(force=True)), 202
+    return jsonify(start_environment_bootstrap(force=True, app=app)), 202
 
 
 @app.route("/remote/self-diagnosis/status")
