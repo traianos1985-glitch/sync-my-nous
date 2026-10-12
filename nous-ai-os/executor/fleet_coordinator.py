@@ -57,8 +57,8 @@ def target_version() -> str:
 
 
 def current_version() -> str:
-    value = (os.environ.get("NOUS_VERSION") or os.environ.get("RENDER_GIT_COMMIT")
-             or os.environ.get("VERCEL_GIT_COMMIT_SHA") or os.environ.get("GITHUB_SHA") or "unknown").strip()
+    value = (os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("VERCEL_GIT_COMMIT_SHA")
+             or os.environ.get("GITHUB_SHA") or os.environ.get("NOUS_VERSION") or "unknown").strip()
     return value[:120] if _VERSION.fullmatch(value) else "unknown"
 
 
