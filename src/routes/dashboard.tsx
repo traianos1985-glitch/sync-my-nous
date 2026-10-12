@@ -2149,12 +2149,16 @@ function Dashboard() {
                         role="status"
                         className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
                       >
-                        Δεν έχει οριστεί NOUS token σε αυτό το browser session. Επικόλλησε το token παρακάτω για να ενεργοποιήσεις τα προστατευμένα endpoints.
+                        Δεν έχει οριστεί NOUS token σε αυτό το browser session. Επικόλλησε το token
+                        παρακάτω για να ενεργοποιήσεις τα προστατευμένα endpoints.
                       </div>
                     )}
                     {systemStatus?.status === "degraded" ||
                     systemStatus?.status === "unavailable" ? (
-                      <div role="status" className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs">
+                      <div
+                        role="status"
+                        className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
+                      >
                         Η επικοινωνία με το Render backend δεν έχει επιβεβαιωθεί ως υγιής.
                         {systemStatusError
                           ? ` Λεπτομέρεια: ${systemStatusError}`
