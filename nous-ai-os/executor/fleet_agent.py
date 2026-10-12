@@ -48,8 +48,10 @@ def _version_metadata() -> tuple[str, str]:
     return version, commit
 
 
-def send_heartbeat(force: bool = False) -> dict[str, Any]:
-    """Send one bounded HTTPS heartbeat; never includes prompts, user data, or tokens in JSON."""
+def send_heartbeat(force: bool = False, status: str = "healthy") -> dict[str, Any]:
+    """Send bounded HTTPS metadata using the completed local response as a liveness signal."""
+    if status not in {"healthy", "degraded", "unknown"}:
+        status = "unknown"
     global _LAST_SENT
     coordinator = os.environ.get("NOUS_FLEET_COORDINATOR_URL", "").strip().rstrip("/")
     token = os.environ.get("NOUS_FLEET_TOKEN", "").strip()
@@ -72,7 +74,7 @@ def send_heartbeat(force: bool = False) -> dict[str, Any]:
         "provider": _provider(),
         "version": version,
         "commit_sha": commit,
-        "status": "healthy",
+        "status": status,
     }
     endpoint = coordinator + "/api/agent-environments/fleet/heartbeat"
     request = urllib.request.Request(
