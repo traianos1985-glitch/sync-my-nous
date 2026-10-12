@@ -148,3 +148,15 @@ def test_rollout_rejects_arbitrary_vercel_urls(monkeypatch):
     }))
     _targets, error = fleet_rollout._targets()
     assert error == "invalid_vercel_deploy_hook"
+
+
+def test_rollout_reconcile_requires_admin_or_dedicated_token(monkeypatch):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environments_bp)
+    monkeypatch.setenv("NOUS_FLEET_ROLLOUT_TOKEN", "rollout-test-secret")
+    client = app.test_client()
+    url = "/api/agent-environments/fleet/rollout/reconcile"
+    assert client.post(url, json={}).status_code == 403
+    response = client.post(url, json={}, headers={"X-NOUS-FLEET-ROLLOUT-TOKEN": "rollout-test-secret"})
+    assert response.status_code == 200
+    assert response.get_json()["reason"] == "automatic_rollout_disabled"
