@@ -33,6 +33,7 @@ import {
   hasStoredNousToken,
   nousFetch,
   setNousToken,
+  subscribeBackendWaking,
 } from "@/lib/nous-api";
 
 export const Route = createFileRoute("/dashboard")({
@@ -264,6 +265,12 @@ type SystemStatus = {
 
 function Dashboard() {
   const [section, setSection] = useState("chat");
+  const [backendWaking, setBackendWaking] = useState(false);
+  useEffect(() => subscribeBackendWaking(setBackendWaking), []);
+  const [failedInitiative, setFailedInitiative] = useState<{
+    initiative: Initiative;
+    action: "approve" | "reject";
+  } | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [messages, setMessages] = useState(initialChat);
@@ -883,7 +890,9 @@ function Dashboard() {
         body: JSON.stringify({ action, route, payload: payload ?? {} }),
         timeoutMs: 90_000,
       });
+      setFailedInitiative(null);
     } catch {
+      setFailedInitiative({ initiative, action });
       setInitiativesState("error");
       return;
     }
@@ -1191,6 +1200,15 @@ function Dashboard() {
 
       {/* Main */}
       <main className="flex min-w-0 max-w-full flex-1 flex-col">
+        {backendWaking && (
+          <div
+            role="status"
+            className="flex items-center gap-2 border-b border-warn/40 bg-warn/10 px-4 py-2 text-xs text-warn"
+          >
+            <span className="h-2 w-2 animate-pulse rounded-full bg-warn" />
+            Ο NOUS ξυπνάει (cold start του server) — μπορεί να χρειαστεί έως ένα λεπτό. Περίμενε, το αίτημά σου συνεχίζει.
+          </div>
+        )}
         <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-3">
             <button
@@ -2068,6 +2086,17 @@ function Dashboard() {
               {initiativesState === "error" && (
                 <p className="mt-3 text-xs text-warn">
                   Δεν ήταν δυνατή η φόρτωση ή εκτέλεση των προτάσεων.
+                  {failedInitiative && (
+                    <button
+                      type="button"
+                      className="ml-2 rounded-md border border-warn/50 px-2 py-0.5 font-medium hover:bg-warn/10"
+                      onClick={() =>
+                        void resolveInitiative(failedInitiative.initiative, failedInitiative.action)
+                      }
+                    >
+                      Δοκίμασε ξανά
+                    </button>
+                  )}
                 </p>
               )}
               {initiatives.length === 0 ? (
