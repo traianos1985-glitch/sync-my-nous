@@ -1,4 +1,7 @@
 """Authenticated API for environment inventory, provider probes, and confirmed deployments."""
+import hmac
+import os
+
 from flask import Blueprint, jsonify, request
 
 from executor.security import check_admin_token
@@ -93,9 +96,6 @@ def preflight():
 
 # Fleet coordination routes live on this already-registered blueprint so existing
 # backend deployments gain the API without requiring a separate app bootstrap change.
-import hmac
-import os
-
 from executor.fleet_coordinator import fleet_status, record_heartbeat
 
 
