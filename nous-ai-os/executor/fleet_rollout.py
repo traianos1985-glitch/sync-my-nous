@@ -404,7 +404,37 @@ def rollout_status() -> dict[str, Any]:
 
 def fleet_integration_status() -> dict[str, Any]:
     """Describe platform delivery paths without claiming unprobed live connectivity."""
-    status = fleet_status()
+    targets, target_error = _targets()
+    desired = os.environ.get(
+        "NOUS_FLEET_TARGET_VERSION", os.environ.get("NOUS_VERSION", "")
+    ).strip()
+    fleet_counts = {"instance_count": 0, "outdated_count": 0, "stale_count": 0}
+    configured_registry = os.environ.get("NOUS_FLEET_DB_PATH", "").strip()
+    registry_path = (
+        Path(configured_registry).expanduser()
+        if configured_registry
+        else Path(os.environ.get("NOUS_DATA_DIR", "data")) / "nous_fleet.sqlite3"
+    )
+    # Read only an existing registry; status checks must not create DB files or tables.
+    if registry_path.is_file():
+        try:
+            uri = registry_path.resolve().as_uri() + "?mode=ro"
+            with sqlite3.connect(uri, uri=True, timeout=2) as connection:
+                exists = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='fleet_instances'"
+                ).fetchone()
+                if exists:
+                    rows = connection.execute(
+                        "SELECT version, last_seen FROM fleet_instances LIMIT 500"
+                    ).fetchall()
+                    now = time.time()
+                    fleet_counts = {
+                        "instance_count": len(rows),
+                        "outdated_count": sum(bool(desired and row[0] != desired) for row in rows),
+                        "stale_count": sum(now - float(row[1]) > 900 for row in rows),
+                    }
+        except (sqlite3.Error, OSError, ValueError):
+            pass
     targets, target_error = _targets()
     render_targets = [
         instance_id for instance_id, target in targets.items()
@@ -414,7 +444,7 @@ def fleet_integration_status() -> dict[str, Any]:
     render_auto_ready = _enabled() and bool(render_targets) and render_key_ready
     coordinator_token_ready = bool(os.environ.get("NOUS_FLEET_TOKEN", "").strip())
     rollout_token_ready = bool(os.environ.get("NOUS_FLEET_ROLLOUT_TOKEN", "").strip())
-    desired_ready = bool(status.get("desired_version"))
+    desired_ready = bool(desired)
     configured_db = os.environ.get("NOUS_FLEET_DB_PATH", "").strip()
     if configured_db:
         storage_path = Path(configured_db).expanduser()
@@ -490,12 +520,8 @@ def fleet_integration_status() -> dict[str, Any]:
         "checks": checks,
         "blocking_checks": blocking,
         "automatic_deployment_enabled": render_auto_ready,
-        "target_version": status.get("desired_version"),
-        "fleet": {
-            "instance_count": status.get("instance_count", 0),
-            "outdated_count": status.get("outdated_count", 0),
-            "stale_count": status.get("stale_count", 0),
-        },
+        "target_version": desired or None,
+        "fleet": fleet_counts,
         "platforms": platforms,
         "limitations": [
             "This endpoint reports repository architecture and server-side configuration, not live GitHub, Pages, Lovable, or provider API connectivity.",
