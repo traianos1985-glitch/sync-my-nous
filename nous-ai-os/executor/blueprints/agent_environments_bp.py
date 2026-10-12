@@ -1,4 +1,7 @@
 """Authenticated API for environment inventory, provider probes, and confirmed deployments."""
+import hmac
+import os
+
 from flask import Blueprint, jsonify, request
 
 from executor.security import check_admin_token
@@ -6,6 +9,7 @@ from executor.security import check_admin_token
 from executor.preview_preflight import inspect_preview_compatibility
 from executor.provider_runtime import deploy_provider, probe_provider, provider_inventory, preview_catalog
 from executor.runtime_lifecycle import build_runtime_lifecycle_plan
+from executor.fleet_coordinator import fleet_status, record_heartbeat
 
 agent_environments_bp = Blueprint("agent_environments", __name__, url_prefix="/api/agent-environments")
 
@@ -89,3 +93,34 @@ def preflight():
         return jsonify({"ok": False, "error": "json_object_required"}), 400
     result = inspect_preview_compatibility(str(data.get("project_path") or "."))
     return jsonify(result), (200 if result.get("ok") else 400)
+
+
+# Fleet coordination routes live on this already-registered blueprint so existing
+# backend deployments gain the API without requiring a separate app bootstrap change.
+
+
+def _fleet_token_matches():
+    expected = os.environ.get("NOUS_FLEET_TOKEN", "").strip()
+    supplied = request.headers.get("X-NOUS-FLEET-TOKEN", "").strip()
+    if not supplied:
+        authorization = request.headers.get("Authorization", "")
+        if authorization.lower().startswith("bearer "):
+            supplied = authorization[7:].strip()
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+
+
+@agent_environments_bp.post("/fleet/heartbeat")
+def fleet_heartbeat():
+    """Record minimal instance metadata using a server-side fleet-only secret."""
+    if not _fleet_token_matches():
+        return jsonify({"ok": False, "error": "fleet_authentication_required"}), 403
+    result = record_heartbeat(_json_object())
+    return jsonify(result), (200 if result.get("ok") else 400)
+
+
+@agent_environments_bp.get("/fleet/status")
+def fleet_status_endpoint():
+    """Expose fleet status only to an admin-scoped NOUS token."""
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "admin_scope_required"}), 403
+    return jsonify(fleet_status())

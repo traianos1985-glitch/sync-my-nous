@@ -110,6 +110,7 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Vercel", path: "/remote/vercel/status" },
       { label: "Providers", path: "/remote/deploy/providers" },
       { label: "Runtime lifecycle plan", path: "/api/agent-environments/lifecycle" },
+      { label: "NOUS fleet status", path: "/api/agent-environments/fleet/status" },
     ],
   },
   backup: {
