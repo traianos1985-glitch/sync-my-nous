@@ -423,7 +423,26 @@ def rollout_preflight() -> dict[str, Any]:
                       else "A mapped Render target requires RENDER_API_KEY.",
         })
 
-    snapshot = fleet_status()
+    fleet_counts = {"instance_count": 0, "outdated_count": 0, "stale_count": 0}
+    # Inspect an existing registry in read-only mode; do not create files or schema.
+    if db_path.is_file():
+        try:
+            uri = db_path.resolve().as_uri() + "?mode=ro"
+            with sqlite3.connect(uri, uri=True, timeout=2) as connection:
+                table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='fleet_instances'"
+                ).fetchone()
+                if table:
+                    rows = connection.execute(
+                        "SELECT version, last_seen FROM fleet_instances LIMIT 500"
+                    ).fetchall()
+                    now = time.time()
+                    fleet_counts["instance_count"] = len(rows)
+                    fleet_counts["outdated_count"] = sum(bool(desired and row[0] != desired) for row in rows)
+                    fleet_counts["stale_count"] = sum(now - float(row[1]) > 900 for row in rows)
+        except (sqlite3.Error, OSError, ValueError):
+            pass
+
     return {
         "ok": True,
         "ready": all(item["ready"] for item in required),
@@ -431,11 +450,7 @@ def rollout_preflight() -> dict[str, Any]:
         "desired_version": desired or None,
         "mapped_target_count": len(targets),
         "canary_count": len(canaries),
-        "fleet": {
-            "instance_count": snapshot.get("instance_count", 0),
-            "outdated_count": snapshot.get("outdated_count", 0),
-            "stale_count": snapshot.get("stale_count", 0),
-        },
+        "fleet": fleet_counts,
         "checks": required,
         "limitations": [
             "This checklist validates server-side configuration presence and basic storage readiness only.",
