@@ -6,15 +6,7 @@
       "action": "generate_morning_brief",
       "hour": 8,
       "minute": 0,
-      "days": [
-        "mon",
-        "tue",
-        "wed",
-        "thu",
-        "fri",
-        "sat",
-        "sun"
-      ],
+      "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
       "enabled": true,
       "created": 1791802827.6367533,
       "last_run": null
@@ -25,15 +17,7 @@
       "action": "generate_evening_summary",
       "hour": 21,
       "minute": 0,
-      "days": [
-        "mon",
-        "tue",
-        "wed",
-        "thu",
-        "fri",
-        "sat",
-        "sun"
-      ],
+      "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
       "enabled": true,
       "created": 1791802827.6367533,
       "last_run": null
@@ -44,15 +28,7 @@
       "action": "create_backup",
       "hour": 2,
       "minute": 0,
-      "days": [
-        "mon",
-        "tue",
-        "wed",
-        "thu",
-        "fri",
-        "sat",
-        "sun"
-      ],
+      "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
       "enabled": true,
       "created": 1791802827.6367533,
       "last_run": null
@@ -63,15 +39,7 @@
       "action": "self_reflection",
       "hour": 12,
       "minute": 0,
-      "days": [
-        "mon",
-        "tue",
-        "wed",
-        "thu",
-        "fri",
-        "sat",
-        "sun"
-      ],
+      "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
       "enabled": true,
       "created": 1791802827.6367533,
       "last_run": null

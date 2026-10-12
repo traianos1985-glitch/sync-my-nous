@@ -46,3 +46,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 /data/nous_storage.db
+
+# Runtime lock files must not be committed
+/data/*.lock
