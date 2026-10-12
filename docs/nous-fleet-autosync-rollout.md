@@ -15,11 +15,27 @@ This package adds request-driven heartbeats, central version-drift detection, a 
 
 - `POST /api/agent-environments/fleet/heartbeat` — backend-only authenticated metadata report.
 - `GET /api/agent-environments/fleet/status` — administrator-only fleet inventory and version drift.
+- `GET /api/agent-environments/fleet/integrations` — administrator-only, secret-safe cross-platform delivery matrix and coordinator configuration checks.
 - `GET /api/agent-environments/fleet/rollout/status` — administrator-only rollout queue and outcomes.
 - `GET /api/agent-environments/fleet/rollout/preflight` — administrator-only, secret-safe readiness
   checklist for required server configuration, enabled targets, canary configuration, storage directory
   readiness, and fleet drift.
 - `POST /api/agent-environments/fleet/rollout/reconcile` — administrator token or dedicated rollout token; queues drift and dispatches at most one configured provider trigger.
+
+
+## Cross-platform delivery contract
+
+The authenticated `GET /api/agent-environments/fleet/integrations` endpoint is surfaced in the dashboard's **Control** section alongside fleet inventory, rollout preflight, and queue status. It deliberately distinguishes configured delivery paths from live verification:
+
+- **GitHub** is the shared source of truth. Merge changes to `main`, then inspect the actual CI/workflow results.
+- **GitHub Pages** is static hosting; its repository workflow publishes frontend files. A static page cannot run the Python heartbeat client.
+- **Lovable** follows the repository link for code synchronization, but the coordinator cannot verify editor state or confirm a publish completed.
+- **Render** can receive a deployment trigger only when automatic rollout is explicitly enabled, a specific Render service is mapped, and `RENDER_API_KEY` is present. A trigger acceptance is not deployment success.
+- **Local/Android** installations can report heartbeat metadata when the backend client is configured. The coordinator does not silently replace local binaries or Android APKs.
+
+The integration matrix does not probe GitHub, Pages, Lovable, or Render live APIs and marks these entries as not live-verified. It returns only configuration-presence booleans, bounded counts, and delivery-mode labels; never secret values. A platform is not considered synchronized merely because it appears in the matrix.
+
+Heartbeat retries now use a short outage cooldown and only start the five-minute success interval after the coordinator accepts a valid response. Temporary coordinator outages therefore do not suppress retries for the full normal heartbeat interval.
 
 ## Configure the central coordinator
 
