@@ -162,7 +162,7 @@ ALLOWED_ORIGINS = {
 # https://<slug>.lovable.app (or id-preview--<uuid>.lovable.app) address, so those
 # origins cannot be listed one by one. Match the domain instead: no session cookie
 # is used here, so a request is still only accepted with a valid NOUS token.
-ALLOWED_ORIGIN_SUFFIXES = (".lovable.app",)
+ALLOWED_ORIGIN_SUFFIXES = (".lovable.app", ".lovableproject.com", ".lovable.dev")
 
 
 def _origin_allowed(origin) -> bool:
