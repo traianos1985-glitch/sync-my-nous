@@ -12,8 +12,21 @@ export class NousApiError extends Error {
   }
 }
 
-const defaultApiBase = import.meta.env.DEV ? "/api/nous" : "https://nous-ai-os-api.onrender.com";
-const apiBase = (import.meta.env["VITE_NOUS_API_URL"] || defaultApiBase).replace(/\/$/, "");
+// Every dashboard request goes straight to the Render service. A relative base
+// such as "/api/nous" only works behind the Vite dev proxy — the Lovable preview
+// origin answers HTML requests there and rejects API calls with
+// "Only HTML requests are supported here".
+const RENDER_API_BASE = "https://nous-ai-os-api.onrender.com";
+
+function resolveApiBase(): string {
+  const configured = import.meta.env["VITE_NOUS_API_URL"]?.trim();
+  // Honour an explicit absolute override (own staging backend), but never a
+  // relative one: it would send dashboard calls back to the HTML-only origin.
+  const base = configured && /^https?:\/\//i.test(configured) ? configured : RENDER_API_BASE;
+  return base.replace(/\/+$/, "");
+}
+
+const apiBase = resolveApiBase();
 const tokenStorageKey = "nous-dashboard-token";
 const requestTimeoutMs = 35_000;
 const retryableStatuses = new Set([502, 503, 504]);

@@ -4,6 +4,7 @@ import os
 import sys
 import platform
 import time
+from urllib.parse import urlsplit
 from flask import Flask, request, jsonify, send_from_directory
 from executor.document_chat_bridge import document_chat_answer, format_document_answer
 from executor.chat_response_engine import chatgpt_style_response
@@ -152,15 +153,38 @@ ALLOWED_ORIGINS = {
     origin.strip()
     for origin in os.environ.get(
         "NOUS_CORS_ORIGINS",
-        "https://sync-my-nous.vercel.app,https://traianos1985-glitch.github.io,http://localhost:5173,http://localhost:4173",
+        "https://sync-my-nous.vercel.app,https://traianos1985-glitch.github.io,http://localhost:5173,http://localhost:4173,http://localhost:8080",
     ).split(",")
     if origin.strip()
 }
 
+# A Lovable preview or published app is served from a freshly generated
+# https://<slug>.lovable.app (or id-preview--<uuid>.lovable.app) address, so those
+# origins cannot be listed one by one. Match the domain instead: no session cookie
+# is used here, so a request is still only accepted with a valid NOUS token.
+ALLOWED_ORIGIN_SUFFIXES = (".lovable.app",)
+
+
+def _origin_allowed(origin) -> bool:
+    """True when a browser origin may call the API cross-site."""
+    if not origin:
+        return False
+    if origin in ALLOWED_ORIGINS:
+        return True
+    parsed = urlsplit(origin)
+    if parsed.scheme != "https":
+        return False
+    host = parsed.netloc.lower()
+    return any(
+        host == suffix.lstrip(".") or host.endswith(suffix)
+        for suffix in ALLOWED_ORIGIN_SUFFIXES
+    )
+
+
 @app.after_request
 def add_cors_headers(response):
     origin = request.headers.get("Origin")
-    if origin in ALLOWED_ORIGINS:
+    if _origin_allowed(origin):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-NOUS-TOKEN"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
