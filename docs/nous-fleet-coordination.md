@@ -4,7 +4,7 @@ NOUS Fleet Coordination is the first control-plane layer for installations deplo
 
 ## Architecture
 
-- The configured central backend hosts `/api/fleet/heartbeat` and `/api/fleet/status`.
+- The configured central backend hosts `/api/agent-environments/fleet/heartbeat` and `/api/agent-environments/fleet/status`.
 - Every installation reports a stable `instance_id`, provider ID, version/commit, and coarse health status. Do not send prompts, mission contents, tokens, environment variables, user data, or arbitrary URLs.
 - Heartbeats are authenticated with a server-side `NOUS_FLEET_TOKEN`. The token must be stored as a secret in each backend environment; never expose it in a browser build or commit it.
 - The registry is stored in SQLite at `NOUS_FLEET_DB_PATH` (or `NOUS_DATA_DIR/nous_fleet.sqlite3`). Configure a persistent Render disk and point `NOUS_FLEET_DB_PATH` at its mount path, such as `/var/data/nous_fleet.sqlite3`. Without persistent storage, registry data can be lost on redeploy/restart.
@@ -16,7 +16,7 @@ NOUS Fleet Coordination is the first control-plane layer for installations deplo
 2. Configure a high-entropy `NOUS_FLEET_TOKEN` as a server-side secret on the coordinator and each participating backend installation. Keep it separate from browser-visible `VITE_*` variables.
 3. Configure a persistent disk on the coordinator and set `NOUS_FLEET_DB_PATH` to a file on that disk.
 4. Set `NOUS_FLEET_TARGET_VERSION` to the exact version or release identifier all installations should converge on.
-5. After this PR is deployed, each installation can POST its metadata to `/api/fleet/heartbeat`; use the same fleet secret in `X-NOUS-FLEET-TOKEN`. Admin clients can GET `/api/fleet/status` with the admin token.
+5. After this PR is deployed, each installation can POST its metadata to `/api/agent-environments/fleet/heartbeat`; use the same fleet secret in `X-NOUS-FLEET-TOKEN`. Admin clients can GET `/api/agent-environments/fleet/status` with the admin token.
 
 Example heartbeat body:
 
