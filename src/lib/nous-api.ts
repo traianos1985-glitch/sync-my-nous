@@ -68,8 +68,11 @@ function trackRequest<T>(run: () => Promise<T>): Promise<T> {
     (error) => {
       const status = (error as { status?: number })?.status;
       const msg = error instanceof Error ? error.message : "";
-      if ((status && [502, 503, 504].includes(status)) || /\((502|503|504)\)/.test(msg)) gatewayFailures += 1;
-      else if (!(error instanceof DOMException)) gatewayFailures = Math.max(0, gatewayFailures);
+      if ((status && [502, 503, 504].includes(status)) || /\((502|503|504)\)/.test(msg)) {
+        gatewayFailures += 1;
+      } else if (!(error instanceof DOMException)) {
+        gatewayFailures = Math.max(0, gatewayFailures);
+      }
       finish();
       throw error;
     },
