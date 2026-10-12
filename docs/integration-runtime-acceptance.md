@@ -99,3 +99,10 @@ This checklist separates repository CI success from end-to-end runtime validatio
 - AI-generated environment recommendations are review-only: the parser must force `safe_to_automate=false` and `requires_human_approval=true`, regardless of model-provided flags.
 - Non-string and oversized model responses must be rejected before parsing or storing recommendations.
 - Verify the bootstrap report and request logs contain no API-key value.
+
+## Runtime diagnostics resilience
+
+- Queue diagnostics tolerate malformed persisted entries and cap a single scan at 2,000 tasks; truncated scans report degraded status.
+- Diagnostic responses expose only bounded integrity summaries, not raw store metadata, paths, or journal event details.
+- Mission counters are normalized to finite non-negative bounded integers; malformed values must not crash the entire diagnostic run.
+- A broken subsystem must not prevent independent diagnostic components from returning results.

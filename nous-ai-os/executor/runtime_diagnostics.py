@@ -36,20 +36,37 @@ def _journal_check() -> dict[str, Any]:
     from executor.agent_journal import verify_journal
 
     result = verify_journal()
-    if not isinstance(result, dict) or result.get("ok") is not True:
-        return {"status": "degraded", "integrity": result if isinstance(result, dict) else {"ok": False}}
-    return {"status": "healthy", "integrity": result}
+    ok = isinstance(result, dict) and result.get("ok") is True
+    # Expose only a minimal integrity summary; raw journal diagnostics may include
+    # paths or event metadata that should not be copied into a broad health API.
+    integrity: dict[str, Any] = {"ok": ok}
+    if isinstance(result, dict):
+        for key in ("entries_checked", "valid_entries", "invalid_entries"):
+            value = result.get(key)
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 10_000_000:
+                integrity[key] = value
+    return {"status": "healthy" if ok else "degraded", "integrity": integrity}
 
 
 def _queue_check() -> dict[str, Any]:
     from executor.task_queue import inspect_queue_store, list_queue
 
     store = inspect_queue_store()
-    items = list_queue()
+    raw_items = list_queue()
+    items = raw_items if isinstance(raw_items, list) else []
     counts = {"pending": 0, "running": 0, "done": 0, "failed": 0, "other": 0}
     stale_running = 0
+    malformed = 0
     now = time.time()
-    for item in items:
+    # Health reporting must remain bounded even if persisted queue state grows
+    # unexpectedly. A truncated scan is reported as degraded, never healthy.
+    scan_limit = 2_000
+    truncated = len(items) > scan_limit
+    for item in items[:scan_limit]:
+        if not isinstance(item, dict):
+            counts["other"] += 1
+            malformed += 1
+            continue
         status = item.get("status")
         if isinstance(status, str) and status in counts:
             counts[status] += 1
@@ -62,17 +79,39 @@ def _queue_check() -> dict[str, Any]:
                 started = 0
             if not math.isfinite(started) or started <= 0 or started > now or now - started >= 900:
                 stale_running += 1
+    store_status = store.get("status") if isinstance(store, dict) else "unavailable"
+    if store_status not in {"healthy", "degraded", "unavailable"}:
+        store_status = "unavailable"
+    # Keep stable, bounded integrity fields for existing consumers without
+    # exposing arbitrary store metadata or filesystem paths.
+    store_integrity: dict[str, Any] = {"status": store_status}
+    if isinstance(store, dict):
+        error = store.get("error")
+        if isinstance(error, str):
+            if error.startswith("queue_store_unreadable:"):
+                # Do not expose exception text: it may contain private paths or secrets.
+                store_integrity["error"] = "queue_store_unreadable"
+            elif error in {"queue_store_not_a_list", "queue_store_integrity_failure"}:
+                store_integrity["error"] = error
+        for key in ("record_count", "malformed_records"):
+            value = store.get(key)
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 10_000_000:
+                store_integrity[key] = value
     degraded = (
-        store.get("status") != "healthy"
+        store_status != "healthy"
         or counts["failed"] > 0
         or stale_running > 0
         or counts["other"] > 0
+        or truncated
     )
     return {
         "status": "degraded" if degraded else "healthy",
         "counts": counts,
         "stale_running": stale_running,
-        "store_integrity": store,
+        "malformed_items": malformed,
+        "scanned_items": min(len(items), scan_limit),
+        "truncated": truncated,
+        "store_integrity": store_integrity,
     }
 
 
@@ -83,14 +122,30 @@ def _mission_check() -> dict[str, Any]:
     result = mission_status()
     if not isinstance(result, dict):
         return {"status": "unavailable", "error": "invalid_mission_status"}
-    blocked = int(result.get("blocked", 0) or 0)
-    active = int(result.get("active", 0) or 0)
-    done = int(result.get("done", 0) or 0)
-    integrity = audit_missions(list_missions())
-    degraded = blocked > 0 or integrity.get("ok") is not True
+
+    def safe_count(value: Any) -> int:
+        try:
+            count = int(value or 0)
+        except (TypeError, ValueError, OverflowError):
+            return 0
+        return min(max(count, 0), 10_000_000)
+
+    counts = {
+        name: safe_count(result.get(name, 0))
+        for name in ("total", "active", "done", "blocked")
+    }
+    integrity_result = audit_missions(list_missions())
+    integrity_ok = isinstance(integrity_result, dict) and integrity_result.get("ok") is True
+    integrity = {"ok": integrity_ok}
+    if isinstance(integrity_result, dict):
+        for key in ("checked", "invalid", "duplicates"):
+            value = integrity_result.get(key)
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 10_000_000:
+                integrity[key] = value
+    degraded = counts["blocked"] > 0 or not integrity_ok
     return {
         "status": "degraded" if degraded else "healthy",
-        "counts": {"total": int(result.get("total", 0) or 0), "active": active, "done": done, "blocked": blocked},
+        "counts": counts,
         "integrity": integrity,
     }
 

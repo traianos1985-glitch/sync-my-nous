@@ -84,7 +84,7 @@ def test_diagnostics_detects_corrupt_queue_json_instead_of_reporting_empty_healt
     assert queue.list_queue() == []
     assert component["status"] == "degraded"
     assert component["store_integrity"]["status"] == "degraded"
-    assert component["store_integrity"]["error"].startswith("queue_store_unreadable:")
+    assert component["store_integrity"]["error"] == "queue_store_unreadable"
     assert report["ok"] is False
 
 
