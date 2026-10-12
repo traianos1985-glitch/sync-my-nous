@@ -1,3 +1,4 @@
+import importlib
 import json
 
 import pytest
@@ -5,6 +6,8 @@ from flask import Flask
 
 from executor import fleet_agent, fleet_coordinator as fleet, fleet_rollout
 from executor.blueprints.agent_environments_bp import agent_environments_bp
+
+environments_bp_module = importlib.import_module("executor.blueprints.agent_environments_bp")
 
 
 @pytest.fixture(autouse=True)
@@ -261,3 +264,57 @@ def test_invalid_canary_configuration_fails_closed(monkeypatch):
     result = fleet_rollout.reconcile_and_dispatch()
     assert result["ok"] is False
     assert result["error"] == "canary_target_not_mapped"
+
+
+
+def test_heartbeat_health_status_uses_completed_response_code(monkeypatch):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environments_bp)
+    reports = []
+    monkeypatch.setattr(
+        environments_bp_module,
+        "send_heartbeat",
+        lambda **kwargs: reports.append(kwargs),
+    )
+
+    @app.get("/test-ok")
+    def ok_route():
+        return {"ok": True}, 200
+
+    @app.get("/test-fail")
+    def failed_route():
+        return {"ok": False}, 503
+
+    client = app.test_client()
+    assert client.get("/test-ok").status_code == 200
+    assert reports[-1] == {"status": "healthy"}
+    assert client.get("/test-fail").status_code == 503
+    assert reports[-1] == {"status": "degraded"}
+
+
+def test_heartbeat_client_transmits_explicit_degraded_status(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_COORDINATOR_URL", "https://coordinator.example")
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "secret")
+    monkeypatch.setenv("NOUS_FLEET_INSTANCE_ID", "nous-test-01")
+    seen = {}
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _limit):
+            return b'{"ok":true}'
+
+    def fake_urlopen(req, timeout):
+        seen["body"] = json.loads(req.data.decode("utf-8"))
+        return Response()
+
+    monkeypatch.setattr(fleet_agent.urllib.request, "urlopen", fake_urlopen)
+    result = fleet_agent.send_heartbeat(force=True, status="degraded")
+    assert result["ok"] is True
+    assert seen["body"]["status"] == "degraded"
