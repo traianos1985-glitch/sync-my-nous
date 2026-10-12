@@ -1,0 +1,38 @@
+name: NOUS Fleet Rollout Controller
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nous-fleet-rollout-controller
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Reconcile fleet drift (opt-in)
+        env:
+          COORDINATOR_URL: ${{ secrets.NOUS_FLEET_COORDINATOR_URL }}
+          ROLLOUT_TOKEN: ${{ secrets.NOUS_FLEET_ROLLOUT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${COORDINATOR_URL}" || -z "${ROLLOUT_TOKEN}" ]]; then
+            echo "Fleet rollout is not configured; no deployment was requested."
+            exit 0
+          fi
+          if [[ "${COORDINATOR_URL}" != https://* ]]; then
+            echo "NOUS_FLEET_COORDINATOR_URL must use HTTPS." >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 25 \
+            --request POST "${COORDINATOR_URL%/}/api/agent-environments/fleet/rollout/reconcile" \
+            --header "X-NOUS-FLEET-ROLLOUT-TOKEN: ${ROLLOUT_TOKEN}" \
+            --header "Accept: application/json"
