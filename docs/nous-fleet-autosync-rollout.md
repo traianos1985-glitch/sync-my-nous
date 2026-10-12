@@ -16,7 +16,9 @@ This package adds request-driven heartbeats, central version-drift detection, a 
 - `POST /api/agent-environments/fleet/heartbeat` — backend-only authenticated metadata report.
 - `GET /api/agent-environments/fleet/status` — administrator-only fleet inventory and version drift.
 - `GET /api/agent-environments/fleet/rollout/status` — administrator-only rollout queue and outcomes.
-- `GET /api/agent-environments/fleet/rollout/preflight` — administrator-only, secret-safe readiness checklist for required server configuration, enabled targets, canary configuration, storage directory readiness, and fleet drift.
+- `GET /api/agent-environments/fleet/rollout/preflight` — administrator-only, secret-safe readiness
+  checklist for required server configuration, enabled targets, canary configuration, storage directory
+  readiness, and fleet drift.
 - `POST /api/agent-environments/fleet/rollout/reconcile` — administrator token or dedicated rollout token; queues drift and dispatches at most one configured provider trigger.
 
 ## Configure the central coordinator
@@ -86,7 +88,11 @@ The workflow `.github/workflows/nous-fleet-rollout.yml` runs every 15 minutes an
 ## Safety and operational boundaries
 
 - This is a one-target-per-run rollout trigger, not a guarantee of zero-downtime or a claim that every host has completed deployment.
-- The provider accepting a trigger is recorded as `requested`; convergence is confirmed by subsequent heartbeats and appears as `converged`. Jobs can become `blocked` when a post-deploy heartbeat reports degradation. With `NOUS_FLEET_CANARY_IDS` configured, a failed canary halts expansion. Use `/fleet/status` and `/fleet/rollout/status` to inspect results; use `/fleet/rollout/preflight` before enabling automatic deployment.
+- The provider accepting a trigger is recorded as `requested`; convergence is confirmed by subsequent
+  heartbeats and appears as `converged`. Jobs can become `blocked` when a post-deploy heartbeat reports
+  degradation. With `NOUS_FLEET_CANARY_IDS` configured, a failed canary halts expansion. Use
+  `/fleet/status` and `/fleet/rollout/status` to inspect results; use `/fleet/rollout/preflight` before
+  enabling automatic deployment.
 - The queue is persisted alongside the fleet SQLite database and uses a unique instance/release key to avoid duplicate triggers.
 - Rollout is opt-in and disabled by default. Keep it disabled until the service IDs, branch targets, credentials, health behavior, and release version are verified.
 - The heartbeat status is a lightweight liveness signal and does not replace provider build status, dependency checks, synthetic requests, or rollback. This package halts canary expansion when a canary reports degraded but does not claim automatic provider rollback.
@@ -94,4 +100,10 @@ The workflow `.github/workflows/nous-fleet-rollout.yml` runs every 15 minutes an
 
 ## Preflight diagnostics
 
-Call `GET /api/agent-environments/fleet/rollout/preflight` with an administrator-scoped token before enabling the controller. The response reports whether the heartbeat token, dedicated rollout token, target release, enabled provider mappings, canary configuration, and database directory appear ready. It reports only boolean readiness and safe diagnostic text; it never returns secret values or deploy-hook URLs. Render API key presence is checked only when an enabled Render target exists. The endpoint does not prove that GitHub Actions secrets exist, that storage survives a restart, or that a provider deployment will succeed. A `ready` result is a configuration checklist, not a production end-to-end verification.
+Call `GET /api/agent-environments/fleet/rollout/preflight` with an administrator-scoped token before
+enabling the controller. The response reports whether the heartbeat token, dedicated rollout token, target
+release, enabled provider mappings, canary configuration, and database directory appear ready. It reports
+only boolean readiness and safe diagnostic text; it never returns secret values or deploy-hook URLs. Render
+API key presence is checked only when an enabled Render target exists. The endpoint does not prove that
+GitHub Actions secrets exist, that storage survives a restart, or that a provider deployment will succeed.
+A `ready` result is a configuration checklist, not a production end-to-end verification.
