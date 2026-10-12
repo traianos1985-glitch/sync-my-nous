@@ -119,11 +119,24 @@ def _queue_drift(targets: dict[str, dict[str, Any]], desired: str) -> int:
                 (instance_id, desired, target["provider"], now, now),
             )
             queued += max(0, cur.rowcount)
-            # Retry a failed request only after a cooldown, keeping retries bounded.
+            # Reconcile abandoned dispatches and retry bounded failures. A provider
+            # accepting a trigger is not proof that the instance converged.
+            conn.execute(
+                """UPDATE fleet_rollout_jobs SET state='failed', last_error='dispatch_timeout', updated_at=?
+                WHERE instance_id=? AND desired_version=? AND state='dispatching' AND updated_at < ?""",
+                (now, instance_id, desired, now - 300),
+            )
             conn.execute(
                 """UPDATE fleet_rollout_jobs SET state='queued', last_error=NULL, updated_at=?
-                WHERE instance_id=? AND desired_version=? AND state='failed' AND updated_at < ?""",
+                WHERE instance_id=? AND desired_version=? AND state='failed'
+                AND attempts < 3 AND updated_at < ?""",
                 (now, instance_id, desired, now - 900),
+            )
+            conn.execute(
+                """UPDATE fleet_rollout_jobs SET state='queued', last_error=NULL, updated_at=?
+                WHERE instance_id=? AND desired_version=? AND state='requested'
+                AND attempts < 3 AND updated_at < ?""",
+                (now, instance_id, desired, now - 1800),
             )
         conn.commit()
     finally:
