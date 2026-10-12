@@ -6,3 +6,4 @@
 - [x] API: resilient /overview, new /api/system/metrics, uptime
 - [x] Cloud: Procfile uses PORT/gunicorn, render.yaml, docker port fix
 - [x] Dashboard live data from NOUS API (Render URL, token auth, timeout handling, CORS)
+- [x] nous-api.ts: always call Render directly (no /api/nous relative base); backend accepts https://*.lovable.app origins
