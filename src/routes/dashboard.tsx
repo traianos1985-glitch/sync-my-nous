@@ -1206,8 +1206,7 @@ function Dashboard() {
             className="flex items-center gap-2 border-b border-warn/40 bg-warn/10 px-4 py-2 text-xs text-warn"
           >
             <span className="h-2 w-2 animate-pulse rounded-full bg-warn" />
-            Ο NOUS ξυπνάει (cold start του server) — μπορεί να χρειαστεί έως ένα λεπτό.
-            Περίμενε, το αίτημά σου συνεχίζει.
+            {"Ο NOUS ξυπνάει (cold start του server) — μπορεί να χρειαστεί έως ένα λεπτό. Περίμενε, το αίτημά σου συνεχίζει."}
           </div>
         )}
         <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
