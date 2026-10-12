@@ -4,7 +4,10 @@ const apiClient = readFileSync("src/lib/nous-api.ts", "utf8");
 const dashboard = readFileSync("src/routes/dashboard.tsx", "utf8");
 const flaskDashboardApi = readFileSync("nous-ai-os/executor/dashboard_api.py", "utf8");
 const flaskRouter = readFileSync("nous-ai-os/executor/router.py", "utf8");
-const fleetBlueprint = readFileSync("nous-ai-os/executor/blueprints/agent_environments_bp.py", "utf8");
+const fleetBlueprint = readFileSync(
+  "nous-ai-os/executor/blueprints/agent_environments_bp.py",
+  "utf8",
+);
 const sectionConfigs = readFileSync("src/components/nous/section-configs.ts", "utf8");
 const errors = [];
 
