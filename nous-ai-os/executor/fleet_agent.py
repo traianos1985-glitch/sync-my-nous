@@ -19,7 +19,9 @@ from typing import Any
 _LOCK = threading.Lock()
 _LAST_SENT = 0.0
 _LAST_STATUS = ""
+_LAST_ATTEMPT = 0.0
 _INTERVAL_SECONDS = 300
+_FAILURE_RETRY_SECONDS = 15
 _TIMEOUT_SECONDS = 1.5
 _INSTANCE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,79}$")
 
@@ -64,11 +66,15 @@ def send_heartbeat(force: bool = False, status: str = "healthy") -> dict[str, An
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
         return {"ok": False, "skipped": True, "reason": "coordinator_must_be_https"}
     now = time.monotonic()
+    global _LAST_ATTEMPT
     with _LOCK:
         if not force and status == _LAST_STATUS and now - _LAST_SENT < _INTERVAL_SECONDS:
             return {"ok": True, "skipped": True, "reason": "heartbeat_interval"}
-        _LAST_SENT = now
-        _LAST_STATUS = status
+        # Failed network attempts must not consume the five-minute success interval.
+        # Keep a short attempt cooldown to avoid a burst of requests during outages.
+        if not force and _LAST_ATTEMPT and now - _LAST_ATTEMPT < _FAILURE_RETRY_SECONDS:
+            return {"ok": False, "skipped": True, "reason": "failure_retry_cooldown"}
+        _LAST_ATTEMPT = now
 
     version, commit = _version_metadata()
     payload = {
@@ -90,16 +96,22 @@ def send_heartbeat(force: bool = False, status: str = "healthy") -> dict[str, An
         with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
             raw = response.read(8192)
             result = json.loads(raw.decode("utf-8")) if raw else {}
-            return {"ok": 200 <= response.status < 300, "coordinator_status": response.status,
-                    "desired_version": result.get("desired_version"),
-                    "update_available": bool(result.get("update_available"))}
+            ok = 200 <= response.status < 300 and isinstance(result, dict) and result.get("ok") is True
+            if ok:
+                with _LOCK:
+                    _LAST_SENT = time.monotonic()
+                    _LAST_STATUS = status
+            return {"ok": ok, "coordinator_status": response.status,
+                    "desired_version": result.get("desired_version") if isinstance(result, dict) else None,
+                    "update_available": bool(result.get("update_available")) if isinstance(result, dict) else False}
     except (urllib.error.URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
         return {"ok": False, "error": "coordinator_unreachable"}
 
 
 def reset_heartbeat_for_tests() -> None:
     """Reset the process-local throttle for tests."""
-    global _LAST_SENT, _LAST_STATUS
+    global _LAST_SENT, _LAST_STATUS, _LAST_ATTEMPT
     with _LOCK:
         _LAST_SENT = 0.0
         _LAST_STATUS = ""
+        _LAST_ATTEMPT = 0.0
