@@ -160,3 +160,104 @@ def test_rollout_reconcile_requires_admin_or_dedicated_token(monkeypatch):
     response = client.post(url, json={}, headers={"X-NOUS-FLEET-ROLLOUT-TOKEN": "rollout-test-secret"})
     assert response.status_code == 200
     assert response.get_json()["reason"] == "automatic_rollout_disabled"
+
+
+
+def test_requested_rollout_becomes_converged_only_after_healthy_target_heartbeat(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_AUTO_DEPLOY", "true")
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-render-01": {"provider": "render", "service_id": "srv_12345", "enabled": True}
+    }))
+    fleet.record_heartbeat({
+        "instance_id": "nous-render-01", "provider": "render",
+        "version": "release-1", "status": "healthy",
+    })
+    monkeypatch.setattr(
+        fleet_rollout, "_request_render",
+        lambda _service_id: {"ok": True, "status_code": 202},
+    )
+    first = fleet_rollout.reconcile_and_dispatch()
+    assert first["state"] == "requested"
+    fleet.record_heartbeat({
+        "instance_id": "nous-render-01", "provider": "render",
+        "version": "release-2", "status": "healthy",
+    })
+    fleet_rollout.reconcile_and_dispatch()
+    jobs = fleet_rollout.rollout_status()["jobs"]
+    assert jobs[0]["state"] == "converged"
+
+
+def test_canary_gate_blocks_non_canary_until_healthy_convergence(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_AUTO_DEPLOY", "true")
+    monkeypatch.setenv("NOUS_FLEET_CANARY_IDS", "nous-render-01")
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-render-01": {"provider": "render", "service_id": "srv_12345", "enabled": True},
+        "nous-render-02": {"provider": "render", "service_id": "srv_67890", "enabled": True},
+    }))
+    for instance_id in ("nous-render-01", "nous-render-02"):
+        fleet.record_heartbeat({
+            "instance_id": instance_id, "provider": "render",
+            "version": "release-1", "status": "healthy",
+        })
+    calls = []
+    monkeypatch.setattr(
+        fleet_rollout, "_request_render",
+        lambda service_id: calls.append(service_id) or {"ok": True, "status_code": 202},
+    )
+    first = fleet_rollout.reconcile_and_dispatch()
+    assert first["instance_id"] == "nous-render-01"
+    assert calls == ["srv_12345"]
+    # Until the canary reports the desired release, another reconcile cannot trigger
+    # a deployment for the rest of the fleet.
+    second = fleet_rollout.reconcile_and_dispatch()
+    assert second["dispatched"] is False
+    assert second["reason"] == "canary_convergence_required"
+    assert calls == ["srv_12345"]
+    fleet.record_heartbeat({
+        "instance_id": "nous-render-01", "provider": "render",
+        "version": "release-2", "status": "healthy",
+    })
+    third = fleet_rollout.reconcile_and_dispatch()
+    assert third["instance_id"] == "nous-render-02"
+    assert calls == ["srv_12345", "srv_67890"]
+
+
+def test_unhealthy_canary_blocks_further_rollouts(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_AUTO_DEPLOY", "true")
+    monkeypatch.setenv("NOUS_FLEET_CANARY_IDS", "nous-render-01")
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-render-01": {"provider": "render", "service_id": "srv_12345", "enabled": True},
+        "nous-render-02": {"provider": "render", "service_id": "srv_67890", "enabled": True},
+    }))
+    fleet.record_heartbeat({
+        "instance_id": "nous-render-01", "provider": "render",
+        "version": "release-1", "status": "healthy",
+    })
+    fleet.record_heartbeat({
+        "instance_id": "nous-render-02", "provider": "render",
+        "version": "release-1", "status": "healthy",
+    })
+    monkeypatch.setattr(
+        fleet_rollout, "_request_render",
+        lambda _service_id: {"ok": True, "status_code": 202},
+    )
+    fleet_rollout.reconcile_and_dispatch()
+    fleet.record_heartbeat({
+        "instance_id": "nous-render-01", "provider": "render",
+        "version": "release-2", "status": "degraded",
+    })
+    result = fleet_rollout.reconcile_and_dispatch()
+    assert result["dispatched"] is False
+    assert result["reason"] == "canary_health_gate_blocked"
+    assert fleet_rollout.rollout_status()["counts"]["blocked"] == 1
+
+
+def test_invalid_canary_configuration_fails_closed(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_AUTO_DEPLOY", "true")
+    monkeypatch.setenv("NOUS_FLEET_CANARY_IDS", "nous-not-mapped-01")
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-render-01": {"provider": "render", "service_id": "srv_12345", "enabled": True}
+    }))
+    result = fleet_rollout.reconcile_and_dispatch()
+    assert result["ok"] is False
+    assert result["error"] == "canary_target_not_mapped"

@@ -1,7 +1,9 @@
-"""Opt-in, idempotent fleet rollout queue for supported provider deployment triggers.
+"""Opt-in, idempotent fleet rollout queue with optional canary and convergence gates.
 
-The controller only acts on explicitly mapped instances and only when enabled on the
-central backend. It never executes remote shell commands or accepts URLs from heartbeats.
+Only explicitly mapped provider targets are dispatched. A provider accepting a trigger
+is not considered success: a later authenticated heartbeat must report the desired
+version and healthy liveness status before the job is marked converged. Canary mode
+halts expansion when its configured instances fail to converge or report degradation.
 """
 from __future__ import annotations
 
@@ -20,8 +22,11 @@ from executor.fleet_coordinator import fleet_status
 
 _TRUE = {"1", "true", "yes", "on"}
 _MAX_TARGETS = 50
+_MAX_CANARIES = 10
 _MAX_JOBS = 100
 _SERVICE_ID = re.compile(r"^[A-Za-z0-9_-]{3,128}$")
+_INSTANCE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,79}$")
+_RETRY_LIMIT = 3
 
 
 def _enabled() -> bool:
@@ -71,7 +76,7 @@ def _targets() -> tuple[dict[str, dict[str, Any]], str | None]:
         return {}, "invalid_deploy_targets_shape"
     clean: dict[str, dict[str, Any]] = {}
     for instance_id, value in data.items():
-        if not isinstance(instance_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,79}", instance_id):
+        if not isinstance(instance_id, str) or not _INSTANCE_ID.fullmatch(instance_id):
             return {}, "invalid_instance_mapping"
         if not isinstance(value, dict):
             return {}, "invalid_target_mapping"
@@ -99,16 +104,107 @@ def _targets() -> tuple[dict[str, dict[str, Any]], str | None]:
     return clean, None
 
 
-def _queue_drift(targets: dict[str, dict[str, Any]], desired: str) -> int:
+def _canary_ids(targets: dict[str, dict[str, Any]]) -> tuple[list[str], str | None]:
+    """Read a bounded, explicit comma-separated canary list; empty preserves legacy mode."""
+    raw = os.environ.get("NOUS_FLEET_CANARY_IDS", "").strip()
+    if not raw:
+        return [], None
+    ids = [item.strip() for item in raw.split(",") if item.strip()]
+    if not ids or len(ids) > _MAX_CANARIES or len(ids) != len(set(ids)):
+        return [], "invalid_canary_ids"
+    if any(not _INSTANCE_ID.fullmatch(item) for item in ids):
+        return [], "invalid_canary_ids"
+    if any(item not in targets for item in ids):
+        return [], "canary_target_not_mapped"
+    return ids, None
+
+
+def _reconcile_observed_convergence(status: dict[str, Any], desired: str) -> None:
+    """Convert provider-accepted jobs into converged/blocked only from fresh heartbeats."""
+    now = time.time()
+    instances = {item.get("instance_id"): item for item in status.get("instances", [])}
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, instance_id, state FROM fleet_rollout_jobs "
+            "WHERE desired_version=? AND state IN ('queued', 'requested', 'dispatching')",
+            (desired,),
+        ).fetchall()
+        for row in rows:
+            item = instances.get(row["instance_id"])
+            if not item or item.get("stale"):
+                continue
+            if item.get("reported_status") == "degraded":
+                conn.execute(
+                    "UPDATE fleet_rollout_jobs SET state='blocked', last_error='post_deploy_degraded', updated_at=? WHERE id=?",
+                    (now, row["id"]),
+                )
+            elif item.get("version") == desired and item.get("reported_status") == "healthy":
+                conn.execute(
+                    "UPDATE fleet_rollout_jobs SET state='converged', last_error=NULL, updated_at=? WHERE id=?",
+                    (now, row["id"]),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _canary_gate(
+    status: dict[str, Any], desired: str, canaries: list[str]
+) -> tuple[bool, str | None]:
+    """Return whether all canaries are fresh, healthy, and running the target release."""
+    if not canaries:
+        return True, None
+    instances = {item.get("instance_id"): item for item in status.get("instances", [])}
+    conn = _connect()
+    try:
+        for canary in canaries:
+            item = instances.get(canary)
+            if not item or item.get("stale"):
+                return False, "canary_convergence_required"
+            if item.get("reported_status") == "degraded":
+                return False, "canary_health_gate_blocked"
+            if item.get("version") != desired or item.get("reported_status") != "healthy":
+                return False, "canary_convergence_required"
+            job = conn.execute(
+                "SELECT state FROM fleet_rollout_jobs WHERE instance_id=? AND desired_version=?",
+                (canary, desired),
+            ).fetchone()
+            if job and job["state"] == "blocked":
+                return False, "canary_health_gate_blocked"
+            if job and job["state"] not in {"converged"}:
+                # If already on the target before this rollout, a healthy heartbeat is
+                # enough; otherwise a dispatched job must explicitly converge.
+                return False, "canary_convergence_required"
+        return True, None
+    finally:
+        conn.close()
+
+
+def _queue_drift(
+    targets: dict[str, dict[str, Any]],
+    desired: str,
+    canaries: list[str],
+    canary_gate_open: bool,
+) -> int:
     status = fleet_status()
     now = time.time()
     queued = 0
+    # During canary stage, only canaries may enter the queue. Once all canaries have
+    # converged, queue only the remaining fleet; already-current instances are skipped.
+    if canaries and not canary_gate_open:
+        allowed_ids = set(canaries)
+    elif canaries:
+        allowed_ids = set(targets) - set(canaries)
+    else:
+        allowed_ids = set(targets)
     conn = _connect()
     try:
         for item in status.get("instances", []):
             instance_id = item.get("instance_id")
             target = targets.get(instance_id)
-            if not target or item.get("stale") or not item.get("update_available"):
+            if (instance_id not in allowed_ids or not target or item.get("stale")
+                    or not item.get("update_available")):
                 continue
             if item.get("provider") != target["provider"]:
                 continue
@@ -119,8 +215,7 @@ def _queue_drift(targets: dict[str, dict[str, Any]], desired: str) -> int:
                 (instance_id, desired, target["provider"], now, now),
             )
             queued += max(0, cur.rowcount)
-            # Reconcile abandoned dispatches and retry bounded failures. A provider
-            # accepting a trigger is not proof that the instance converged.
+            # Recover abandoned claims and apply bounded retry cooldowns.
             conn.execute(
                 """UPDATE fleet_rollout_jobs SET state='failed', last_error='dispatch_timeout', updated_at=?
                 WHERE instance_id=? AND desired_version=? AND state='dispatching' AND updated_at < ?""",
@@ -129,14 +224,14 @@ def _queue_drift(targets: dict[str, dict[str, Any]], desired: str) -> int:
             conn.execute(
                 """UPDATE fleet_rollout_jobs SET state='queued', last_error=NULL, updated_at=?
                 WHERE instance_id=? AND desired_version=? AND state='failed'
-                AND attempts < 3 AND updated_at < ?""",
-                (now, instance_id, desired, now - 900),
+                AND attempts < ? AND updated_at < ?""",
+                (now, instance_id, desired, _RETRY_LIMIT, now - 900),
             )
             conn.execute(
                 """UPDATE fleet_rollout_jobs SET state='queued', last_error=NULL, updated_at=?
                 WHERE instance_id=? AND desired_version=? AND state='requested'
-                AND attempts < 3 AND updated_at < ?""",
-                (now, instance_id, desired, now - 1800),
+                AND attempts < ? AND updated_at < ?""",
+                (now, instance_id, desired, _RETRY_LIMIT, now - 1800),
             )
         conn.commit()
     finally:
@@ -199,7 +294,6 @@ def _dispatch_one(targets: dict[str, dict[str, Any]]) -> dict[str, Any]:
                          (time.time(), row["id"]))
             conn.commit()
             return {"dispatched": False, "reason": "target_mapping_missing"}
-        # Mark before the external call so concurrent cron invocations cannot dispatch the same row.
         claimed = conn.execute(
             "UPDATE fleet_rollout_jobs SET state='dispatching', attempts=attempts+1, updated_at=? WHERE id=? AND state='queued'",
             (time.time(), row["id"]),
@@ -231,7 +325,7 @@ def _dispatch_one(targets: dict[str, dict[str, Any]]) -> dict[str, Any]:
 
 
 def reconcile_and_dispatch() -> dict[str, Any]:
-    """Queue active version drift and dispatch at most one configured provider deployment."""
+    """Queue active version drift and dispatch at most one configured deployment."""
     if not _enabled():
         return {"ok": True, "enabled": False, "queued": 0, "dispatched": False,
                 "reason": "automatic_rollout_disabled"}
@@ -242,10 +336,33 @@ def reconcile_and_dispatch() -> dict[str, Any]:
     targets, error = _targets()
     if error:
         return {"ok": False, "enabled": True, "error": error}
-    queued = _queue_drift(targets, str(desired))
+    canaries, error = _canary_ids(targets)
+    if error:
+        return {"ok": False, "enabled": True, "error": error}
+
+    _reconcile_observed_convergence(status, str(desired))
+    status = fleet_status()
+    gate_open, gate_reason = _canary_gate(status, str(desired), canaries)
+    if canaries and not gate_open and gate_reason == "canary_health_gate_blocked":
+        # A failed/degraded canary halts the entire rollout. No automatic rollback is
+        # claimed; an operator must inspect and explicitly remediate the provider.
+        return {"ok": True, "enabled": True, "desired_version": desired,
+                "mapped_target_count": len(targets), "canary_count": len(canaries),
+                "newly_queued": 0, "dispatched": False, "reason": gate_reason}
+    queued = _queue_drift(targets, str(desired), canaries, gate_open)
+    if canaries and not gate_open:
+        # Dispatch canary queue only; non-canaries are not queued until convergence.
+        result = _dispatch_one(targets)
+        if not result.get("dispatched"):
+            result["reason"] = gate_reason or "canary_convergence_required"
+        return {"ok": True, "enabled": True, "desired_version": desired,
+                "mapped_target_count": len(targets), "canary_count": len(canaries),
+                "canary_gate_open": False, "newly_queued": queued, **result}
     result = _dispatch_one(targets)
     return {"ok": True, "enabled": True, "desired_version": desired,
-            "mapped_target_count": len(targets), "newly_queued": queued, **result}
+            "mapped_target_count": len(targets), "canary_count": len(canaries),
+            "canary_gate_open": gate_open if canaries else None,
+            "newly_queued": queued, **result}
 
 
 def rollout_status() -> dict[str, Any]:
@@ -258,6 +375,7 @@ def rollout_status() -> dict[str, Any]:
         jobs = [dict(row) for row in rows]
     finally:
         conn.close()
-    return {"ok": True, "enabled": _enabled(), "jobs": jobs,
-            "counts": {state: sum(job["state"] == state for job in jobs)
-                       for state in ("queued", "dispatching", "requested", "failed")}}
+    states = ("queued", "dispatching", "requested", "converged", "failed", "blocked")
+    return {"ok": True, "enabled": _enabled(),
+            "canary_ids": [item.strip() for item in os.environ.get("NOUS_FLEET_CANARY_IDS", "").split(",") if item.strip()],
+            "jobs": jobs, "counts": {state: sum(job["state"] == state for job in jobs) for state in states}}
