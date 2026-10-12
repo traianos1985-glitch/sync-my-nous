@@ -10,6 +10,8 @@ from executor.preview_preflight import inspect_preview_compatibility
 from executor.provider_runtime import deploy_provider, probe_provider, provider_inventory, preview_catalog
 from executor.runtime_lifecycle import build_runtime_lifecycle_plan
 from executor.fleet_coordinator import fleet_status, record_heartbeat
+from executor.fleet_agent import send_heartbeat
+from executor.fleet_rollout import reconcile_and_dispatch, rollout_status
 
 agent_environments_bp = Blueprint("agent_environments", __name__, url_prefix="/api/agent-environments")
 
@@ -98,6 +100,19 @@ def preflight():
 # Fleet coordination routes live on this already-registered blueprint so existing
 # backend deployments gain the API without requiring a separate app bootstrap change.
 
+@agent_environments_bp.before_app_request
+def _fleet_heartbeat_on_request():
+    """Report metadata opportunistically; serverless-safe and rate-limited per process."""
+    if request.path.startswith("/api/agent-environments/fleet/"):
+        return None
+    try:
+        send_heartbeat()
+    except Exception:
+        # Fleet telemetry must never break normal NOUS requests.
+        pass
+    return None
+
+
 
 def _fleet_token_matches():
     expected = os.environ.get("NOUS_FLEET_TOKEN", "").strip()
@@ -124,3 +139,27 @@ def fleet_status_endpoint():
     if not check_admin_token(request):
         return jsonify({"ok": False, "error": "admin_scope_required"}), 403
     return jsonify(fleet_status())
+
+
+
+def _fleet_rollout_token_matches():
+    expected = os.environ.get("NOUS_FLEET_ROLLOUT_TOKEN", "").strip()
+    supplied = request.headers.get("X-NOUS-FLEET-ROLLOUT-TOKEN", "").strip()
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+
+
+@agent_environments_bp.get("/fleet/rollout/status")
+def fleet_rollout_status_endpoint():
+    """Expose bounded rollout job metadata to an administrator."""
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "admin_scope_required"}), 403
+    return jsonify(rollout_status())
+
+
+@agent_environments_bp.post("/fleet/rollout/reconcile")
+def fleet_rollout_reconcile_endpoint():
+    """Queue reported drift and dispatch at most one explicitly mapped deployment."""
+    if not check_admin_token(request) and not _fleet_rollout_token_matches():
+        return jsonify({"ok": False, "error": "rollout_authentication_required"}), 403
+    result = reconcile_and_dispatch()
+    return jsonify(result), (200 if result.get("ok") else 400)
