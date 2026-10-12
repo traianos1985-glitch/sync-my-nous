@@ -63,3 +63,26 @@ def test_lifecycle_plan_does_not_create_files_or_start_keepalive(tmp_path):
     assert before == after
     assert report["safety"]["resources_provisioned"] is False
     assert report["safety"]["background_keepalive_started"] is False
+
+
+def test_lifecycle_endpoint_returns_read_only_plan(monkeypatch):
+    from flask import Flask
+    from executor import blueprints
+    from executor.blueprints import agent_environments_bp
+
+    monkeypatch.setattr(
+        agent_environments_bp,
+        "build_runtime_lifecycle_plan",
+        lambda: {
+            "ok": True,
+            "mode": "read_only_plan",
+            "safety": {"filesystem_modified": False},
+        },
+    )
+    app = Flask("runtime-lifecycle-test")
+    app.register_blueprint(agent_environments_bp.agent_environments_bp)
+    response = app.test_client().get("/api/agent-environments/lifecycle")
+
+    assert response.status_code == 200
+    assert response.get_json()["mode"] == "read_only_plan"
+    assert response.get_json()["safety"]["filesystem_modified"] is False
