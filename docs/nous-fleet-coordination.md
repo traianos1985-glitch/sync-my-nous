@@ -21,7 +21,13 @@ NOUS Fleet Coordination is the first control-plane layer for installations deplo
 Example heartbeat body:
 
 ```json
-{"instance_id":"nous-vercel-01","provider":"vercel","version":"release-1","commit_sha":"abcdef1234567","status":"healthy"}
+{
+  "instance_id": "nous-vercel-01",
+  "provider": "vercel",
+  "version": "release-1",
+  "commit_sha": "abcdef1234567",
+  "status": "healthy"
+}
 ```
 
 ## Automatic updates: explicit boundary
