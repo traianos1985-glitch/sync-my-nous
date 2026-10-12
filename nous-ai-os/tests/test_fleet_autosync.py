@@ -345,3 +345,54 @@ def test_rollout_preflight_endpoint_requires_admin_token(monkeypatch):
     client = app.test_client()
     response = client.get("/api/agent-environments/fleet/rollout/preflight")
     assert response.status_code == 403
+
+
+
+def test_rollout_does_not_dispatch_obsolete_release_jobs(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_AUTO_DEPLOY", "true")
+    monkeypatch.setenv("NOUS_FLEET_TARGET_VERSION", "release-3")
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-render-01": {
+            "provider": "render",
+            "service_id": "srv_12345",
+            "enabled": True,
+        }
+    }))
+    fleet.record_heartbeat({
+        "instance_id": "nous-render-01",
+        "provider": "render",
+        "version": "release-1",
+        "status": "healthy",
+    })
+
+    conn = fleet_rollout._connect()
+    try:
+        now = 1_800_000_000.0
+        conn.execute(
+            """INSERT INTO fleet_rollout_jobs
+            (instance_id, desired_version, provider, state, attempts, created_at, updated_at)
+            VALUES (?, ?, ?, 'queued', 0, ?, ?)""",
+            ("nous-render-01", "release-2", "render", now, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    calls = []
+    monkeypatch.setattr(
+        fleet_rollout,
+        "_request_render",
+        lambda service_id: calls.append(service_id) or {"ok": True, "status_code": 202},
+    )
+
+    result = fleet_rollout.reconcile_and_dispatch()
+
+    assert result["desired_version"] == "release-3"
+    assert result["dispatched"] is True
+    assert calls == ["srv_12345"]
+    jobs = fleet_rollout.rollout_status()["jobs"]
+    old_job = next(job for job in jobs if job["desired_version"] == "release-2")
+    new_job = next(job for job in jobs if job["desired_version"] == "release-3")
+    assert old_job["state"] == "superseded"
+    assert old_job["last_error"] == "superseded_by_new_release"
+    assert new_job["state"] == "requested"

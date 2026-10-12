@@ -277,13 +277,33 @@ def _request_vercel(hook_url: str) -> dict[str, Any]:
         return {"ok": False, "error": "vercel_deploy_hook_unreachable"}
 
 
-def _dispatch_one(targets: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def _supersede_obsolete_jobs(desired: str) -> int:
+    """Prevent queued or retryable jobs for an older release from being dispatched."""
+    conn = _connect()
+    try:
+        now = time.time()
+        cur = conn.execute(
+            """UPDATE fleet_rollout_jobs
+            SET state='superseded', last_error='superseded_by_new_release', updated_at=?
+            WHERE desired_version != ? AND state IN ('queued', 'requested', 'failed')""",
+            (now, desired),
+        )
+        conn.commit()
+        return max(0, cur.rowcount)
+    finally:
+        conn.close()
+
+
+def _dispatch_one(
+    targets: dict[str, dict[str, Any]], desired: str
+) -> dict[str, Any]:
     conn = _connect()
     try:
         # Serialize claims across concurrent scheduled invocations.
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
-            "SELECT * FROM fleet_rollout_jobs WHERE state='queued' ORDER BY created_at, id LIMIT 1"
+            "SELECT * FROM fleet_rollout_jobs WHERE state='queued' AND desired_version=? ORDER BY created_at, id LIMIT 1",
+            (desired,)
         ).fetchone()
         if row is None:
             conn.commit()
@@ -349,16 +369,17 @@ def reconcile_and_dispatch() -> dict[str, Any]:
         return {"ok": True, "enabled": True, "desired_version": desired,
                 "mapped_target_count": len(targets), "canary_count": len(canaries),
                 "newly_queued": 0, "dispatched": False, "reason": gate_reason}
+    _supersede_obsolete_jobs(str(desired))
     queued = _queue_drift(targets, str(desired), canaries, gate_open)
     if canaries and not gate_open:
         # Dispatch canary queue only; non-canaries are not queued until convergence.
-        result = _dispatch_one(targets)
+        result = _dispatch_one(targets, str(desired))
         if not result.get("dispatched"):
             result["reason"] = gate_reason or "canary_convergence_required"
         return {"ok": True, "enabled": True, "desired_version": desired,
                 "mapped_target_count": len(targets), "canary_count": len(canaries),
                 "canary_gate_open": False, "newly_queued": queued, **result}
-    result = _dispatch_one(targets)
+    result = _dispatch_one(targets, str(desired))
     return {"ok": True, "enabled": True, "desired_version": desired,
             "mapped_target_count": len(targets), "canary_count": len(canaries),
             "canary_gate_open": gate_open if canaries else None,
@@ -375,7 +396,7 @@ def rollout_status() -> dict[str, Any]:
         jobs = [dict(row) for row in rows]
     finally:
         conn.close()
-    states = ("queued", "dispatching", "requested", "converged", "failed", "blocked")
+    states = ("queued", "dispatching", "requested", "converged", "failed", "blocked", "superseded")
     return {"ok": True, "enabled": _enabled(),
             "canary_ids": [item.strip() for item in os.environ.get("NOUS_FLEET_CANARY_IDS", "").split(",") if item.strip()],
             "jobs": jobs, "counts": {state: sum(job["state"] == state for job in jobs) for state in states}}
