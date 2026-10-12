@@ -435,7 +435,6 @@ def fleet_integration_status() -> dict[str, Any]:
                     }
         except (sqlite3.Error, OSError, ValueError):
             pass
-    targets, target_error = _targets()
     render_targets = [
         instance_id for instance_id, target in targets.items()
         if target.get("provider") == "render" and target.get("enabled") is True
