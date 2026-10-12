@@ -5,6 +5,7 @@ or accept arbitrary callbacks/URLs from remote installations.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
@@ -62,7 +63,7 @@ def _render_target_enabled(instance_id: str, provider: str) -> bool:
     if not os.environ.get("RENDER_API_KEY", "").strip():
         return False
     try:
-        targets = __import__("json").loads(os.environ.get("NOUS_FLEET_DEPLOY_TARGETS", "{}"))
+        targets = json.loads(os.environ.get("NOUS_FLEET_DEPLOY_TARGETS", "{}"))
     except (TypeError, ValueError):
         return False
     if not isinstance(targets, dict):
