@@ -127,7 +127,7 @@ def _reconcile_observed_convergence(status: dict[str, Any], desired: str) -> Non
     try:
         rows = conn.execute(
             "SELECT id, instance_id, state FROM fleet_rollout_jobs "
-            "WHERE desired_version=? AND state IN ('requested', 'dispatching')",
+            "WHERE desired_version=? AND state IN ('queued', 'requested', 'dispatching')",
             (desired,),
         ).fetchall()
         for row in rows:
@@ -353,6 +353,8 @@ def reconcile_and_dispatch() -> dict[str, Any]:
     if canaries and not gate_open:
         # Dispatch canary queue only; non-canaries are not queued until convergence.
         result = _dispatch_one(targets)
+        if not result.get("dispatched"):
+            result["reason"] = gate_reason or "canary_convergence_required"
         return {"ok": True, "enabled": True, "desired_version": desired,
                 "mapped_target_count": len(targets), "canary_count": len(canaries),
                 "canary_gate_open": False, "newly_queued": queued, **result}
