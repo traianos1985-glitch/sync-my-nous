@@ -318,3 +318,30 @@ def test_heartbeat_client_transmits_explicit_degraded_status(monkeypatch):
     result = fleet_agent.send_heartbeat(force=True, status="degraded")
     assert result["ok"] is True
     assert seen["body"]["status"] == "degraded"
+
+
+def test_rollout_preflight_reports_missing_configuration_without_secret_values(monkeypatch, tmp_path):
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "sensitive-heartbeat-sentinel")
+    monkeypatch.setenv("NOUS_FLEET_ROLLOUT_TOKEN", "sensitive-rollout-sentinel")
+    monkeypatch.delenv("NOUS_FLEET_DEPLOY_TARGETS", raising=False)
+    monkeypatch.setenv("NOUS_FLEET_DB_PATH", str(tmp_path / "missing" / "fleet.sqlite3"))
+    result = fleet_rollout.rollout_preflight()
+    assert result["ok"] is True
+    assert result["ready"] is False
+    checks = {item["id"]: item for item in result["checks"]}
+    assert checks["heartbeat_token"]["ready"] is True
+    assert checks["rollout_token"]["ready"] is True
+    assert checks["deploy_targets"]["ready"] is False
+    assert checks["database_storage"]["ready"] is False
+    rendered = json.dumps(result)
+    assert "sensitive-heartbeat-sentinel" not in rendered
+    assert "sensitive-rollout-sentinel" not in rendered
+    assert not (tmp_path / "missing").exists()
+
+
+def test_rollout_preflight_endpoint_requires_admin_token(monkeypatch):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environments_bp)
+    client = app.test_client()
+    response = client.get("/api/agent-environments/fleet/rollout/preflight")
+    assert response.status_code == 403
