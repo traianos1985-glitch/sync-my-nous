@@ -379,3 +379,68 @@ def rollout_status() -> dict[str, Any]:
     return {"ok": True, "enabled": _enabled(),
             "canary_ids": [item.strip() for item in os.environ.get("NOUS_FLEET_CANARY_IDS", "").split(",") if item.strip()],
             "jobs": jobs, "counts": {state: sum(job["state"] == state for job in jobs) for state in states}}
+
+
+def rollout_preflight() -> dict[str, Any]:
+    """Return a secret-safe, read-only checklist for operating the fleet controller."""
+    from executor.fleet_coordinator import target_version
+
+    targets, target_error = _targets()
+    canaries, canary_error = _canary_ids(targets) if not target_error else ([], "deploy_targets_invalid")
+    desired = target_version()
+
+    configured_db = os.environ.get("NOUS_FLEET_DB_PATH", "").strip()
+    if configured_db:
+        db_path = Path(configured_db).expanduser()
+    else:
+        db_path = Path(os.environ.get("NOUS_DATA_DIR", "data")) / "nous_fleet.sqlite3"
+    parent = db_path.parent
+    storage_ready = parent.exists() and parent.is_dir() and os.access(parent, os.W_OK)
+
+    required = [
+        {"id": "heartbeat_token", "ready": bool(os.environ.get("NOUS_FLEET_TOKEN", "").strip()),
+         "detail": "Central heartbeat authentication secret is configured."},
+        {"id": "rollout_token", "ready": bool(os.environ.get("NOUS_FLEET_ROLLOUT_TOKEN", "").strip()),
+         "detail": "Dedicated scheduled-controller token is configured."},
+        {"id": "desired_version", "ready": bool(desired),
+         "detail": "A valid target release is configured."},
+        {"id": "deploy_targets", "ready": not target_error and bool(targets),
+         "detail": target_error or ("Explicit enabled provider mappings are available."
+                                   if targets else "No enabled Render/Vercel deployment mappings are configured.")},
+        {"id": "canary_configuration", "ready": not canary_error,
+         "detail": canary_error or ("Canary configuration is valid." if canaries
+                                   else "Canary stage is not configured; one-at-a-time rollout mode will be used.")},
+        {"id": "database_storage", "ready": storage_ready,
+         "detail": "Configured database directory exists and is writable."
+                   if storage_ready else "Database directory is missing or not writable; check persistent storage configuration."},
+    ]
+    if any(item.get("provider") == "render" for item in targets.values()):
+        render_key_ready = bool(os.environ.get("RENDER_API_KEY", "").strip())
+        required.append({
+            "id": "render_api_key",
+            "ready": render_key_ready,
+            "detail": "Render API credential is configured." if render_key_ready
+                      else "A mapped Render target requires RENDER_API_KEY.",
+        })
+
+    snapshot = fleet_status()
+    return {
+        "ok": True,
+        "ready": all(item["ready"] for item in required),
+        "automatic_deployment_enabled": _enabled(),
+        "desired_version": desired or None,
+        "mapped_target_count": len(targets),
+        "canary_count": len(canaries),
+        "fleet": {
+            "instance_count": snapshot.get("instance_count", 0),
+            "outdated_count": snapshot.get("outdated_count", 0),
+            "stale_count": snapshot.get("stale_count", 0),
+        },
+        "checks": required,
+        "limitations": [
+            "This checklist validates server-side configuration presence and basic storage readiness only.",
+            "It cannot verify GitHub Actions secrets, provider build health, successful deployment, or rollback readiness.",
+            "A writable directory is not proof of durable storage across host restarts.",
+            "Automatic deployment remains disabled unless NOUS_FLEET_AUTO_DEPLOY is explicitly enabled.",
+        ],
+    }
