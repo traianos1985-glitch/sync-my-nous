@@ -8,7 +8,7 @@ This package adds request-driven heartbeats, central version-drift detection, a 
 2. The central coordinator records the metadata and compares the reported version with `NOUS_FLEET_TARGET_VERSION`.
 3. A scheduled GitHub Actions workflow calls the coordinator every 15 minutes. The coordinator queues only fresh, outdated instances with an explicit, enabled provider mapping.
 4. At most one queued deployment request is dispatched per reconciliation. Duplicate requests for the same instance/release are deduplicated. Provider responses are recorded as `requested` or `failed`; `requested` means the provider accepted the trigger, not that the new release is already healthy.
-5. New heartbeats show whether the instance has converged to the target release. A failed deployment request can be retried after a 15-minute cooldown.
+5. New heartbeats show whether the instance has converged to the target release. Failed requests are retried after a 15-minute cooldown; accepted triggers are retried after 30 minutes if the instance still reports drift. Retries are capped at three attempts per instance/release.
 
 ## Endpoints
 
