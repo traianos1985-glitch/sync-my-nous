@@ -22,7 +22,6 @@ This package adds request-driven heartbeats, central version-drift detection, a 
   readiness, and fleet drift.
 - `POST /api/agent-environments/fleet/rollout/reconcile` — administrator token or dedicated rollout token; queues drift and dispatches at most one configured provider trigger.
 
-
 ## Cross-platform delivery contract
 
 The authenticated `GET /api/agent-environments/fleet/integrations` endpoint is surfaced in the dashboard's **Control** section alongside fleet inventory, rollout preflight, and queue status. It deliberately distinguishes configured delivery paths from live verification:
