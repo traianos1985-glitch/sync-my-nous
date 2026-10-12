@@ -18,6 +18,7 @@ from typing import Any
 
 _LOCK = threading.Lock()
 _LAST_SENT = 0.0
+_LAST_STATUS = ""
 _INTERVAL_SECONDS = 300
 _TIMEOUT_SECONDS = 1.5
 _INSTANCE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,79}$")
@@ -48,9 +49,11 @@ def _version_metadata() -> tuple[str, str]:
     return version, commit
 
 
-def send_heartbeat(force: bool = False) -> dict[str, Any]:
-    """Send one bounded HTTPS heartbeat; never includes prompts, user data, or tokens in JSON."""
-    global _LAST_SENT
+def send_heartbeat(force: bool = False, status: str = "healthy") -> dict[str, Any]:
+    """Send bounded HTTPS metadata using the completed local response as a liveness signal."""
+    if status not in {"healthy", "degraded", "unknown"}:
+        status = "unknown"
+    global _LAST_SENT, _LAST_STATUS
     coordinator = os.environ.get("NOUS_FLEET_COORDINATOR_URL", "").strip().rstrip("/")
     token = os.environ.get("NOUS_FLEET_TOKEN", "").strip()
     instance_id = os.environ.get("NOUS_FLEET_INSTANCE_ID", "").strip()
@@ -62,9 +65,10 @@ def send_heartbeat(force: bool = False) -> dict[str, Any]:
         return {"ok": False, "skipped": True, "reason": "coordinator_must_be_https"}
     now = time.monotonic()
     with _LOCK:
-        if not force and now - _LAST_SENT < _INTERVAL_SECONDS:
+        if not force and status == _LAST_STATUS and now - _LAST_SENT < _INTERVAL_SECONDS:
             return {"ok": True, "skipped": True, "reason": "heartbeat_interval"}
         _LAST_SENT = now
+        _LAST_STATUS = status
 
     version, commit = _version_metadata()
     payload = {
@@ -72,7 +76,7 @@ def send_heartbeat(force: bool = False) -> dict[str, Any]:
         "provider": _provider(),
         "version": version,
         "commit_sha": commit,
-        "status": "healthy",
+        "status": status,
     }
     endpoint = coordinator + "/api/agent-environments/fleet/heartbeat"
     request = urllib.request.Request(
@@ -95,6 +99,7 @@ def send_heartbeat(force: bool = False) -> dict[str, Any]:
 
 def reset_heartbeat_for_tests() -> None:
     """Reset the process-local throttle for tests."""
-    global _LAST_SENT
+    global _LAST_SENT, _LAST_STATUS
     with _LOCK:
         _LAST_SENT = 0.0
+        _LAST_STATUS = ""

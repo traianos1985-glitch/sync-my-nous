@@ -4,7 +4,7 @@ This package adds request-driven heartbeats, central version-drift detection, a 
 
 ## What happens automatically
 
-1. A backend installation with the fleet client configured reports its instance ID, provider, deployed commit/version, and coarse status when it receives normal traffic. Reports are throttled to one per process every five minutes. The client does not create a permanent background thread, so it is compatible with serverless/request-driven runtimes.
+1. A backend installation with the fleet client configured reports its instance ID, provider, deployed commit/version, and coarse status after a normal request completes. HTTP 5xx responses report `degraded`; other completed responses report `healthy`. Identical statuses are throttled to one per process every five minutes, while a status transition is sent immediately. The client does not create a permanent background thread, so it is compatible with serverless/request-driven runtimes.
 2. The central coordinator records the metadata and compares the reported version with `NOUS_FLEET_TARGET_VERSION`.
 3. A scheduled GitHub Actions workflow calls the coordinator every 15 minutes. The coordinator queues only fresh, outdated instances with an explicit, enabled provider mapping.
 4. At most one queued deployment request is dispatched per reconciliation. Duplicate requests for the same instance/release are deduplicated. Provider responses are recorded as `requested` or `failed`; `requested` means the provider accepted the trigger, not that the new release is already healthy.
@@ -41,7 +41,7 @@ For each installation that should report status, set these **server-side** varia
 - `NOUS_FLEET_INSTANCE_ID`: unique stable ID, such as `nous-render-01`, `nous-vercel-01`, or `nous-lovable-01`.
 - `NOUS_VERSION`: optional fallback version if the platform does not expose its deployed commit. If available, the client prefers host-provided commit metadata.
 
-The heartbeat contains only `instance_id`, `provider`, `version`, `commit_sha`, and `status`. It never sends prompts, missions, user data, environment variables, or API keys. If the coordinator is unavailable, the local NOUS request continues; the client uses a bounded network timeout and retries on later traffic.
+The heartbeat contains only `instance_id`, `provider`, `version`, `commit_sha`, and `status`. The status is a coarse response-based liveness signal: HTTP 5xx marks the instance degraded, while other completed responses mark it healthy. It is not a dependency check or synthetic transaction and can miss failures that do not produce a 5xx response. It never sends prompts, missions, user data, environment variables, or API keys. If the coordinator is unavailable, the local NOUS request continues; the client uses a bounded network timeout and retries on later traffic.
 
 A dormant instance cannot report until its host runs it again. This design does not keep sleeping/free-tier instances awake and does not promise heartbeats from a suspended service.
 
