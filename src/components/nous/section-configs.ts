@@ -111,6 +111,7 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Providers", path: "/remote/deploy/providers" },
       { label: "Runtime lifecycle plan", path: "/api/agent-environments/lifecycle" },
       { label: "NOUS fleet status", path: "/api/agent-environments/fleet/status" },
+      { label: "NOUS fleet rollout queue", path: "/api/agent-environments/fleet/rollout/status" },
     ],
   },
   backup: {
