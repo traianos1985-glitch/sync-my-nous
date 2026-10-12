@@ -9,6 +9,7 @@ from executor.security import check_admin_token
 from executor.preview_preflight import inspect_preview_compatibility
 from executor.provider_runtime import deploy_provider, probe_provider, provider_inventory, preview_catalog
 from executor.runtime_lifecycle import build_runtime_lifecycle_plan
+from executor.fleet_coordinator import fleet_status, record_heartbeat
 
 agent_environments_bp = Blueprint("agent_environments", __name__, url_prefix="/api/agent-environments")
 
@@ -96,7 +97,6 @@ def preflight():
 
 # Fleet coordination routes live on this already-registered blueprint so existing
 # backend deployments gain the API without requiring a separate app bootstrap change.
-from executor.fleet_coordinator import fleet_status, record_heartbeat
 
 
 def _fleet_token_matches():
