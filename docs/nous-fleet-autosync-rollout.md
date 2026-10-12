@@ -92,7 +92,6 @@ The workflow `.github/workflows/nous-fleet-rollout.yml` runs every 15 minutes an
 - The heartbeat status is a lightweight liveness signal and does not replace provider build status, dependency checks, synthetic requests, or rollback. This package halts canary expansion when a canary reports degraded but does not claim automatic provider rollback.
 - GitHub Actions scheduling is best-effort and may be delayed by GitHub. Provider rate limits, sleeping instances, build quotas, and security policies remain in force.
 
-
 ## Preflight diagnostics
 
 Call `GET /api/agent-environments/fleet/rollout/preflight` with an administrator-scoped token before enabling the controller. The response reports whether the heartbeat token, dedicated rollout token, target release, enabled provider mappings, canary configuration, and database directory appear ready. It reports only boolean readiness and safe diagnostic text; it never returns secret values or deploy-hook URLs. Render API key presence is checked only when an enabled Render target exists. The endpoint does not prove that GitHub Actions secrets exist, that storage survives a restart, or that a provider deployment will succeed. A `ready` result is a configuration checklist, not a production end-to-end verification.
