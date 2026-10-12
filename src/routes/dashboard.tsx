@@ -656,7 +656,11 @@ function Dashboard() {
     setSystemStatus({
       ...(status ?? {}),
       // Never infer a healthy Render backend from unrelated local DB/metrics success.
-      status: backendHealthy ? (status?.status ?? "online") : hasAnyData ? "degraded" : "unavailable",
+      status: backendHealthy
+        ? (status?.status ?? "online")
+        : hasAnyData
+          ? "degraded"
+          : "unavailable",
       metrics,
       overview,
     });
@@ -2141,14 +2145,20 @@ function Dashboard() {
                 {section === "settings" && (
                   <div className="mt-5 space-y-3">
                     {!hasToken && (
-                      <div role="status" className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs">
+                      <div
+                        role="status"
+                        className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
+                      >
                         Δεν έχει οριστεί NOUS token σε αυτό το browser session. Επικόλλησε το token παρακάτω για να ενεργοποιήσεις τα προστατευμένα endpoints.
                       </div>
                     )}
-                    {systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? (
+                    {systemStatus?.status === "degraded" ||
+                    systemStatus?.status === "unavailable" ? (
                       <div role="status" className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs">
                         Η επικοινωνία με το Render backend δεν έχει επιβεβαιωθεί ως υγιής.
-                        {systemStatusError ? ` Λεπτομέρεια: ${systemStatusError}` : " Έλεγξε τη διεύθυνση API, το token και την κατάσταση του Render."}
+                        {systemStatusError
+                          ? ` Λεπτομέρεια: ${systemStatusError}`
+                          : " Έλεγξε τη διεύθυνση API, το token και την κατάσταση του Render."}
                       </div>
                     ) : null}
                     {tokenForm}
