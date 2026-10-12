@@ -389,7 +389,6 @@ def test_rollout_does_not_dispatch_obsolete_release_jobs(monkeypatch):
 
     assert result["desired_version"] == "release-3"
     assert result["dispatched"] is True
-    assert result["desired_version"] == "release-3"
     assert calls == ["srv_12345"]
     jobs = fleet_rollout.rollout_status()["jobs"]
     old_job = next(job for job in jobs if job["desired_version"] == "release-2")
