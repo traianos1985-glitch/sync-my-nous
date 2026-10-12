@@ -67,7 +67,6 @@ def test_lifecycle_plan_does_not_create_files_or_start_keepalive(tmp_path):
 
 def test_lifecycle_endpoint_returns_read_only_plan(monkeypatch):
     from flask import Flask
-    from executor import blueprints
     from executor.blueprints import agent_environments_bp
 
     monkeypatch.setattr(
