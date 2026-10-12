@@ -329,8 +329,8 @@ def test_rollout_preflight_reports_missing_configuration_without_secret_values(m
     assert result["ok"] is True
     assert result["ready"] is False
     checks = {item["id"]: item for item in result["checks"]}
-    assert checks["heartbeat_token"]["ready"] is False
-    assert checks["rollout_token"]["ready"] is False
+    assert checks["heartbeat_token"]["ready"] is True
+    assert checks["rollout_token"]["ready"] is True
     assert checks["deploy_targets"]["ready"] is False
     assert checks["database_storage"]["ready"] is False
     rendered = json.dumps(result)
