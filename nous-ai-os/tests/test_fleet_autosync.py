@@ -321,8 +321,8 @@ def test_heartbeat_client_transmits_explicit_degraded_status(monkeypatch):
 
 
 def test_rollout_preflight_reports_missing_configuration_without_secret_values(monkeypatch, tmp_path):
-    monkeypatch.delenv("NOUS_FLEET_TOKEN", raising=False)
-    monkeypatch.delenv("NOUS_FLEET_ROLLOUT_TOKEN", raising=False)
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "sensitive-heartbeat-sentinel")
+    monkeypatch.setenv("NOUS_FLEET_ROLLOUT_TOKEN", "sensitive-rollout-sentinel")
     monkeypatch.delenv("NOUS_FLEET_DEPLOY_TARGETS", raising=False)
     monkeypatch.setenv("NOUS_FLEET_DB_PATH", str(tmp_path / "missing" / "fleet.sqlite3"))
     result = fleet_rollout.rollout_preflight()
@@ -333,7 +333,10 @@ def test_rollout_preflight_reports_missing_configuration_without_secret_values(m
     assert checks["rollout_token"]["ready"] is False
     assert checks["deploy_targets"]["ready"] is False
     assert checks["database_storage"]["ready"] is False
-    assert "secret" not in json.dumps(result).lower()
+    rendered = json.dumps(result)
+    assert "sensitive-heartbeat-sentinel" not in rendered
+    assert "sensitive-rollout-sentinel" not in rendered
+    assert not (tmp_path / "missing").exists()
 
 
 def test_rollout_preflight_endpoint_requires_admin_token(monkeypatch):
