@@ -415,8 +415,12 @@ def fleet_integration_status() -> dict[str, Any]:
     coordinator_token_ready = bool(os.environ.get("NOUS_FLEET_TOKEN", "").strip())
     rollout_token_ready = bool(os.environ.get("NOUS_FLEET_ROLLOUT_TOKEN", "").strip())
     desired_ready = bool(status.get("desired_version"))
-    storage_path = _db_path()
-    storage_ready = storage_path.parent.exists() and os.access(storage_path.parent, os.W_OK)
+    configured_db = os.environ.get("NOUS_FLEET_DB_PATH", "").strip()
+    if configured_db:
+        storage_path = Path(configured_db).expanduser()
+    else:
+        storage_path = Path(os.environ.get("NOUS_DATA_DIR", "data")) / "nous_fleet.sqlite3"
+    storage_ready = storage_path.parent.exists() and storage_path.parent.is_dir() and os.access(storage_path.parent, os.W_OK)
 
     platforms = [
         {
