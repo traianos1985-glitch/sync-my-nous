@@ -6,6 +6,7 @@ modifies source code or dependencies.
 """
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import os
 import re
@@ -126,7 +127,34 @@ def _fetch_source(source: dict) -> dict:
 def run_source_scan() -> dict:
     """Fetch only allowlisted official release metadata and persist a bounded report."""
     with _LOCK:
-        results = [_fetch_source(source) for source in OFFICIAL_SOURCES[:MAX_SOURCES]]
+        sources = list(OFFICIAL_SOURCES[:MAX_SOURCES])
+        # Query official sources concurrently. Sequential 3–9 second network
+        # waits can exceed hosted-platform request windows and look like a cold
+        # start even when the process is healthy.
+        results_by_index = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, len(sources) or 1)) as pool:
+            futures = {
+                pool.submit(_fetch_source, source): index
+                for index, source in enumerate(sources)
+            }
+            for future in concurrent.futures.as_completed(futures):
+                index = futures[future]
+                try:
+                    results_by_index[index] = future.result()
+                except Exception as exc:
+                    results_by_index[index] = {
+                        "ok": False,
+                        "source": sources[index].get("name", "unknown"),
+                        "error": type(exc).__name__,
+                    }
+        results = [
+            results_by_index.get(index, {
+                "ok": False,
+                "source": source.get("name", "unknown"),
+                "error": "source_result_missing",
+            })
+            for index, source in enumerate(sources)
+        ]
         ok_count = sum(item.get("ok") is True for item in results)
         report = {
             "ok": ok_count > 0,

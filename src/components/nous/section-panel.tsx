@@ -183,6 +183,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function formatPrimitive(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "boolean") return value ? "ναι" : "όχι";
+  if (typeof value === "string") {
+    if (value === "goal_not_found_or_no_active_goals") {
+      return "Δεν υπάρχουν ενεργοί στόχοι για τον Planner. Άνοιξε Goals, πάτησε «Δημιουργία βασικών goals» και μετά δοκίμασε ξανά.";
+    }
+    if (value === "mission_not_found") {
+      return "Η αποστολή δεν βρέθηκε στο backend. Κάνε ανανέωση της λίστας και ξαναδοκίμασε· αν συνεχίζεται μετά την ενημέρωση, έλεγξε το runtime ID.";
+    }
+  }
   return String(value);
 }
 
