@@ -402,6 +402,135 @@ def rollout_status() -> dict[str, Any]:
             "jobs": jobs, "counts": {state: sum(job["state"] == state for job in jobs) for state in states}}
 
 
+def fleet_integration_status() -> dict[str, Any]:
+    """Describe platform delivery paths without claiming unprobed live connectivity."""
+    targets, target_error = _targets()
+    desired = os.environ.get(
+        "NOUS_FLEET_TARGET_VERSION", os.environ.get("NOUS_VERSION", "")
+    ).strip()
+    fleet_counts = {"instance_count": 0, "outdated_count": 0, "stale_count": 0}
+    configured_registry = os.environ.get("NOUS_FLEET_DB_PATH", "").strip()
+    registry_path = (
+        Path(configured_registry).expanduser()
+        if configured_registry
+        else Path(os.environ.get("NOUS_DATA_DIR", "data")) / "nous_fleet.sqlite3"
+    )
+    # Read only an existing registry; status checks must not create DB files or tables.
+    if registry_path.is_file():
+        try:
+            uri = registry_path.resolve().as_uri() + "?mode=ro"
+            with sqlite3.connect(uri, uri=True, timeout=2) as connection:
+                exists = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='fleet_instances'"
+                ).fetchone()
+                if exists:
+                    rows = connection.execute(
+                        "SELECT version, last_seen FROM fleet_instances LIMIT 500"
+                    ).fetchall()
+                    now = time.time()
+                    fleet_counts = {
+                        "instance_count": len(rows),
+                        "outdated_count": sum(bool(desired and row[0] != desired) for row in rows),
+                        "stale_count": sum(now - float(row[1]) > 900 for row in rows),
+                    }
+        except (sqlite3.Error, OSError, ValueError):
+            pass
+    render_targets = [
+        instance_id for instance_id, target in targets.items()
+        if target.get("provider") == "render" and target.get("enabled") is True
+    ]
+    render_key_ready = bool(os.environ.get("RENDER_API_KEY", "").strip())
+    render_auto_ready = _enabled() and bool(render_targets) and render_key_ready
+    coordinator_token_ready = bool(os.environ.get("NOUS_FLEET_TOKEN", "").strip())
+    rollout_token_ready = bool(os.environ.get("NOUS_FLEET_ROLLOUT_TOKEN", "").strip())
+    desired_ready = bool(desired)
+    configured_db = os.environ.get("NOUS_FLEET_DB_PATH", "").strip()
+    if configured_db:
+        storage_path = Path(configured_db).expanduser()
+    else:
+        storage_path = Path(os.environ.get("NOUS_DATA_DIR", "data")) / "nous_fleet.sqlite3"
+    storage_ready = storage_path.parent.exists() and storage_path.parent.is_dir() and os.access(storage_path.parent, os.W_OK)
+
+    platforms = [
+        {
+            "id": "github",
+            "role": "source_control",
+            "delivery_mode": "merge_to_main_and_ci",
+            "configuration": "repository",
+            "state": "source_of_truth",
+            "live_verified": False,
+            "detail": "Main branch is the shared code source; CI results must be checked in GitHub Actions.",
+        },
+        {
+            "id": "github_pages",
+            "role": "static_frontend",
+            "delivery_mode": "repository_workflow",
+            "configuration": "repository",
+            "state": "not_runtime_probed",
+            "live_verified": False,
+            "detail": "Static frontend updates through its configured repository workflow; it cannot run backend heartbeats.",
+        },
+        {
+            "id": "lovable",
+            "role": "git_synced_frontend",
+            "delivery_mode": "git_sync",
+            "configuration": "repository_link",
+            "state": "repository_linked_not_live_verified",
+            "live_verified": False,
+            "detail": "Lovable follows repository synchronization; this backend cannot verify editor or publish state.",
+        },
+        {
+            "id": "render",
+            "role": "central_backend",
+            "delivery_mode": "render_api_trigger" if render_auto_ready else "manual_or_report_only",
+            "configuration": "server_environment",
+            "state": (
+                "configured_for_trigger" if render_auto_ready
+                else "mapping_or_credentials_missing" if _enabled()
+                else "automatic_trigger_disabled"
+            ),
+            "live_verified": False,
+            "enabled_target_count": len(render_targets),
+            "detail": "Secret presence and mapping are configuration checks only; provider deployment and runtime health require a later healthy heartbeat.",
+        },
+        {
+            "id": "local_android",
+            "role": "local_runtime_and_companion",
+            "delivery_mode": "heartbeat_and_client_release",
+            "configuration": "per_installation",
+            "state": "heartbeat_only",
+            "live_verified": False,
+            "detail": "Local/Android clients can report metadata when configured; the central server does not silently replace their installed binaries.",
+        },
+    ]
+    checks = [
+        {"id": "fleet_token", "ready": coordinator_token_ready},
+        {"id": "rollout_token", "ready": rollout_token_ready},
+        {"id": "desired_version", "ready": desired_ready},
+        {"id": "database_storage", "ready": storage_ready},
+        {"id": "render_target_mapping", "ready": not target_error and bool(render_targets)},
+        {"id": "render_api_key", "ready": render_key_ready if render_targets else None},
+    ]
+    blocking = [item["id"] for item in checks if item["ready"] is False]
+    return {
+        "ok": True,
+        "generated_at": time.time(),
+        "overall_state": "configured_with_limits" if not blocking else "needs_configuration",
+        "checks": checks,
+        "blocking_checks": blocking,
+        "automatic_deployment_enabled": render_auto_ready,
+        "target_version": desired or None,
+        "fleet": fleet_counts,
+        "platforms": platforms,
+        "limitations": [
+            "This endpoint reports repository architecture and server-side configuration, not live GitHub, Pages, Lovable, or provider API connectivity.",
+            "A Git merge can trigger configured CI/static-site workflows and Lovable repository sync, but this endpoint cannot confirm their completion.",
+            "Only explicit supported provider mappings can trigger a backend deployment; no prompts, conversations, personal data, or API keys are sent through fleet heartbeats.",
+            "Automatic rollout remains opt-in and does not claim automatic rollback or a full synthetic health check.",
+        ],
+    }
+
+
 def rollout_preflight() -> dict[str, Any]:
     """Return a secret-safe, read-only checklist for operating the fleet controller."""
     from executor.fleet_coordinator import target_version

@@ -116,6 +116,24 @@ python -m compileall -q executor
 Το CI (`.github/workflows/ci.yml`) τρέχει syntax check, ruff, pytest και secret
 scan σε κάθε push/PR.
 
+## Central fleet synchronization
+
+The backend can report bounded runtime/version metadata to a stable coordinator through
+`NOUS_FLEET_COORDINATOR_URL`, `NOUS_FLEET_TOKEN`, and a unique
+`NOUS_FLEET_INSTANCE_ID`. The coordinator's authenticated fleet endpoints expose
+instance drift, rollout readiness, rollout history, and the cross-platform delivery
+matrix at `/api/agent-environments/fleet/integrations`.
+
+The **Control** section in Sync My Nous displays these read-only fleet reports. GitHub
+is the source of truth; GitHub Pages and the linked Lovable project follow their
+repository delivery paths; Render deployment triggers remain opt-in and require an
+explicit service mapping plus server-side credentials. Local/Android clients report
+status only and are not silently updated by the coordinator. The matrix is a
+configuration report, not proof of live connectivity or a successful deployment.
+
+See [Fleet Synchronization and Controlled Rollouts](../docs/nous-fleet-autosync-rollout.md)
+for the configuration contract, limits, and security boundaries.
+
 ## Runtime data
 
 Ο φάκελος `data/` (conversations, brain state, api tokens) είναι πλέον

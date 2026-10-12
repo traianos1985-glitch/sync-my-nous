@@ -5,6 +5,7 @@ or accept arbitrary callbacks/URLs from remote installations.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
@@ -49,6 +50,37 @@ def _initialize(connection: sqlite3.Connection) -> None:
     )""")
     connection.execute("CREATE INDEX IF NOT EXISTS idx_fleet_last_seen ON fleet_instances(last_seen)")
     connection.commit()
+
+
+def _auto_deploy_enabled() -> bool:
+    return os.environ.get("NOUS_FLEET_AUTO_DEPLOY", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _render_target_enabled(instance_id: str, provider: str) -> bool:
+    """Check whether this exact instance has a valid, explicit Render mapping."""
+    if provider != "render" or not _auto_deploy_enabled():
+        return False
+    if not os.environ.get("RENDER_API_KEY", "").strip():
+        return False
+    try:
+        targets = json.loads(os.environ.get("NOUS_FLEET_DEPLOY_TARGETS", "{}"))
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(targets, dict):
+        return False
+    target = targets.get(instance_id)
+    return bool(
+        isinstance(target, dict)
+        and target.get("provider") == "render"
+        and target.get("enabled") is True
+        and re.fullmatch(r"[A-Za-z0-9_-]{3,128}", str(target.get("service_id") or ""))
+    )
+
+
+def _update_mode(instance_id: str, provider: str) -> str:
+    if _render_target_enabled(instance_id, provider):
+        return "provider_triggered"
+    return "report_only"
 
 
 def target_version() -> str:
@@ -103,7 +135,8 @@ def record_heartbeat(payload: Any) -> dict[str, Any]:
         "ok": True, "instance_id": instance_id, "received_at": now,
         "desired_version": desired or None,
         "update_available": bool(desired and version != desired),
-        "update_mode": "report_only", "automatic_deployment_enabled": False,
+        "update_mode": _update_mode(instance_id, provider),
+        "automatic_deployment_enabled": _render_target_enabled(instance_id, provider),
     }
 
 
@@ -125,10 +158,17 @@ def fleet_status(now: float | None = None) -> dict[str, Any]:
             "reported_status": row["status"], "first_seen": row["first_seen"],
             "last_seen": seen, "stale": stale,
             "update_available": bool(desired and row["version"] != desired),
+            "update_mode": _update_mode(row["instance_id"], row["provider"]),
+            "automatic_deployment_enabled": _render_target_enabled(row["instance_id"], row["provider"]),
         })
     return {
         "ok": True, "desired_version": desired or None,
-        "update_mode": "report_only", "automatic_deployment_enabled": False,
+        "update_mode": ("provider_triggered" if any(
+            item["automatic_deployment_enabled"] for item in instances
+        ) else "report_only"),
+        "automatic_deployment_enabled": any(
+            item["automatic_deployment_enabled"] for item in instances
+        ),
         "stale_after_seconds": _STALE_AFTER_SECONDS,
         "instance_count": len(instances),
         "outdated_count": sum(item["update_available"] for item in instances),

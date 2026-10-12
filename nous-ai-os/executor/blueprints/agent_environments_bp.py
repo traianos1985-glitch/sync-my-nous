@@ -11,7 +11,9 @@ from executor.provider_runtime import deploy_provider, probe_provider, provider_
 from executor.runtime_lifecycle import build_runtime_lifecycle_plan
 from executor.fleet_coordinator import fleet_status, record_heartbeat
 from executor.fleet_agent import send_heartbeat
-from executor.fleet_rollout import reconcile_and_dispatch, rollout_preflight, rollout_status
+from executor.fleet_rollout import (
+    fleet_integration_status, reconcile_and_dispatch, rollout_preflight, rollout_status,
+)
 
 agent_environments_bp = Blueprint("agent_environments", __name__, url_prefix="/api/agent-environments")
 
@@ -132,6 +134,14 @@ def fleet_heartbeat():
         return jsonify({"ok": False, "error": "fleet_authentication_required"}), 403
     result = record_heartbeat(_json_object())
     return jsonify(result), (200 if result.get("ok") else 400)
+
+
+@agent_environments_bp.get("/fleet/integrations")
+def fleet_integrations_endpoint():
+    """Return secret-safe platform delivery paths and coordinator readiness."""
+    if not check_admin_token(request):
+        return jsonify({"ok": False, "error": "admin_scope_required"}), 403
+    return jsonify(fleet_integration_status())
 
 
 @agent_environments_bp.get("/fleet/status")

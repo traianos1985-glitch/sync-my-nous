@@ -15,11 +15,16 @@ This package adds request-driven heartbeats, central version-drift detection, a 
 
 - `POST /api/agent-environments/fleet/heartbeat` — backend-only authenticated metadata report.
 - `GET /api/agent-environments/fleet/status` — administrator-only fleet inventory and version drift.
+- `GET /api/agent-environments/fleet/integrations` — administrator-only, secret-safe cross-platform delivery matrix and coordinator configuration checks.
 - `GET /api/agent-environments/fleet/rollout/status` — administrator-only rollout queue and outcomes.
 - `GET /api/agent-environments/fleet/rollout/preflight` — administrator-only, secret-safe readiness
   checklist for required server configuration, enabled targets, canary configuration, storage directory
   readiness, and fleet drift.
 - `POST /api/agent-environments/fleet/rollout/reconcile` — administrator token or dedicated rollout token; queues drift and dispatches at most one configured provider trigger.
+
+The integration endpoint reports configured delivery paths for GitHub, GitHub Pages, Lovable, Render, and local/Android without claiming live connectivity. Render triggers remain opt-in and require an explicit service mapping and server-side credentials. GitHub Pages and Lovable use their repository delivery paths; local/Android clients are not silently upgraded. The endpoint returns no secret values and does not create or modify the fleet database.
+
+Heartbeat retries use a short outage cooldown and start the five-minute success interval only after the coordinator accepts a valid response. Temporary coordinator outages therefore do not suppress retries for the full normal heartbeat interval.
 
 ## Configure the central coordinator
 
