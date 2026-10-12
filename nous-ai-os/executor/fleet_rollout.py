@@ -172,10 +172,13 @@ def _request_vercel(hook_url: str) -> dict[str, Any]:
 def _dispatch_one(targets: dict[str, dict[str, Any]]) -> dict[str, Any]:
     conn = _connect()
     try:
+        # Serialize claims across concurrent scheduled invocations.
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
             "SELECT * FROM fleet_rollout_jobs WHERE state='queued' ORDER BY created_at, id LIMIT 1"
         ).fetchone()
         if row is None:
+            conn.commit()
             return {"dispatched": False, "reason": "queue_empty"}
         target = targets.get(row["instance_id"])
         if not target or target.get("provider") != row["provider"]:
@@ -184,9 +187,11 @@ def _dispatch_one(targets: dict[str, dict[str, Any]]) -> dict[str, Any]:
             conn.commit()
             return {"dispatched": False, "reason": "target_mapping_missing"}
         # Mark before the external call so concurrent cron invocations cannot dispatch the same row.
-        conn.execute("UPDATE fleet_rollout_jobs SET state='dispatching', attempts=attempts+1, updated_at=? WHERE id=? AND state='queued'",
-                     (time.time(), row["id"]))
-        if conn.total_changes == 0:
+        claimed = conn.execute(
+            "UPDATE fleet_rollout_jobs SET state='dispatching', attempts=attempts+1, updated_at=? WHERE id=? AND state='queued'",
+            (time.time(), row["id"]),
+        )
+        if claimed.rowcount != 1:
             conn.commit()
             return {"dispatched": False, "reason": "already_claimed"}
         conn.commit()
