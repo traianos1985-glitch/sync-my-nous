@@ -100,17 +100,18 @@ def preflight():
 # Fleet coordination routes live on this already-registered blueprint so existing
 # backend deployments gain the API without requiring a separate app bootstrap change.
 
-@agent_environments_bp.before_app_request
-def _fleet_heartbeat_on_request():
-    """Report metadata opportunistically; serverless-safe and rate-limited per process."""
+@agent_environments_bp.after_app_request
+def _fleet_heartbeat_after_response(response):
+    """Report metadata after a response so 5xx failures can mark an instance degraded."""
     if request.path.startswith("/api/agent-environments/fleet/"):
-        return None
+        return response
     try:
-        send_heartbeat()
+        status = "degraded" if response.status_code >= 500 else "healthy"
+        send_heartbeat(status=status)
     except Exception:
         # Fleet telemetry must never break normal NOUS requests.
         pass
-    return None
+    return response
 
 
 
