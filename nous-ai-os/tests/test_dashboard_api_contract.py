@@ -32,6 +32,17 @@ def _flask_route_methods():
     for match in blueprint_pattern.finditer(dashboard_api):
         method, route = match.groups()
         methods.setdefault("/api" + route, set()).add(method.upper())
+
+    # Include the provider/environment blueprint used by the deployment panel.
+    environments_bp = (
+        ROOT / "nous-ai-os" / "executor" / "blueprints" / "agent_environments_bp.py"
+    ).read_text(encoding="utf-8")
+    environments_pattern = re.compile(
+        r"""@agent_environments_bp\.(get|post|put|patch|delete)\(["']([^"']+)["']\)"""
+    )
+    for match in environments_pattern.finditer(environments_bp):
+        method, route = match.groups()
+        methods.setdefault("/api/agent-environments" + route, set()).add(method.upper())
     return methods
 
 
