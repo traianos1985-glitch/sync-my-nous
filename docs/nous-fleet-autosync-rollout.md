@@ -8,7 +8,8 @@ This package adds request-driven heartbeats, central version-drift detection, a 
 2. The central coordinator records the metadata and compares the reported version with `NOUS_FLEET_TARGET_VERSION`.
 3. A scheduled GitHub Actions workflow calls the coordinator every 15 minutes. The coordinator queues only fresh, outdated instances with an explicit, enabled provider mapping.
 4. At most one queued deployment request is dispatched per reconciliation. Duplicate requests for the same instance/release are deduplicated. Provider responses are recorded as `requested` or `failed`; `requested` means the provider accepted the trigger, not that the new release is already healthy.
-5. New heartbeats show whether the instance has converged to the target release. Failed requests are retried after a 15-minute cooldown; accepted triggers are retried after 30 minutes if the instance still reports drift. Retries are capped at three attempts per instance/release.
+5. A later heartbeat must report the desired release and `healthy` status before a requested rollout job becomes `converged`. A degraded report blocks the job and prevents further canary expansion. This is a liveness/convergence signal from the running application, not a full dependency or synthetic-transaction health check.
+6. Failed requests are retried after a 15-minute cooldown; accepted triggers are retried after 30 minutes if the instance still reports drift. Retries are capped at three attempts per instance/release.
 
 ## Endpoints
 
@@ -27,6 +28,7 @@ On the stable coordinator (for example, the existing Render backend):
 - `NOUS_FLEET_TARGET_VERSION`: exact Git commit SHA intended for all installations. Use the same release identifier convention on every instance; commit SHAs are recommended when the host exposes them.
 - `NOUS_FLEET_AUTO_DEPLOY`: leave unset or `false` until the target mapping has been reviewed. Set to `true` only when you explicitly want the coordinator to trigger deployments.
 - `NOUS_FLEET_DEPLOY_TARGETS`: server-side JSON map from stable instance IDs to provider targets, described below.
+- `NOUS_FLEET_CANARY_IDS`: optional comma-separated list of 1–10 mapped instance IDs. When set, only these canaries are deployed first; the remaining fleet is not queued until every canary is fresh, reports the target version, and reports healthy. A missing/stale/degraded canary fails closed. Leave unset for the existing one-at-a-time rollout without a canary stage.
 
 Do not use browser-visible `VITE_*` variables for these secrets. Do not commit actual values to Git.
 
@@ -83,8 +85,8 @@ The workflow `.github/workflows/nous-fleet-rollout.yml` runs every 15 minutes an
 ## Safety and operational boundaries
 
 - This is a one-target-per-run rollout trigger, not a guarantee of zero-downtime or a claim that every host has completed deployment.
-- The provider accepting a trigger is recorded as `requested`; convergence is confirmed by subsequent heartbeats. Use `/fleet/status` and `/fleet/rollout/status` to inspect results.
+- The provider accepting a trigger is recorded as `requested`; convergence is confirmed by subsequent heartbeats and appears as `converged`. Jobs can become `blocked` when a post-deploy heartbeat reports degradation. With `NOUS_FLEET_CANARY_IDS` configured, a failed canary halts expansion. Use `/fleet/status` and `/fleet/rollout/status` to inspect results.
 - The queue is persisted alongside the fleet SQLite database and uses a unique instance/release key to avoid duplicate triggers.
 - Rollout is opt-in and disabled by default. Keep it disabled until the service IDs, branch targets, credentials, health behavior, and release version are verified.
-- Provider-side build failure/health verification and rollback are provider-specific follow-up work; this package does not falsely report that a trigger itself proves health or automatically roll back a failed deployment.
+- The heartbeat status is a lightweight liveness signal and does not replace provider build status, dependency checks, synthetic requests, or rollback. This package halts canary expansion when a canary reports degraded but does not claim automatic provider rollback.
 - GitHub Actions scheduling is best-effort and may be delayed by GitHub. Provider rate limits, sleeping instances, build quotas, and security policies remain in force.
