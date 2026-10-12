@@ -9,7 +9,7 @@ This package adds request-driven heartbeats, central version-drift detection, a 
 3. A scheduled GitHub Actions workflow calls the coordinator every 15 minutes. The coordinator queues only fresh, outdated instances with an explicit, enabled provider mapping.
 4. At most one queued deployment request is dispatched per reconciliation. Duplicate requests for the same instance/release are deduplicated. Provider responses are recorded as `requested` or `failed`; `requested` means the provider accepted the trigger, not that the new release is already healthy.
 5. A later heartbeat must report the desired release and `healthy` status before a requested rollout job becomes `converged`. A degraded report blocks the job and prevents further canary expansion. This is a liveness/convergence signal from the running application, not a full dependency or synthetic-transaction health check.
-6. Failed requests are retried after a 15-minute cooldown; accepted triggers are retried after 30 minutes if the instance still reports drift. Retries are capped at three attempts per instance/release.
+6. Failed requests are retried after a 15-minute cooldown; accepted triggers are retried after 30 minutes if the instance still reports drift. Retries are capped at three attempts per instance/release. When the target release changes, queued, failed, and requested jobs for older releases are marked `superseded`, and the dispatcher only selects jobs matching the current desired release.
 
 ## Endpoints
 
