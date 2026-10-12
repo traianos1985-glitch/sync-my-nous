@@ -38,11 +38,9 @@ def _provider() -> str:
 
 
 def _version_metadata() -> tuple[str, str]:
-    version = (os.environ.get("NOUS_VERSION") or os.environ.get("RENDER_GIT_COMMIT")
-               or os.environ.get("VERCEL_GIT_COMMIT_SHA") or os.environ.get("GITHUB_SHA")
-               or "unknown").strip()[:120]
     commit = (os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("VERCEL_GIT_COMMIT_SHA")
               or os.environ.get("GITHUB_SHA") or "").strip()
+    version = (commit or os.environ.get("NOUS_VERSION") or "unknown").strip()[:120]
     if not re.fullmatch(r"[A-Fa-f0-9]{7,64}", commit):
         commit = ""
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+/-]{0,119}", version):
