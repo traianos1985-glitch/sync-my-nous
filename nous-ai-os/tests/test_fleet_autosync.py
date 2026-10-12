@@ -396,3 +396,92 @@ def test_rollout_does_not_dispatch_obsolete_release_jobs(monkeypatch):
     assert old_job["state"] == "superseded"
     assert old_job["last_error"] == "superseded_by_new_release"
     assert new_job["state"] == "requested"
+
+
+def test_heartbeat_retries_after_failed_coordinator_request(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_COORDINATOR_URL", "https://coordinator.example")
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "secret")
+    monkeypatch.setenv("NOUS_FLEET_INSTANCE_ID", "nous-test-02")
+    fleet_agent.reset_heartbeat_for_tests()
+    now = {"value": 100.0}
+    monkeypatch.setattr(fleet_agent.time, "monotonic", lambda: now["value"])
+    calls = []
+
+    def unavailable(_request, timeout):
+        calls.append(timeout)
+        raise fleet_agent.urllib.error.URLError("temporary outage")
+
+    monkeypatch.setattr(fleet_agent.urllib.request, "urlopen", unavailable)
+    first = fleet_agent.send_heartbeat(force=True)
+    assert first["ok"] is False
+    assert first["error"] == "coordinator_unreachable"
+    assert len(calls) == 1
+
+    now["value"] += 16.0
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _limit):
+            return b'{"ok":true,"desired_version":"release-2","update_available":true}'
+
+    def recovered(_request, timeout):
+        calls.append(timeout)
+        return Response()
+
+    monkeypatch.setattr(fleet_agent.urllib.request, "urlopen", recovered)
+    second = fleet_agent.send_heartbeat()
+    assert second["ok"] is True
+    assert second["update_available"] is True
+    assert len(calls) == 2
+
+
+def test_deployment_status_is_truthful_and_requires_explicit_render_mapping(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_AUTO_DEPLOY", "true")
+    monkeypatch.setenv("RENDER_API_KEY", "test-render-key")
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-render-03": {
+            "provider": "render", "service_id": "srv_12345", "enabled": True,
+        }
+    }))
+    result = fleet.record_heartbeat({
+        "instance_id": "nous-render-03", "provider": "render",
+        "version": "release-1", "status": "healthy",
+    })
+    assert result["automatic_deployment_enabled"] is True
+    assert result["update_mode"] == "provider_triggered"
+
+    unmapped = fleet.record_heartbeat({
+        "instance_id": "nous-local-03", "provider": "local",
+        "version": "release-1", "status": "healthy",
+    })
+    assert unmapped["automatic_deployment_enabled"] is False
+    assert unmapped["update_mode"] == "report_only"
+
+
+def test_fleet_integrations_endpoint_is_admin_only_and_secret_safe(monkeypatch):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environments_bp)
+    monkeypatch.setenv("NOUS_TOKEN", "test-admin-token")
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "never-return-this-fleet-secret")
+    monkeypatch.setenv("NOUS_FLEET_ROLLOUT_TOKEN", "never-return-this-rollout-secret")
+    client = app.test_client()
+    path = "/api/agent-environments/fleet/integrations"
+
+    assert client.get(path).status_code == 403
+    response = client.get(path, headers={"Authorization": "Bearer test-admin-token"})
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["ok"] is True
+    platform_ids = {item["id"] for item in payload["platforms"]}
+    assert {"github", "github_pages", "lovable", "render", "local_android"} <= platform_ids
+    assert all(item["live_verified"] is False for item in payload["platforms"])
+    serialized = json.dumps(payload)
+    assert "never-return-this-fleet-secret" not in serialized
+    assert "never-return-this-rollout-secret" not in serialized
