@@ -5,6 +5,7 @@ from executor.security import check_admin_token
 
 from executor.preview_preflight import inspect_preview_compatibility
 from executor.provider_runtime import deploy_provider, probe_provider, provider_inventory, preview_catalog
+from executor.runtime_lifecycle import build_runtime_lifecycle_plan
 
 agent_environments_bp = Blueprint("agent_environments", __name__, url_prefix="/api/agent-environments")
 
@@ -18,6 +19,12 @@ def _json_object():
 @agent_environments_bp.get("")
 def inventory():
     return jsonify(provider_inventory())
+
+
+@agent_environments_bp.get("/lifecycle")
+def lifecycle():
+    """Return a read-only persistence, resource-budget, and deployment readiness plan."""
+    return jsonify(build_runtime_lifecycle_plan())
 
 
 @agent_environments_bp.post("/probe")
