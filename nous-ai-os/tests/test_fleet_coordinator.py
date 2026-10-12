@@ -1,21 +1,17 @@
-import os
+import pytest
+from flask import Flask
 
 from executor import fleet_coordinator as fleet
+from executor.blueprints.agent_environments_bp import agent_environments_bp
 
 
-def setup_function():
+@pytest.fixture(autouse=True)
+def isolated_registry(tmp_path, monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_DB_PATH", str(tmp_path / "fleet-test.sqlite3"))
+    monkeypatch.setenv("NOUS_FLEET_TARGET_VERSION", "release-2")
+    monkeypatch.setenv("NOUS_VERSION", "release-2")
+    yield
     fleet.clear_fleet_registry_for_tests()
-    os.environ["NOUS_FLEET_DB_PATH"] = str(fleet._database_path().parent / "fleet-test.sqlite3")
-    fleet.clear_fleet_registry_for_tests()
-    os.environ["NOUS_FLEET_TARGET_VERSION"] = "release-2"
-    os.environ["NOUS_VERSION"] = "release-2"
-
-
-def teardown_function():
-    fleet.clear_fleet_registry_for_tests()
-    os.environ.pop("NOUS_FLEET_TARGET_VERSION", None)
-    os.environ.pop("NOUS_FLEET_DB_PATH", None)
-    os.environ.pop("NOUS_VERSION", None)
 
 
 def test_heartbeat_records_metadata_and_reports_drift():
@@ -39,14 +35,14 @@ def test_same_heartbeat_updates_existing_instance_not_duplicate():
     assert fleet.fleet_status()["instance_count"] == 1
 
 
-def test_rejects_invalid_metadata_and_unbounded_registry_growth():
+def test_rejects_invalid_metadata():
     assert fleet.record_heartbeat({"instance_id": "x", "provider": "vercel", "version": "v1"})["error"] == "invalid_instance_id"
     assert fleet.record_heartbeat({"instance_id": "nous-valid-01", "provider": "https://evil.example", "version": "v1"})["error"] == "invalid_provider"
 
 
-def test_target_version_missing_disables_drift_claims():
-    os.environ.pop("NOUS_FLEET_TARGET_VERSION", None)
-    os.environ.pop("NOUS_VERSION", None)
+def test_target_version_missing_disables_drift_claims(monkeypatch):
+    monkeypatch.delenv("NOUS_FLEET_TARGET_VERSION")
+    monkeypatch.delenv("NOUS_VERSION")
     result = fleet.record_heartbeat({"instance_id": "nous-unknown-01", "provider": "generic", "version": "v1"})
     assert result["ok"] is True
     assert result["update_available"] is False
@@ -60,14 +56,12 @@ def test_status_marks_stale_instances_without_deleting_them():
     assert result["instance_count"] == 1
 
 
-def test_heartbeat_requires_server_side_fleet_secret(client, monkeypatch):
-    from executor.blueprints.fleet_bp import fleet_bp
-    from flask import Flask
-
+def test_heartbeat_requires_server_side_fleet_secret(monkeypatch):
     app = Flask(__name__)
-    app.register_blueprint(fleet_bp)
+    app.register_blueprint(agent_environments_bp)
     monkeypatch.setenv("NOUS_FLEET_TOKEN", "test-only-fleet-secret")
     payload = {"instance_id": "nous-vercel-02", "provider": "vercel", "version": "release-1"}
-    assert app.test_client().post("/api/fleet/heartbeat", json=payload).status_code == 403
-    response = app.test_client().post("/api/fleet/heartbeat", json=payload, headers={"X-NOUS-FLEET-TOKEN": "test-only-fleet-secret"})
+    client = app.test_client()
+    assert client.post("/api/agent-environments/fleet/heartbeat", json=payload).status_code == 403
+    response = client.post("/api/agent-environments/fleet/heartbeat", json=payload, headers={"X-NOUS-FLEET-TOKEN": "test-only-fleet-secret"})
     assert response.status_code == 200
