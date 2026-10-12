@@ -1,4 +1,3 @@
-import pytest
 from flask import Flask
 
 from executor import fleet_coordinator as fleet
