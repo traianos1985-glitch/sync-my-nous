@@ -95,7 +95,6 @@ def _rule_based(message: str) -> dict[str, Any] | None:
         if re.search(pat, m, re.I):
             return {"intent": "run_safe_tool", "confidence": 0.93, "slots": {"action": action, "command": cmd}, "clarification_question": None, "source": "rules"}
 
-    # Approval close-loop
     m_appr = re.search(r"(?:ενέκρινε|ενεκρινε|approve)\s+(?:και\s+)?(?:εκτέλεσε|εκτελεσε|run)?\s*(?:approval\s+)?([\w-]+)", message.strip(), re.I)
     if not m_appr:
         m_appr = re.search(r"(?:εκτέλεσε|εκτελεσε)\s+approval\s+([\w-]+)", message.strip(), re.I)
@@ -119,7 +118,9 @@ def _rule_based(message: str) -> dict[str, Any] | None:
     for pat, action, cmd_prefix in priv_patterns:
         mm = re.search(pat, message.strip(), re.I)
         if mm:
-            rest = (mm.group(mm.lastindex) or "").strip() if mm.lastindex else ""
+            rest = ""
+            if pat.rstrip("$").endswith("(.*)") and mm.lastindex:
+                rest = (mm.group(mm.lastindex) or "").strip()
             command = f"{cmd_prefix} {rest}".strip() if rest else cmd_prefix
             return {"intent": "request_privileged_tool", "confidence": 0.92, "slots": {"action": action, "command": command}, "clarification_question": None, "source": "rules"}
 
