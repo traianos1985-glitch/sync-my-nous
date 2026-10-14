@@ -180,7 +180,31 @@ def run_safe_tool(action: str, command: str = "") -> dict[str, Any]:
         return {"ok": False, "error": str(exc), "answer": format_tool_error(action, exc)}
     if result == "UNKNOWN TOOL":
         return {"ok": False, "error": "unknown_tool", "answer": format_tool_error(action, code="unknown_tool")}
-    return {"ok": True, "result": result, "answer": _format_tool_result(result)}
+    text = _format_tool_result(result)
+    err_blob = text.lower()
+    if action == "git_status" and (
+        "exit status 128" in err_blob
+        or "not a git repository" in err_blob
+        or "returned non-zero" in err_blob
+    ):
+        return {
+            "ok": False,
+            "error": "git_unavailable",
+            "answer": (
+                "Το `git status` δεν είναι διαθέσιμο σε αυτό το περιβάλλον "
+                "(π.χ. cloud instance χωρίς git repo). "
+                "Δουλεύει τοπικά στο project directory."
+            ),
+            "result": result,
+        }
+    if isinstance(result, dict) and result.get("ok") is False and result.get("error"):
+        return {
+            "ok": False,
+            "error": str(result.get("error")),
+            "answer": format_tool_error(action, result.get("error")),
+            "result": result,
+        }
+    return {"ok": True, "result": result, "answer": text}
 
 
 def request_privileged_tool(action: str, command: str = "", reason: str | None = None) -> dict[str, Any]:
@@ -194,6 +218,23 @@ def request_privileged_tool(action: str, command: str = "", reason: str | None =
                 return {"ok": False, "error": "not_privileged", "answer": format_tool_error(action, code="not_privileged")}
         except Exception:
             return {"ok": False, "error": "unknown_tool", "answer": format_tool_error(action, code="unknown_tool")}
+
+    command = (command or action or "").strip()
+    _defaults = {
+        "repair_system": "repair system",
+        "autonomy_cycle": "autonomy cycle",
+        "clear_schedules": "clear schedules",
+        "autonomy_start": "autonomy start",
+    }
+    if action in _defaults:
+        low = command.lower()
+        if (
+            action.replace("_", " ") in low
+            or "επισκευ" in low
+            or command == action
+            or not command.startswith(_defaults[action].split()[0])
+        ):
+            command = _defaults[action]
 
     payload = {"tool": action, "command": command or action, "source": "chat_nl"}
     reason = reason or f"Chat ζήτησε privileged tool: {action}"
