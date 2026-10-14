@@ -33,8 +33,6 @@ def clean(s: str) -> str:
     return re.sub(r"\s+", " ", s or "").strip()
 
 
-# ─── DuckDuckGo Instant Answer API ────────────────────────────────────────────
-
 def _ddg_instant(query: str) -> list[dict]:
     try:
         import requests
@@ -64,13 +62,10 @@ def _ddg_instant(query: str) -> list[dict]:
         return []
 
 
-# ─── Wikipedia API (free, no key) ─────────────────────────────────────────────
-
 def _wikipedia_search(query: str) -> list[dict]:
     try:
         import requests
         results = []
-        # Try Greek Wikipedia first, fallback to English
         for lang in ["el", "en"]:
             if results:
                 break
@@ -100,8 +95,6 @@ def _wikipedia_search(query: str) -> list[dict]:
     except Exception:
         return []
 
-
-# ─── DuckDuckGo HTML scraper (fallback) ───────────────────────────────────────
 
 def _ddg_html(query: str, limit: int = 5) -> list[dict]:
     try:
@@ -146,8 +139,6 @@ def _ddg_html(query: str, limit: int = 5) -> list[dict]:
     return []
 
 
-# ─── LLM fallback ─────────────────────────────────────────────────────────────
-
 def _llm_web_answer(query: str) -> str | None:
     try:
         from executor.remote_llm import ask_remote_llm
@@ -164,21 +155,14 @@ def _llm_web_answer(query: str) -> str | None:
     return None
 
 
-# ─── Main entry points ────────────────────────────────────────────────────────
-
 def search_web(query: str, limit: int = 5) -> dict[str, Any]:
     q = clean(query)
     if not q:
         return {"ok": False, "error": "empty_query"}
 
-    # 1. DuckDuckGo Instant Answer
     results = _ddg_instant(q)
-
-    # 2. Wikipedia (free, always works)
     if not results:
         results = _wikipedia_search(q)
-
-    # 3. DuckDuckGo HTML
     if not results:
         results = _ddg_html(q, limit)
 
@@ -192,11 +176,14 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
     if not results:
         payload["error"] = "no_results"
 
-    cache = load_json(CACHE, [])
-    if not isinstance(cache, list):
-        cache = []
-    cache.append(payload)
-    save_json(CACHE, cache[-100:])
+    try:
+        cache = load_json(CACHE, [])
+        if not isinstance(cache, list):
+            cache = []
+        cache.append(payload)
+        save_json(CACHE, cache[-100:])
+    except Exception:
+        pass
 
     return payload
 
@@ -238,8 +225,3 @@ def answer_from_web(query: str) -> dict[str, Any]:
             **({"error": res.get("error")} if res.get("error") else {}),
         },
     }
-
-
-if __name__ == "__main__":
-    import sys
-    print(json.dumps(answer_from_web(" ".join(sys.argv[1:])), indent=2, ensure_ascii=False))
