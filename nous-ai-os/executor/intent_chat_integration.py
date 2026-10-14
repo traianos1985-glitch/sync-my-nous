@@ -2,10 +2,8 @@
 Intent classification integration for the chat path.
 
 Used by chat_brain_v3 and router so natural-language intents
-(status, health, missions, search, …) work without exact phrases.
-
-Handlers execute real actions where safe (create mission/goal, memory recall,
-read_url, evolve status, autonomous mode).
+work without exact phrases. Includes full capability awareness
+from tool_catalog and safe tool execution bridge.
 """
 
 from __future__ import annotations
@@ -125,12 +123,7 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             f"ή να την προχωρήσεις από το dashboard."
         )
         return _ok_response(
-            text,
-            intent=intent,
-            confidence=confidence,
-            slots=slots,
-            mission_id=str(mid),
-            mission=mission,
+            text, intent=intent, confidence=confidence, slots=slots, mission_id=str(mid), mission=mission
         )
 
     if intent == "create_goal":
@@ -161,12 +154,7 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             )
         text = f"✅ Καταχωρίστηκε ο στόχος **{goal.get('title', title)}** (id: `{goal.get('id')}`)."
         return _ok_response(
-            text,
-            intent=intent,
-            confidence=confidence,
-            slots=slots,
-            goal_id=str(goal.get("id")),
-            goal=goal,
+            text, intent=intent, confidence=confidence, slots=slots, goal_id=str(goal.get("id")), goal=goal
         )
 
     if intent == "search_web":
@@ -212,7 +200,6 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             text = "Δεν μπόρεσα να ψάξω στη μνήμη αυτή τη στιγμή."
         return _ok_response(text, intent=intent, confidence=confidence, slots={"query": cleaned or query})
 
-    # --- Read URL ---
     if intent == "read_url":
         url = (slots.get("url") or "").strip()
         if not url:
@@ -245,7 +232,6 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             title=result.get("title"),
         )
 
-    # --- Evolve / self-improvement (safe status + light analysis, no auto-apply) ---
     if intent == "evolve":
         parts = ["**Εξέλιξη / self-improvement**", ""]
         try:
@@ -280,7 +266,6 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
         )
         return _ok_response("\n".join(parts), intent=intent, confidence=confidence)
 
-    # --- Autonomous mode ---
     if intent == "autonomous_status":
         try:
             from executor import mode as mode_mod
@@ -327,27 +312,88 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             )
         return _ok_response(text, intent=intent, confidence=confidence)
 
+    # --- Full capability awareness ---
     if intent == "capabilities":
-        text = (
-            "Μπορώ να σε βοηθήσω με:\n"
-            "• **Φυσική συζήτηση** — ρώτα με ό,τι θέλεις στα ελληνικά\n"
-            "• **Κώδικα** — ανάλυση, debug, βελτίωση\n"
-            "• **Αναζήτηση internet** — πες «ψάξε για...»\n"
-            "• **Διάβασε σελίδα** — πες «διάβασε https://...»\n"
-            "• **Έγγραφα** — ανέβασε PDF/Word και ρώτα γι' αυτό\n"
-            "• **Μνήμη** — πες «θυμάσαι …»\n"
-            "• **Αποστολές** — πες «φτιάξε αποστολή …»\n"
-            "• **Στόχοι** — πες «δημιούργησε στόχο …»\n"
-            "• **Εξέλιξη** — πες «εξέλιξη» ή «self improve»\n"
-            "• **Αυτόνομη λειτουργία** — ξεκίνα / σταμάτα / κατάσταση\n"
-            "• **Κατάσταση** — πες «κατάσταση» ή «έλεγχος υγείας»"
-        )
+        try:
+            from executor.capability_awareness import build_capabilities_text
+
+            detailed = bool(slots.get("detailed"))
+            text = build_capabilities_text(detailed=detailed)
+        except Exception as exc:
+            text = f"Δεν μπόρεσα να φορτώσω τις δυνατότητες: {exc}"
         return _ok_response(text, intent=intent, confidence=confidence)
+
+    if intent == "list_tools":
+        try:
+            from executor.capability_awareness import build_tools_list_text
+
+            category = (slots.get("category") or "").strip() or None
+            text = build_tools_list_text(category=category)
+        except Exception as exc:
+            text = f"Δεν μπόρεσα να φορτώσω τον κατάλογο εργαλείων: {exc}"
+        return _ok_response(text, intent=intent, confidence=confidence)
+
+    # --- Calculator ---
+    if intent == "calculator":
+        expr = (slots.get("expression") or slots.get("query") or message or "").strip()
+        expr = re.sub(
+            r"^(?:υπολόγισε|υπολογισε|calculate|πόσο\s+κάνει|ποσο\s+κανει)\s+",
+            "",
+            expr,
+            flags=re.IGNORECASE,
+        ).strip()
+        if not expr:
+            return None
+        try:
+            from executor.capability_awareness import run_safe_tool
+
+            out = run_safe_tool("calculate", command=f"calculate {expr}")
+            text = out.get("answer") or str(out)
+            return _ok_response(
+                text, intent=intent, confidence=confidence, ok=bool(out.get("ok")), executed=bool(out.get("ok"))
+            )
+        except Exception as exc:
+            return _ok_response(
+                f"Δεν μπόρεσα να υπολογίσω: {exc}",
+                intent=intent,
+                executed=False,
+                confidence=confidence,
+                ok=False,
+            )
+
+    # --- Safe tool by name (e.g. git_status, daily_brief) ---
+    if intent == "run_safe_tool":
+        action = (slots.get("action") or slots.get("tool") or "").strip()
+        if not action:
+            return None
+        try:
+            from executor.capability_awareness import run_safe_tool
+
+            cmd = (slots.get("command") or message or action).strip()
+            out = run_safe_tool(action, command=cmd)
+            text = out.get("answer") or str(out)
+            return _ok_response(
+                text,
+                intent=intent,
+                confidence=confidence,
+                ok=bool(out.get("ok")),
+                executed=bool(out.get("ok")),
+                tool=action,
+            )
+        except Exception as exc:
+            return _ok_response(
+                f"Αποτυχία εργαλείου `{action}`: {exc}",
+                intent=intent,
+                executed=False,
+                confidence=confidence,
+                ok=False,
+            )
 
     if intent == "identity":
         text = (
-            "Εμένα με λένε ΝΟΥΣ. Είμαι ο προσωπικός σου AI βοηθός για συζήτηση, "
-            "κώδικα, έρευνα, έγγραφα, μνήμη και αποστολές. Ρώτα με ό,τι θέλεις στα ελληνικά!"
+            "Εμένα με λένε ΝΟΥΣ. Είμαι ο προσωπικός σου AI βοηθός με πλήρη επίγνωση "
+            "των εργαλείων και δυνατοτήτων μου (tool catalog, chat, missions, μνήμη, έρευνα). "
+            "Ρώτα «τι μπορείς να κάνεις;» ή «τι εργαλεία έχεις;» για το πλήρες inventory."
         )
         return _ok_response(text, intent=intent, confidence=confidence)
 
@@ -355,10 +401,7 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
 
 
 def try_intent_route(message: str) -> dict[str, Any] | None:
-    """
-    Classify message. Return a chat response dict when we should short-circuit,
-    or None to continue with the normal chat_brain flow.
-    """
+    """Classify message; short-circuit when we can handle the intent."""
     try:
         classification = classify_intent(message, use_llm=True)
         if classification.get("needs_clarification"):
