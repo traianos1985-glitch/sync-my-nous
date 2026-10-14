@@ -152,14 +152,13 @@ validate_startup_security()
 # Always retain the built-in origins even when Render provides NOUS_CORS_ORIGINS:
 # an environment override must extend the safe defaults, not replace them and
 # silently break the current preview after a redeploy.
-DEFAULT_ALLOWED_ORIGINS = {
+ALLOWED_ORIGINS = {
     "https://sync-my-nous.vercel.app",
     "https://traianos1985-glitch.github.io",
     "http://localhost:5173",
     "http://localhost:4173",
     "http://localhost:8080",
-}
-ALLOWED_ORIGINS = DEFAULT_ALLOWED_ORIGINS | {
+} | {
     origin.strip()
     for origin in os.environ.get("NOUS_CORS_ORIGINS", "").split(",")
     if origin.strip()
@@ -4356,7 +4355,7 @@ FIELD_VISION_PROMPTS = {
         "1) Τύπος — νόμισμα, κοσμήματα, σκεύος, όπλο, άλλο "
         "2) Εποχή και προέλευση "
         "3) Υλικό — μέταλλο, κεραμικό, πέτρα "
-        "4) Κατάσταση διατήρησης "
+        "4) Κα��άσταση διατήρησης "
         "5) Ιστορική και αρχαιολογική σημασία"
     ),
     "general": (
