@@ -95,3 +95,28 @@ def test_search_status_reports_unknown_when_empty_results_are_ambiguous(monkeypa
 
     assert result["available"] is None
     assert result["status"] == "unknown"
+
+
+def test_filter_relevant_detects_low_score_for_product_query():
+    from executor.internet_search_engine import _filter_relevant
+
+    # Simulate the bad hits the screenshot complained about.
+    weak = [
+        {"title": "Shiny - Wikipedia", "url": "https://en.wikipedia.org/wiki/Shiny", "snippet": "Shiny is an R package"},
+        {"title": "GeForce Now", "url": "https://www.nvidia.com/geforce-now", "snippet": "cloud gaming"},
+    ]
+    ranked, top, low = _filter_relevant("Render free tier", weak)
+    assert low is True
+    assert top < 1.5
+
+    strong = [
+        {
+            "title": "Render Free Tier",
+            "url": "https://render.com/docs/free",
+            "snippet": "Render free tier includes static sites and web services",
+        },
+    ]
+    ranked2, top2, low2 = _filter_relevant("Render free tier", strong)
+    assert low2 is False
+    assert top2 >= 1.5
+    assert ranked2[0].get("relevance_score", 0) >= 1.5

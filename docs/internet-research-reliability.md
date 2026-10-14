@@ -34,3 +34,15 @@ The research broker now:
 - Enforces a response-size cap while streaming the response body rather than reading an unbounded body into memory.
 - Allows deep research to use broader public sources while labeling known documentation domains separately.
 - Treats fetched page text as untrusted context in both regular and streaming model prompts, and preserves research citations in chat responses.
+
+## Low-relevance LLM fallback (2026-10)
+
+Specialised product queries (e.g. "Render free tier") often return mediocre DuckDuckGo / Wikipedia hits (unrelated Shiny, GeForce Now, etc.). The Internet Search Engine now:
+
+1. Computes a numeric `relevance_score` per hit (token overlap + light boost for known documentation domains such as `render.com` / `docs.render.com`).
+2. Flags `low_relevance: true` when the best score is below a threshold for multi-token queries.
+3. In `answer_from_web`, when hits are empty **or** low-relevance, falls back to an LLM knowledge answer (`mode: llm_fallback_low_relevance` or `knowledge_fallback_no_web`) while still exposing the weak live hits as secondary context.
+
+The ~2 s external-call rate limit (`capability_awareness.allow_external_call`) remains intentional and surfaces the Greek "Περίμενε ~Xs…" message; it is not a crash.
+
+This keeps the existing search path stable while improving answer quality for product-pricing style queries without inventing citations.
