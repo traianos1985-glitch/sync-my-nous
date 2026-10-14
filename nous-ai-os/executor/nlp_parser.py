@@ -1,108 +1,108 @@
-def normalize(text):
+"""Natural-language command parser.
 
-    return text.strip().lower()
+Unified with the intent classifier: prefers structured intent routing,
+falls back to legacy slash-command mapping for backward compatibility.
+"""
+
+from __future__ import annotations
 
 
-def parse_natural_command(command):
+def normalize(text: str) -> str:
+    return str(text or "").strip().lower()
 
-    cmd = normalize(command)
 
-    # STATUS
+_INTENT_TO_COMMAND = {
+    "system_status": "/status",
+    "health_check": "/status",
+    "autonomous_status": "/autonomous-status",
+    "autonomous_start": "/autonomous-start",
+    "autonomous_stop": "/autonomous-stop",
+    "evolve": "/evolve",
+    "memory_recall": "/memory",
+}
 
-    if (
-        "κατάσταση αυτόνομης λειτουργίας" in cmd
-        or "autonomous status" in cmd
-    ):
 
+def parse_natural_command(command: str):
+    """Return a slash command string, or the original command if unmatched."""
+    raw = str(command or "").strip()
+    if not raw:
+        return command
+
+    try:
+        from executor.intent_classifier import classify_intent
+
+        classification = classify_intent(raw, use_llm=False)
+        intent = classification.get("intent")
+        slots = classification.get("slots") or {}
+        conf = float(classification.get("confidence") or 0)
+
+        if conf >= 0.72 and intent in _INTENT_TO_COMMAND:
+            return _INTENT_TO_COMMAND[intent]
+
+        if conf >= 0.72 and intent == "search_web" and slots.get("query"):
+            return f"/search {slots['query']}"
+
+        if conf >= 0.72 and intent == "create_mission" and slots.get("goal"):
+            return f"/plan {slots['goal']}"
+
+        if conf >= 0.72 and intent == "request_privileged_tool":
+            action = slots.get("action") or ""
+            cmd = slots.get("command") or action
+            return f"/tool-approval {cmd}".strip()
+
+        if conf >= 0.72 and intent == "run_safe_tool":
+            return slots.get("command") or slots.get("action") or raw
+    except Exception:
+        pass
+
+    return _legacy_parse(normalize(raw), raw)
+
+
+def _legacy_parse(cmd: str, original: str) -> str:
+    if "κατάσταση αυτόνομης λειτουργίας" in cmd or "autonomous status" in cmd:
         return "/autonomous-status"
 
     if (
         "ποια είναι η κατάσταση του συστήματος" in cmd
         or "κατάσταση συστήματος" in cmd
-        or "status" == cmd
-        or "κατάσταση" == cmd
+        or cmd == "status"
+        or cmd == "κατάσταση"
     ):
-
         return "/status"
 
-    # MEMORY
-
     if "μνήμη" in cmd:
-
         return "/memory"
 
-    # AUTONOMOUS EVOLUTION
-
-    if (
-        "αυτόνομη εξέλιξη" in cmd
-        or "autonomous evolve" in cmd
-    ):
-
+    if "αυτόνομη εξέλιξη" in cmd or "autonomous evolve" in cmd:
         return "/autonomous-evolve"
 
-    if (
-        "ξεκίνα αυτόνομη λειτουργία" in cmd
-    ):
-
+    if "ξεκίνα αυτόνομη λειτουργία" in cmd:
         return "/autonomous-start"
 
-    if (
-        "σταμάτα αυτόνομη λειτουργία" in cmd
-    ):
-
+    if "σταμάτα αυτόνομη λειτουργία" in cmd:
         return "/autonomous-stop"
 
-    # NORMAL EVOLUTION
-
-    if (
-        "κάνε εξέλιξη" in cmd
-        or "evolve" == cmd
-        or "εξέλιξη" == cmd
-    ):
-
+    if "κάνε εξέλιξη" in cmd or cmd == "evolve" or cmd == "εξέλιξη":
         return "/evolve"
 
-    # REAL EVOLUTION
-
     if "γράψε plugin" in cmd:
-
-        goal = command.replace(
-            "γράψε plugin",
-            ""
-        ).strip()
-
-        return f"/real-evolve {goal}"
+        goal = original.replace("γράψε plugin", "").strip()
+        return f"/real-evolve {goal}".strip()
 
     if "φτιάξε plugin" in cmd:
-
-        goal = command.replace(
-            "φτιάξε plugin",
-            ""
-        ).strip()
-
-        return f"/real-evolve {goal}"
+        goal = original.replace("φτιάξε plugin", "").strip()
+        return f"/real-evolve {goal}".strip()
 
     if "create plugin" in cmd:
-
-        goal = command.replace(
-            "create plugin",
-            ""
-        ).strip()
-
-        return f"/real-evolve {goal}"
-
-    # SEARCH
+        goal = original.replace("create plugin", "").strip()
+        return f"/real-evolve {goal}".strip()
 
     if cmd.startswith("ψάξε "):
-
-        query = command.split(" ", 1)[1]
-
+        query = original.split(" ", 1)[1]
         return f"/search {query}"
 
     if cmd.startswith("search "):
-
-        query = command.split(" ", 1)[1]
-
+        query = original.split(" ", 1)[1]
         return f"/search {query}"
 
-    return command
+    return original
