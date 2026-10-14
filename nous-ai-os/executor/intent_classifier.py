@@ -98,6 +98,27 @@ def _rule_based(message: str) -> dict[str, Any] | None:
     if re.search(r"\b(ποιος\s+είσαι|ποιος\s+εισαι|πώς\s+σε\s+λένε|πως\s+σε\s+λενε)\b", m):
         return {"intent": "identity", "confidence": 0.9, "slots": {}, "clarification_question": None, "source": "rules"}
 
+    # Memory recall
+    if re.search(
+        r"\b(θυμάσαι|θυμασαι|θυμήσου|θυμησου|τι\s+θυμάσαι|τι\s+θυμασαι|"
+        r"τι\s+είχαμε\s+πει|τι\s+ειχαμε\s+πει|recall|remember)\b",
+        m,
+    ):
+        # Prefer the rest of the message as query slot
+        q = re.sub(
+            r"^(?:θυμάσαι|θυμασαι|θυμήσου|θυμησου|recall|remember)\s+(?:ότι|οτι|για|το|τα|αν)?\s*",
+            "",
+            message.strip(),
+            flags=re.IGNORECASE,
+        ).strip(" ?!.·")
+        return {
+            "intent": "memory_recall",
+            "confidence": 0.9,
+            "slots": {"query": q or message.strip()},
+            "clarification_question": None,
+            "source": "rules",
+        }
+
     # Explicit create mission / goal
     mission_match = re.match(
         r"^(?:δημιούργησε|δημιουργησε|φτιάξε|φτιαξε|κάνε|κανε|plan)\s+(?:μου\s+)?(?:μία?\s+|μια\s+|ένα\s+)?(?:αποστολή|αποστολη|mission)\s*[:\-]?\s*(.+)$",
@@ -162,7 +183,7 @@ _CLASSIFIER_SYSTEM = """Είσαι ο ταξινομητής προθέσεων 
 - search_web: αναζήτηση στο internet (slots: query)
 - deep_research: βαθιά έρευνα (slots: query)
 - read_url: διάβασε URL (slots: url)
-- memory_recall: θυμάσαι / τι είχαμε πει
+- memory_recall: θυμάσαι / τι είχαμε πει (slots: query)
 - knowledge_query: από έγγραφα / μνήμη γνώσης
 - evolve: εξέλιξη / self-improve / αναβάθμιση εαυτού
 - autonomous_start / autonomous_stop / autonomous_status
@@ -178,6 +199,7 @@ _CLASSIFIER_SYSTEM = """Είσαι ο ταξινομητής προθέσεων 
 3. Μην εφευρίσκεις intents που δεν υπάρχουν στη λίστα.
 4. Για αόριστες φράσεις τύπου "κοίτα το λίγο", "φτιάξε το", "έλεγχος" → unclear + ρώτα τι ακριβώς.
 5. Προτίμησε natural Greek clarification questions (όχι "Παρακαλώ διευκρινίστε το intent").
+6. Για create_mission / create_goal: εκτέλεση απευθείας — δεν χρειάζεται /plan.
 
 Παράδειγμα εξόδου:
 {"intent":"system_status","confidence":0.88,"slots":{},"clarification_question":null,"reasoning":"ρωτά για κατάσταση συστήματος"}
@@ -316,7 +338,7 @@ def classify_intent(message: str, use_llm: bool = True) -> dict[str, Any]:
             elif intent == "read_url" and not slots.get("url"):
                 needs = True
                 question = question or "Ποιο URL να ανοίξω;"
-            elif conf < CONFIDENCE_ACT and intent not in ("general_chat", "capabilities", "identity"):
+            elif conf < CONFIDENCE_ACT and intent not in ("general_chat", "capabilities", "identity", "memory_recall"):
                 # Medium confidence actionable intent → safer to confirm
                 needs = True
                 if not question:
