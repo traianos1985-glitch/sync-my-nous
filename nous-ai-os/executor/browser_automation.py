@@ -22,71 +22,96 @@ def _clean_search_query(query: str) -> str:
 
 
 def browser_search(query):
-    from executor.guardian_policy import check_action
-    from executor.action_journal import write_journal
+    """Never raise — always return a dict for the router."""
+    try:
+        from executor.guardian_policy import check_action
 
-    policy = check_action("research_query")
-    if not policy.get("allowed"):
-        return {"ok": False, "policy": policy}
+        policy = check_action("research_query")
+        if not policy.get("allowed"):
+            return {
+                "ok": False,
+                "policy": policy,
+                "error": "policy_blocked",
+                "answer": "Η αναζήτηση μπλοκαρίστηκε από την πολιτική ασφαλείας.",
+            }
+    except Exception:
+        pass
 
     q = _clean_search_query(str(query or ""))
     if not q:
         return {"ok": False, "error": "empty_query", "answer": "Τι να ψάξω ακριβώς;"}
 
+    answer = None
+    raw = None
+    source = None
+
     try:
         from executor.internet_search_engine import answer_from_web
 
         web = answer_from_web(q)
-        if isinstance(web, dict) and (web.get("answer") or web.get("results")):
-            answer = web.get("answer") or str(web.get("results", []))[:1200]
-            write_journal("browser_search", {"query": q, "via": "internet_search_engine"})
+        if isinstance(web, dict):
+            raw = web
+            answer = web.get("answer")
+            if not answer and web.get("results"):
+                answer = str(web.get("results"))[:1200]
+            source = "internet_search_engine"
+    except Exception as exc:
+        raw = {"error": str(exc)}
+
+    if not answer:
+        try:
+            from executor.real_research_engine import research_query
+
+            result = research_query(q, learn=False)
+            raw = result
+            if isinstance(result, dict):
+                answer = result.get("answer") or result.get("summary")
+            if not answer:
+                answer = str(result)[:1200]
+            source = "research_query"
+        except Exception as exc:
             return {
-                "ok": True,
-                "query": q,
-                "answer": answer,
-                # Router historically displays result — keep human text here
-                "result": answer,
-                "raw": web,
-                "source": "internet_search_engine",
+                "ok": False,
+                "error": str(exc),
+                "answer": f"Αποτυχία αναζήτησης: {exc}",
             }
+
+    try:
+        from executor.action_journal import write_journal
+
+        write_journal("browser_search", {"query": q, "via": source})
     except Exception:
         pass
 
-    try:
-        from executor.real_research_engine import research_query
-
-        result = research_query(q, learn=False)
-    except Exception as exc:
-        write_journal("browser_search", {"query": q, "error": str(exc)})
-        return {"ok": False, "error": str(exc), "answer": f"Αποτυχία αναζήτησης: {exc}"}
-
-    write_journal("browser_search", {"query": q, "via": "research_query"})
-    answer = None
-    if isinstance(result, dict):
-        answer = result.get("answer") or result.get("summary")
-    answer = answer or str(result)[:1200]
     return {
         "ok": True,
         "query": q,
         "answer": answer,
         "result": answer,
-        "raw": result,
-        "source": "research_query",
+        "raw": raw,
+        "source": source or "unknown",
     }
 
 
 def browser_read(url):
-    from executor.guardian_policy import check_action
-    from executor.action_journal import write_journal
+    try:
+        from executor.guardian_policy import check_action
 
-    policy = check_action("browser_read")
-    if not policy.get("allowed"):
-        return {"ok": False, "policy": policy}
+        policy = check_action("browser_read")
+        if not policy.get("allowed"):
+            return {"ok": False, "policy": policy}
+    except Exception:
+        pass
     try:
         from executor.real_research_engine import read_url
 
         result = read_url(url, learn=False)
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
-    write_journal("browser_read", {"url": url})
+    try:
+        from executor.action_journal import write_journal
+
+        write_journal("browser_read", {"url": url})
+    except Exception:
+        pass
     return {"ok": True, "result": result}
