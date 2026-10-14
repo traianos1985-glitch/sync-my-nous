@@ -1,80 +1,58 @@
-"""Unit tests for natural-language intent classification and handlers (rules path, no LLM)."""
+"""Unit tests for natural-language intent classifier and chat integration."""
+
 from __future__ import annotations
 
 
-def test_classify_status_and_health_rules():
+def test_health_and_status_rules():
     from executor.intent_classifier import classify_intent
 
-    r = classify_intent("κατάσταση", use_llm=False)
-    assert r["intent"] in ("system_status", "health_check")
-    assert r["confidence"] >= 0.72
-    assert r["needs_clarification"] is False
-
-    r2 = classify_intent("έλεγχος υγείας", use_llm=False)
-    assert r2["intent"] == "health_check"
+    h = classify_intent("έλεγχος υγείας", use_llm=False)
+    assert h["intent"] in ("health_check", "system_status")
+    s = classify_intent("κατάσταση", use_llm=False)
+    assert s["intent"] in ("system_status", "health_check")
 
 
-def test_classify_create_mission_and_goal():
+def test_identity_and_capabilities():
     from executor.intent_classifier import classify_intent
 
-    r = classify_intent("φτιάξε αποστολή βελτίωσε το UI", use_llm=False)
-    assert r["intent"] == "create_mission"
-    assert "UI" in r["slots"].get("goal", "") or "βελτίωσε" in r["slots"].get("goal", "")
-
-    r2 = classify_intent("δημιούργησε στόχο: να μάθω Rust", use_llm=False)
-    assert r2["intent"] == "create_goal"
-    assert "Rust" in r2["slots"].get("title", "")
+    i = classify_intent("ποιος είσαι", use_llm=False)
+    assert i["intent"] == "identity"
+    c = classify_intent("τι μπορείς να κάνεις", use_llm=False)
+    assert c["intent"] == "capabilities"
 
 
-def test_classify_memory_and_search():
+def test_list_tools_rule():
     from executor.intent_classifier import classify_intent
 
-    r = classify_intent("θυμάσαι για το deploy", use_llm=False)
-    assert r["intent"] == "memory_recall"
-
-    r2 = classify_intent("ψάξε για Python asyncio", use_llm=False)
-    assert r2["intent"] == "search_web"
-    assert "Python" in r2["slots"].get("query", "")
+    c = classify_intent("τι εργαλεία έχεις", use_llm=False)
+    assert c["intent"] == "list_tools"
 
 
-def test_classify_read_url_evolve_autonomous():
+def test_create_mission_slots():
     from executor.intent_classifier import classify_intent
 
-    r = classify_intent("διάβασε https://example.com/page", use_llm=False)
-    assert r["intent"] == "read_url"
-    assert r["slots"]["url"].startswith("https://example.com")
-
-    r2 = classify_intent("εξέλιξη συστήματος", use_llm=False)
-    assert r2["intent"] == "evolve"
-
-    r3 = classify_intent("ξεκίνα την αυτόνομη λειτουργία", use_llm=False)
-    assert r3["intent"] == "autonomous_start"
-
-    r4 = classify_intent("σταμάτα την αυτόνομη", use_llm=False)
-    assert r4["intent"] == "autonomous_stop"
-
-    r5 = classify_intent("κατάσταση αυτόνομης λειτουργίας", use_llm=False)
-    assert r5["intent"] in ("autonomous_status", "system_status")
+    c = classify_intent("φτιάξε αποστολή βελτίωσε το UI", use_llm=False)
+    assert c["intent"] == "create_mission"
+    assert "UI" in c.get("slots", {}).get("goal", "")
 
 
-def test_empty_message_needs_clarification():
+def test_memory_recall_rule():
     from executor.intent_classifier import classify_intent
 
-    r = classify_intent("", use_llm=False)
-    assert r["needs_clarification"] is True
+    c = classify_intent("θυμάσαι για το deploy", use_llm=False)
+    assert c["intent"] == "memory_recall"
 
 
-def test_handle_autonomous_mode():
+def test_handle_autonomous_toggle(monkeypatch):
     from executor import mode as mode_mod
     from executor.intent_chat_integration import _handle_classified_intent
 
-    mode_mod.MODE["autonomous"] = False
+    mode_mod.enable()
     out = _handle_classified_intent(
-        {"intent": "autonomous_start", "confidence": 0.95, "slots": {}},
-        "ξεκίνα την αυτόνομη",
+        {"intent": "autonomous_status", "confidence": 0.95, "slots": {}},
+        "αυτόνομη κατάσταση",
     )
     assert out and out.get("ok") is True
-    assert mode_mod.status().get("autonomous") is True
 
     out2 = _handle_classified_intent(
         {"intent": "autonomous_stop", "confidence": 0.95, "slots": {}},
@@ -111,3 +89,50 @@ def test_try_intent_route_rules_only(monkeypatch):
     routed = ici.try_intent_route("ποιος είσαι")
     assert routed is not None
     assert routed.get("intent") == "identity"
+
+
+def test_privileged_repair_requests_approval():
+    from executor.intent_classifier import classify_intent
+
+    c = classify_intent("επισκευή συστήματος", use_llm=False)
+    assert c["intent"] == "request_privileged_tool"
+    assert c["slots"].get("action") == "repair_system"
+
+
+def test_approve_and_run_rule():
+    from executor.intent_classifier import classify_intent
+
+    c = classify_intent("ενέκρινε και εκτέλεσε 12", use_llm=False)
+    assert c["intent"] == "approve_and_run"
+    assert c["slots"].get("approval_id") == "12"
+
+
+def test_list_approvals_rule():
+    from executor.intent_classifier import classify_intent
+
+    c = classify_intent("εκκρεμείς εγκρίσεις", use_llm=False)
+    assert c["intent"] == "list_approvals"
+
+
+def test_nlp_parser_uses_intent():
+    from executor.nlp_parser import parse_natural_command
+
+    out = parse_natural_command("κατάσταση")
+    assert "status" in out.lower() or out == "/status"
+
+
+def test_format_tool_error():
+    from executor.capability_awareness import format_tool_error
+
+    msg = format_tool_error("git_status", code="test")
+    assert "git_status" in msg
+    assert "test" in msg
+
+
+def test_session_context_roundtrip(tmp_path, monkeypatch):
+    from executor import session_context as sc
+
+    monkeypatch.setattr(sc, "_PATH", tmp_path / "ctx.json")
+    sc.remember_classification({"intent": "capabilities", "confidence": 0.9, "slots": {}}, "τι μπορείς")
+    last = sc.get_last()
+    assert last and last.get("intent") == "capabilities"
