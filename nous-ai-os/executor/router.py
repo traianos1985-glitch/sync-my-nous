@@ -149,20 +149,29 @@ validate_startup_security()
 
 
 # Keep browser access limited to the deployed dashboard and local development.
+# Always retain the built-in origins even when Render provides NOUS_CORS_ORIGINS:
+# an environment override must extend the safe defaults, not replace them and
+# silently break the current preview after a redeploy.
 ALLOWED_ORIGINS = {
+    "https://sync-my-nous.vercel.app",
+    "https://traianos1985-glitch.github.io",
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://localhost:8080",
+} | {
     origin.strip()
-    for origin in os.environ.get(
-        "NOUS_CORS_ORIGINS",
-        "https://sync-my-nous.vercel.app,https://traianos1985-glitch.github.io,http://localhost:5173,http://localhost:4173,http://localhost:8080",
-    ).split(",")
+    for origin in os.environ.get("NOUS_CORS_ORIGINS", "").split(",")
     if origin.strip()
 }
 
-# A Lovable preview or published app is served from a freshly generated
-# https://<slug>.lovable.app (or id-preview--<uuid>.lovable.app) address, so those
-# origins cannot be listed one by one. Match the domain instead: no session cookie
-# is used here, so a request is still only accepted with a valid NOUS token.
-ALLOWED_ORIGIN_SUFFIXES = (".lovable.app", ".lovableproject.com", ".lovable.dev")
+# Preview and published apps use generated subdomains. Matching the domain is
+# safe here because every API request still requires a valid NOUS token.
+ALLOWED_ORIGIN_SUFFIXES = (
+    ".vercel.app",
+    ".lovable.app",
+    ".lovableproject.com",
+    ".lovable.dev",
+)
 
 
 def _origin_allowed(origin) -> bool:
@@ -172,9 +181,13 @@ def _origin_allowed(origin) -> bool:
     if origin in ALLOWED_ORIGINS:
         return True
     parsed = urlsplit(origin)
+    host = parsed.hostname.lower() if parsed.hostname else ""
+    # Vite may move to the next available port when the preview restarts.
+    # Keep local development usable without opening arbitrary HTTP origins.
+    if parsed.scheme == "http" and host in {"localhost", "127.0.0.1", "[::1]"}:
+        return True
     if parsed.scheme != "https":
         return False
-    host = parsed.netloc.lower()
     return any(
         host == suffix.lstrip(".") or host.endswith(suffix)
         for suffix in ALLOWED_ORIGIN_SUFFIXES
@@ -3616,7 +3629,7 @@ def app_builder_diagnose_route():
         "diagnosis": diagnosis,
         "repair_id": stored["repair_id"],
         "proposal_storage": stored,
-        "message": "Η πρόταση αποθηκεύτηκε για στατικό προέλεγχο· δεν άλλαξε κανένα αρχείο.",
+        "message": "Η ��ρόταση αποθηκεύτηκε για ��τατικό προέλεγχο· δεν άλλαξε κανένα αρχείο.",
         "human_review_required": True,
     }), 200
 
@@ -4346,11 +4359,11 @@ FIELD_VISION_PROMPTS = {
         "1) Τύπος — νόμισμα, κοσμήματα, σκεύος, όπλο, άλλο "
         "2) Εποχή και προέλευση "
         "3) Υλικό — μέταλλο, κεραμικό, πέτρα "
-        "4) Κατάσταση διατήρησης "
+        "4) Κ����άσταση διατήρησης "
         "5) Ιστορική και αρχαιολογική σημασία"
     ),
     "general": (
-        "Είσαι ο ΝΟΥΣ, ειδικός σύμβουλος ηλεκτρονικής ανίχνευσης και θησαυροθηρίας στη Μεσσηνία. "
+        "Είσαι ο ΝΟΥ��, ειδικός σύμβουλος ηλεκτρονικής ανίχνευσης και θησαυροθηρίας στη Μεσσηνία. "
         "Αναλύσε αυτή την εικόνα από κάθε πιθανή οπτική γωνία: "
         "σημάδια, σύμβολα, τοπογραφία, ανωμαλίες εδάφους, ιστορικά στοιχεία. "
         "Δώσε πρακτικές συστάσεις για την έρευνα."
@@ -4530,7 +4543,7 @@ def field_signs_search_route():
         return jsonify({"ok": False, "error": str(e)})
 
 
-# ─── RUNTIME METRICS ────────────────────────────────��─────────────────────────
+# ─── RUNTIME METRICS ────────────��───────────────────��─────────────────────────
 @app.route("/remote/runtime-metrics", methods=["GET"])
 def remote_runtime_metrics_route():
     try:

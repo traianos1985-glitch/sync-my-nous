@@ -158,7 +158,9 @@ def build_runtime_lifecycle_plan(
     deploy_markers = sorted(set(_DEPLOY_ENV.get(provider, ())) & env_names)
     cli_available = shutil.which(provider) is not None if provider in {"vercel", "railway"} else None
     if provider == "vercel":
-        deploy_ready_hint = cli_available is True or "VERCEL_TOKEN" in env_names
+        # A CLI installed on the host is not proof that this runtime has deploy
+        # access. Only an explicitly present provider credential is a useful hint.
+        deploy_ready_hint = "VERCEL_TOKEN" in env_names
     elif provider == "render":
         deploy_ready_hint = {"RENDER_API_KEY", "RENDER_SERVICE_ID"} <= env_names
     elif provider == "railway":
