@@ -4,11 +4,13 @@ Intent classification integration for the chat path.
 Used by chat_brain_v3 and router so natural-language intents
 (status, health, missions, search, …) work without exact phrases.
 
-Handlers execute real actions where safe (create mission/goal, memory recall).
+Handlers execute real actions where safe (create mission/goal, memory recall,
+read_url, evolve status, autonomous mode).
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from executor.intent_classifier import classify_intent, format_clarification_response
@@ -22,10 +24,11 @@ def _ok_response(
     executed: bool = True,
     confidence: float | None = None,
     slots: dict | None = None,
+    ok: bool = True,
     **extra: Any,
 ) -> dict[str, Any]:
     out: dict[str, Any] = {
-        "ok": True,
+        "ok": ok,
         "source": "intent_classifier",
         "mode": mode or intent,
         "intent": intent,
@@ -87,7 +90,6 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             text = "Δεν μπόρεσα να διαβάσω τους στόχους αυτή τη στιγμή."
         return _ok_response(text, intent=intent, confidence=confidence)
 
-    # --- Real create mission (no /plan required) ---
     if intent == "create_mission":
         goal = (slots.get("goal") or "").strip()
         if not goal:
@@ -131,7 +133,6 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             mission=mission,
         )
 
-    # --- Real create goal ---
     if intent == "create_goal":
         title = (slots.get("title") or "").strip()
         if not title:
@@ -195,12 +196,8 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             text = "Δεν μπόρεσα να ολοκληρώσω τη βαθιά έρευνα."
         return _ok_response(text, intent=intent, confidence=confidence)
 
-    # --- Memory recall ---
     if intent == "memory_recall":
         query = (slots.get("query") or message or "").strip()
-        # Strip common Greek/English recall prefixes so the search is cleaner
-        import re
-
         cleaned = re.sub(
             r"^(?:θυμάσαι|θυμασαι|θυμήσου|θυμησου|recall|remember)\s+(?:ότι|οτι|για|το|τα|αν)?\s*",
             "",
@@ -215,16 +212,134 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
             text = "Δεν μπόρεσα να ψάξω στη μνήμη αυτή τη στιγμή."
         return _ok_response(text, intent=intent, confidence=confidence, slots={"query": cleaned or query})
 
+    # --- Read URL ---
+    if intent == "read_url":
+        url = (slots.get("url") or "").strip()
+        if not url:
+            found = re.findall(r"https?://[^\s]+", message or "")
+            url = found[0] if found else ""
+        if not url:
+            return None
+        try:
+            from executor.url_reader_engine import summarize_url
+
+            result = summarize_url(url)
+        except Exception as exc:
+            return _ok_response(
+                f"Δεν μπόρεσα να διαβάσω τη σελίδα: {exc}",
+                intent=intent,
+                executed=False,
+                confidence=confidence,
+                slots={"url": url},
+                ok=False,
+            )
+        text = result.get("answer") or "Δεν μπόρεσα να διαβάσω τη σελίδα."
+        return _ok_response(
+            text,
+            intent=intent,
+            confidence=confidence,
+            slots={"url": url},
+            ok=bool(result.get("ok")),
+            executed=bool(result.get("ok")),
+            url=url,
+            title=result.get("title"),
+        )
+
+    # --- Evolve / self-improvement (safe status + light analysis, no auto-apply) ---
+    if intent == "evolve":
+        parts = ["**Εξέλιξη / self-improvement**", ""]
+        try:
+            from executor.self_improvement_engine import self_improvement_status
+
+            st = self_improvement_status()
+            patches = st.get("patches") or []
+            pending = [p for p in patches if isinstance(p, dict) and p.get("status") == "pending"]
+            parts.append(f"• Επιτρεπόμενα αρχεία για patches: {len(st.get('allowed_files') or [])}")
+            parts.append(f"• Συνολικά patches: {len(patches)} (εκκρεμή: {len(pending)})")
+            health = st.get("health")
+            if isinstance(health, dict):
+                parts.append(f"• Code health: {health.get('status') or health.get('ok') or health}")
+            elif health is not None:
+                parts.append(f"• Code health: {health}")
+        except Exception as exc:
+            parts.append(f"• Δεν μπόρεσα να διαβάσω self-improvement status: {exc}")
+        try:
+            from executor.self_improver import analyze_system
+
+            issues = analyze_system()
+            if issues:
+                parts.append("• Θέματα: " + ", ".join(str(i) for i in issues[:8]))
+            else:
+                parts.append("• Ανάλυση συστήματος: δεν βρέθηκαν άμεσα θέματα.")
+        except Exception:
+            pass
+        parts.append("")
+        parts.append(
+            "Δεν εφαρμόζω αυτόματα patches από το chat (ασφάλεια). "
+            "Αν θες συγκεκριμένη βελτίωση, πες μου τον στόχο ή άνοιξε mission."
+        )
+        return _ok_response("\n".join(parts), intent=intent, confidence=confidence)
+
+    # --- Autonomous mode ---
+    if intent == "autonomous_status":
+        try:
+            from executor import mode as mode_mod
+
+            st = mode_mod.status()
+            on = bool(st.get("autonomous"))
+            text = f"Η αυτόνομη λειτουργία είναι **{'ενεργή' if on else 'ανενεργή'}**."
+        except Exception as exc:
+            text = f"Δεν μπόρεσα να διαβάσω την κατάσταση αυτόνομης λειτουργίας: {exc}"
+        return _ok_response(text, intent=intent, confidence=confidence)
+
+    if intent == "autonomous_start":
+        try:
+            from executor import mode as mode_mod
+
+            mode_mod.enable()
+            text = "✅ Ενεργοποίησα την αυτόνομη λειτουργία."
+        except Exception as exc:
+            return _ok_response(
+                f"Δεν μπόρεσα να ενεργοποιήσω την αυτόνομη λειτουργία: {exc}",
+                intent=intent,
+                executed=False,
+                confidence=confidence,
+                ok=False,
+            )
+        return _ok_response(text, intent=intent, confidence=confidence)
+
+    if intent == "autonomous_stop":
+        try:
+            from executor import mode as mode_mod
+
+            if hasattr(mode_mod, "disable"):
+                mode_mod.disable()
+            else:
+                mode_mod.MODE["autonomous"] = False
+            text = "✅ Απενεργοποίησα την αυτόνομη λειτουργία."
+        except Exception as exc:
+            return _ok_response(
+                f"Δεν μπόρεσα να απενεργοποιήσω την αυτόνομη λειτουργία: {exc}",
+                intent=intent,
+                executed=False,
+                confidence=confidence,
+                ok=False,
+            )
+        return _ok_response(text, intent=intent, confidence=confidence)
+
     if intent == "capabilities":
         text = (
             "Μπορώ να σε βοηθήσω με:\n"
             "• **Φυσική συζήτηση** — ρώτα με ό,τι θέλεις στα ελληνικά\n"
             "• **Κώδικα** — ανάλυση, debug, βελτίωση\n"
             "• **Αναζήτηση internet** — πες «ψάξε για...»\n"
+            "• **Διάβασε σελίδα** — πες «διάβασε https://...»\n"
             "• **Έγγραφα** — ανέβασε PDF/Word και ρώτα γι' αυτό\n"
             "• **Μνήμη** — πες «θυμάσαι …»\n"
-            "• **Αποστολές** — πες «φτιάξε αποστολή …» (χωρίς /plan)\n"
+            "• **Αποστολές** — πες «φτιάξε αποστολή …»\n"
             "• **Στόχοι** — πες «δημιούργησε στόχο …»\n"
+            "• **Εξέλιξη** — πες «εξέλιξη» ή «self improve»\n"
+            "• **Αυτόνομη λειτουργία** — ξεκίνα / σταμάτα / κατάσταση\n"
             "• **Κατάσταση** — πες «κατάσταση» ή «έλεγχος υγείας»"
         )
         return _ok_response(text, intent=intent, confidence=confidence)
