@@ -251,7 +251,26 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
         from executor.capability_awareness import run_safe_tool
 
         out = run_safe_tool("calculate", command=f"calculate {expr}")
-        return _ok_response(out.get("answer") or str(out), intent=intent, confidence=confidence, ok=bool(out.get("ok")), executed=bool(out.get("ok")))
+        text = out.get("answer") or str(out)
+        try:
+            import json as _json
+
+            parsed = out.get("result")
+            if isinstance(parsed, dict) and "result" in parsed:
+                text = f"**{parsed.get('expression', expr)}** = **{parsed.get('result')}**"
+            elif isinstance(text, str) and text.strip().startswith("{"):
+                data = _json.loads(text)
+                if isinstance(data, dict) and "result" in data:
+                    text = f"**{data.get('expression', expr)}** = **{data.get('result')}**"
+        except Exception:
+            pass
+        return _ok_response(
+            text,
+            intent=intent,
+            confidence=confidence,
+            ok=bool(out.get("ok")),
+            executed=bool(out.get("ok")),
+        )
 
     if intent == "run_safe_tool":
         action = (slots.get("action") or "").strip()
