@@ -181,9 +181,13 @@ def _origin_allowed(origin) -> bool:
     if origin in ALLOWED_ORIGINS:
         return True
     parsed = urlsplit(origin)
+    host = parsed.hostname.lower() if parsed.hostname else ""
+    # Vite may move to the next available port when the preview restarts.
+    # Keep local development usable without opening arbitrary HTTP origins.
+    if parsed.scheme == "http" and host in {"localhost", "127.0.0.1", "[::1]"}:
+        return True
     if parsed.scheme != "https":
         return False
-    host = parsed.netloc.lower()
     return any(
         host == suffix.lstrip(".") or host.endswith(suffix)
         for suffix in ALLOWED_ORIGIN_SUFFIXES
@@ -4355,7 +4359,7 @@ FIELD_VISION_PROMPTS = {
         "1) Τύπος — νόμισμα, κοσμήματα, σκεύος, όπλο, άλλο "
         "2) Εποχή και προέλευση "
         "3) Υλικό — μέταλλο, κεραμικό, πέτρα "
-        "4) Κα��άσταση διατήρησης "
+        "4) Κ����άσταση διατήρησης "
         "5) Ιστορική και αρχαιολογική σημασία"
     ),
     "general": (

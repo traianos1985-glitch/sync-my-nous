@@ -58,6 +58,8 @@ ALLOWED = [
     "https://sync-my-nous.vercel.app",
     "https://traianos1985-glitch.github.io",
     "http://localhost:5173",
+    "http://localhost:5006",
+    "http://127.0.0.1:4173",
     "http://localhost:8080",
 ]
 
