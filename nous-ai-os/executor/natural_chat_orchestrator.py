@@ -31,6 +31,12 @@ def is_natural_chat(message: str) -> bool:
         "τι τρέχει", "τι τρεχει",
         "τι γίνεται", "τι γινεται",
         "πρόοδος", "προοδος", "progress",
+        # Natural health / system phrases
+        "έλεγχος υγείας", "ελεγχος υγειας", "health check",
+        "υγεία συστήματος", "υγεια συστηματος",
+        "όλα καλά", "ολα καλα", "όλα εντάξει", "ολα ενταξει",
+        "πώς είναι το σύστημα", "πως ειναι το συστημα",
+        "συστήματος", "συστηματος",
     ]
     return any(x in m for x in patterns)
 
@@ -181,11 +187,16 @@ def natural_chat_answer(message: str) -> dict[str, Any] | None:
         answer = "Γεια σου! Είμαι έτοιμος. Τι θέλεις να δούμε;"
         return pack(answer, "normal_chat")
 
-    # --- Κατάσταση συστήματος ---
+    # --- Κατάσταση συστήματος / υγεία ---
     if any(x in m for x in [
         "κατάσταση", "κατασταση", "status", "τι τρέχει", "τι τρεχει",
         "τι γίνεται", "τι γινεται", "πρόοδος", "προοδος", "progress",
-        "πώς πάει", "πως παει", "τι έχουμε", "τι εχουμε"
+        "πώς πάει", "πως παει", "τι έχουμε", "τι εχουμε",
+        "έλεγχος υγείας", "ελεγχος υγειας", "health check", "project health",
+        "υγεία συστήματος", "υγεια συστηματος", "υγεία", "υγεια",
+        "όλα καλά", "ολα καλα", "όλα εντάξει", "ολα ενταξει",
+        "πώς είναι το σύστημα", "πως ειναι το συστημα",
+        "συστήματος", "συστηματος",
     ]):
         return pack(_system_status_answer(), "system_status")
 
@@ -212,7 +223,6 @@ def natural_chat_answer(message: str) -> dict[str, Any] | None:
         "θέλω αποστολή", "θελω αποστολη", "create mission", "new mission"
     ]
     if any(x in m for x in mission_triggers):
-        # Extract what comes after the trigger
         for trigger in mission_triggers:
             if trigger in m:
                 idx = m.index(trigger) + len(trigger)
@@ -316,29 +326,12 @@ def natural_chat_answer(message: str) -> dict[str, Any] | None:
             answer = f"Σφάλμα scheduler: {e}. Δοκίμασε: «προγραμμάτισε X κάθε 30 λεπτά»"
         return pack(answer, "scheduler")
 
-    # --- Αυτοβελτίωση ---
-    if any(x in m for x in [
-        "αυτοβελτί", "αυτοβελτι", "self-improv", "βελτιώνεσαι", "βελτιωνεσαι",
-        "αναβαθμίζεσαι", "αναβαθμιζεσαι", "μαθαίνεις", "μαθαινεις",
-        "μάθηση", "μαθηση", "εξέλιξη", "εξελιξη", "evolution"
-    ]):
-        answer = (
-            "Ναι, έχω πραγματικό μηχανισμό αυτοβελτίωσης:\n\n"
-            "• **Patch system** — μπορώ να προτείνω αλλαγές σε συγκεκριμένα αρχεία μου\n"
-            "• **Απαιτεί έγκρισή σου** — για ασφάλεια, δεν τρέχω τίποτα χωρίς «ναι» από σένα\n"
-            "• **Learning engine** — αποθηκεύω λάθη και λύσεις στη μνήμη μου\n"
-            "• **Agent review** — μετά κάθε κύκλο, αξιολογώ τι έκανα\n\n"
-            "Δεν ξαναγράφω τον εαυτό μου αυτόνομα — αυτό είναι σκόπιμο για ασφάλεια. "
-            "Αλλά μπορώ να σου προτείνω patch για συγκεκριμένα modules αν με ρωτήσεις."
-        )
-        return pack(answer, "self_improvement_explain")
-
     return None
 
-def pack(answer: str, mode: str, **extra) -> dict[str, Any]:
-    return {
-        "ok": extra.pop("ok", True),
-        "executed": extra.pop("executed", False),
+
+def pack(answer: str, mode: str, ok: bool = True, executed: bool = False, **extra) -> dict[str, Any]:
+    out = {
+        "ok": ok,
         "source": "natural_chat_orchestrator",
         "mode": mode,
         "answer": answer,
@@ -346,5 +339,7 @@ def pack(answer: str, mode: str, **extra) -> dict[str, Any]:
         "text": answer,
         "human_answer": answer,
         "sources": [],
-        **extra,
+        "executed": executed,
     }
+    out.update(extra)
+    return out
