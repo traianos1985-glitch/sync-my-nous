@@ -157,14 +157,70 @@ function adaptBody(path: string, body: RequestInit["body"]): RequestInit["body"]
   }
 }
 
+function readStorage(storage: Storage, key: string): string | undefined {
+  try {
+    return storage.getItem(key) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStorage(storage: Storage, key: string, value: string): boolean {
+  try {
+    storage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readTokenCookie(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const cookie = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${tokenStorageKey}=`));
+  if (!cookie) return undefined;
+  try {
+    return decodeURIComponent(cookie.slice(tokenStorageKey.length + 1)) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeTokenCookie(token: string): boolean {
+  if (typeof document === "undefined") return false;
+  try {
+    document.cookie = `${tokenStorageKey}=${encodeURIComponent(token)}; Max-Age=31536000; Path=/; SameSite=Lax${
+      window.location.protocol === "https:" ? "; Secure" : ""
+    }`;
+    return readTokenCookie() === token;
+  } catch {
+    return false;
+  }
+}
+
+function clearTokenCookie(): void {
+  if (typeof document === "undefined") return;
+  try {
+    document.cookie = `${tokenStorageKey}=; Max-Age=0; Path=/; SameSite=Lax${
+      window.location.protocol === "https:" ? "; Secure" : ""
+    }`;
+  } catch {
+    // Storage cleanup is best effort in privacy-restricted preview contexts.
+  }
+}
+
 function getStoredToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
-  // Keep the token across preview iframe reloads and chat navigation. The value
-  // never leaves the browser except as an Authorization header to the NOUS API.
+  // Keep the token across reloads, preview iframe navigation, and chat routes.
+  // Storage can be blocked in privacy-restricted iframes, so use a first-party
+  // cookie as a durable fallback. The value only leaves the browser as a bearer
+  // Authorization header to the NOUS API.
   return (
-    window.localStorage.getItem(tokenStorageKey) ||
-    window.sessionStorage.getItem(tokenStorageKey) ||
-    undefined
+    readStorage(window.localStorage, tokenStorageKey) ||
+    readStorage(window.sessionStorage, tokenStorageKey) ||
+    readTokenCookie()
   );
 }
 
@@ -189,7 +245,16 @@ export function setNousToken(token: string): void {
   if ([...normalizedToken].some((character) => character.charCodeAt(0) > 255)) {
     throw new Error("Το NOUS token πρέπει να αποτελείται μόνο από λατινικούς χαρακτήρες.");
   }
-  if (typeof window !== "undefined") window.localStorage.setItem(tokenStorageKey, normalizedToken);
+  if (typeof window !== "undefined") {
+    // Write to every browser persistence layer that may be available. This
+    // makes Save reliable when preview privacy settings block one mechanism.
+    writeStorage(window.localStorage, tokenStorageKey, normalizedToken);
+    writeStorage(window.sessionStorage, tokenStorageKey, normalizedToken);
+    writeTokenCookie(normalizedToken);
+    if (!getStoredToken()) {
+      throw new Error("Δεν ήταν δυνατή η αποθήκευση του NOUS token σε αυτό το preview.");
+    }
+  }
 }
 
 function setAuthorizationHeader(headers: Headers, token: string | undefined): void {
@@ -204,8 +269,17 @@ function setAuthorizationHeader(headers: Headers, token: string | undefined): vo
 
 export function clearNousToken(): void {
   if (typeof window !== "undefined") {
-    window.localStorage.removeItem(tokenStorageKey);
-    window.sessionStorage.removeItem(tokenStorageKey);
+    try {
+      window.localStorage.removeItem(tokenStorageKey);
+    } catch {
+      // Ignore blocked storage during cleanup.
+    }
+    try {
+      window.sessionStorage.removeItem(tokenStorageKey);
+    } catch {
+      // Ignore blocked storage during cleanup.
+    }
+    clearTokenCookie();
   }
 }
 
