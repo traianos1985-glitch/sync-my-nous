@@ -38,12 +38,15 @@ def browser_search(query):
 
         web = answer_from_web(q)
         if isinstance(web, dict) and (web.get("answer") or web.get("results")):
+            answer = web.get("answer") or str(web.get("results", []))[:1200]
             write_journal("browser_search", {"query": q, "via": "internet_search_engine"})
             return {
                 "ok": True,
                 "query": q,
-                "answer": web.get("answer") or str(web.get("results", []))[:1200],
-                "result": web,
+                "answer": answer,
+                # Router historically displays result — keep human text here
+                "result": answer,
+                "raw": web,
                 "source": "internet_search_engine",
             }
     except Exception:
@@ -61,11 +64,13 @@ def browser_search(query):
     answer = None
     if isinstance(result, dict):
         answer = result.get("answer") or result.get("summary")
+    answer = answer or str(result)[:1200]
     return {
         "ok": True,
         "query": q,
-        "answer": answer or str(result)[:1200],
-        "result": result,
+        "answer": answer,
+        "result": answer,
+        "raw": result,
         "source": "research_query",
     }
 
