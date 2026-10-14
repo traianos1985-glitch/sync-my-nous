@@ -33,6 +33,26 @@ def clean(s: str) -> str:
     return re.sub(r"\s+", " ", s or "").strip()
 
 
+def _filter_relevant(query: str, results: list[dict], min_keep: int = 2) -> list[dict]:
+    """Drop clearly off-topic hits (e.g. DDG related topics for unrelated pages)."""
+    if not results:
+        return results
+    stop = {"the", "and", "for", "with", "from", "how", "what", "για", "στο", "της", "του", "και"}
+    tokens = {t for t in re.findall(r"[a-zA-Zα-ωΑ-Ω0-9]{3,}", (query or "").lower()) if t not in stop}
+    if not tokens:
+        return results
+
+    def score(item: dict) -> int:
+        blob = f"{item.get('title', '')} {item.get('snippet', '')} {item.get('url', '')}".lower()
+        return sum(1 for t in tokens if t in blob)
+
+    ranked = sorted(results, key=score, reverse=True)
+    good = [r for r in ranked if score(r) >= 1]
+    if len(good) >= min_keep:
+        return good
+    return ranked
+
+
 def _ddg_instant(query: str) -> list[dict]:
     try:
         import requests
@@ -161,10 +181,18 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
         return {"ok": False, "error": "empty_query"}
 
     results = _ddg_instant(q)
+    wiki = _wikipedia_search(q)
+    if wiki:
+        results = (results or []) + [w for w in wiki if w not in (results or [])]
+    if len(results or []) < 2:
+        html = _ddg_html(q, limit)
+        if html:
+            results = (results or []) + html
+
+    results = _filter_relevant(q, results or [])
+
     if not results:
-        results = _wikipedia_search(q)
-    if not results:
-        results = _ddg_html(q, limit)
+        results = _filter_relevant(q, _ddg_html(q, limit) or [], min_keep=1)
 
     payload = {
         "ok": bool(results),
