@@ -16,36 +16,30 @@ import json
 import re
 from typing import Any
 
-# ---------------------------------------------------------------------------
-# Supported intents
-# ---------------------------------------------------------------------------
-
 KNOWN_INTENTS = {
-    "system_status",       # κατάσταση συστήματος / υγεία / τι τρέχει
-    "health_check",        # ρητός έλεγχος υγείας / project health
-    "missions_list",       # λίστα αποστολών
-    "goals_list",          # λίστα στόχων
-    "create_mission",      # δημιούργησε αποστολή / plan
-    "create_goal",         # δημιούργησε στόχο
-    "search_web",          # αναζήτηση internet
-    "deep_research",       # βαθιά έρευνα
-    "read_url",            # διάβασε αυτή τη σελίδα
-    "memory_recall",       # θυμάσαι / τι είχαμε πει
-    "knowledge_query",     # από τη μνήμη γνώσης / έγγραφα
-    "evolve",              # εξέλιξη / self-improve
+    "system_status",
+    "health_check",
+    "missions_list",
+    "goals_list",
+    "create_mission",
+    "create_goal",
+    "search_web",
+    "deep_research",
+    "read_url",
+    "memory_recall",
+    "knowledge_query",
+    "evolve",
     "autonomous_start",
     "autonomous_stop",
     "autonomous_status",
-    "capabilities",        # τι μπορείς να κάνεις
-    "identity",            # ποιος είσαι / πώς σε λένε
+    "capabilities",
+    "identity",
     "calculator",
-    "general_chat",        # απλή συζήτηση
-    "unclear",             # χρειάζεται διευκρίνιση
+    "general_chat",
+    "unclear",
 }
 
-# Minimum confidence to act without asking
 CONFIDENCE_ACT = 0.72
-# Below this → always ask clarification
 CONFIDENCE_CLARIFY = 0.45
 
 
@@ -53,16 +47,11 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
 
 
-# ---------------------------------------------------------------------------
-# Fast rule-based path (high precision, low recall)
-# ---------------------------------------------------------------------------
-
 def _rule_based(message: str) -> dict[str, Any] | None:
     m = _norm(message)
     if not m or len(m) < 2:
         return None
 
-    # Health / system status (many natural variants)
     health_patterns = [
         r"\b(έλεγχος|ελεγχος)\s+(υγείας|υγειας|συστήματος|συστηματος)\b",
         r"\b(health\s*check|project\s*health|system\s*health)\b",
@@ -74,7 +63,8 @@ def _rule_based(message: str) -> dict[str, Any] | None:
     ]
     for pat in health_patterns:
         if re.search(pat, m):
-            # Prefer health_check for explicit "υγεία/health", else system_status
+            if re.search(r"αυτόνομ|αυτονομ|autonomous", m):
+                break
             intent = "health_check" if re.search(r"υγε|health", m) else "system_status"
             return {
                 "intent": intent,
@@ -84,27 +74,22 @@ def _rule_based(message: str) -> dict[str, Any] | None:
                 "source": "rules",
             }
 
-    # Missions
     if re.search(r"\b(αποστολές|αποστολες|missions)\b", m) and not re.search(r"(δημιούργ|δημιουργ|φτιάξ|φτιαξ|plan|κάνε|κανε)", m):
         return {"intent": "missions_list", "confidence": 0.9, "slots": {}, "clarification_question": None, "source": "rules"}
 
-    # Goals
     if re.search(r"\b(στόχοι|στοχοι|goals)\b", m) and not re.search(r"(δημιούργ|δημιουργ|βάλε|βαλε|πρόσθεσε|create)", m):
         return {"intent": "goals_list", "confidence": 0.9, "slots": {}, "clarification_question": None, "source": "rules"}
 
-    # Capabilities / identity (keep existing good coverage)
     if re.search(r"\b(τι\s+μπορείς|τι\s+μπορεις|τι\s+κάνεις\s+εσύ|βοήθεια|help)\b", m):
         return {"intent": "capabilities", "confidence": 0.88, "slots": {}, "clarification_question": None, "source": "rules"}
     if re.search(r"\b(ποιος\s+είσαι|ποιος\s+εισαι|πώς\s+σε\s+λένε|πως\s+σε\s+λενε)\b", m):
         return {"intent": "identity", "confidence": 0.9, "slots": {}, "clarification_question": None, "source": "rules"}
 
-    # Memory recall
     if re.search(
         r"\b(θυμάσαι|θυμασαι|θυμήσου|θυμησου|τι\s+θυμάσαι|τι\s+θυμασαι|"
         r"τι\s+είχαμε\s+πει|τι\s+ειχαμε\s+πει|recall|remember)\b",
         m,
     ):
-        # Prefer the rest of the message as query slot
         q = re.sub(
             r"^(?:θυμάσαι|θυμασαι|θυμήσου|θυμησου|recall|remember)\s+(?:ότι|οτι|για|το|τα|αν)?\s*",
             "",
@@ -119,7 +104,6 @@ def _rule_based(message: str) -> dict[str, Any] | None:
             "source": "rules",
         }
 
-    # Explicit create mission / goal
     mission_match = re.match(
         r"^(?:δημιούργησε|δημιουργησε|φτιάξε|φτιαξε|κάνε|κανε|plan)\s+(?:μου\s+)?(?:μία?\s+|μια\s+|ένα\s+)?(?:αποστολή|αποστολη|mission)\s*[:\-]?\s*(.+)$",
         message.strip(),
@@ -148,7 +132,6 @@ def _rule_based(message: str) -> dict[str, Any] | None:
             "source": "rules",
         }
 
-    # Web search
     search_match = re.match(
         r"^(?:ψάξε|ψαξε|αναζήτησε|αναζητησε|search)\s+(?:για\s+|στο\s+διαδίκτυο\s+|online\s+)?(.+)$",
         message.strip(),
@@ -163,46 +146,86 @@ def _rule_based(message: str) -> dict[str, Any] | None:
             "source": "rules",
         }
 
+    urls = re.findall(r"https?://[^\s]+", message or "")
+    if urls and re.search(r"\b(διάβασε|διαβασε|άνοιξε|ανοιξε|read|open)\b", m):
+        return {
+            "intent": "read_url",
+            "confidence": 0.94,
+            "slots": {"url": urls[0].rstrip(".,);")},
+            "clarification_question": None,
+            "source": "rules",
+        }
+    um = re.match(r"^(?:διάβασε|διαβασε|read)\s+(https?://\S+)", message.strip(), re.IGNORECASE)
+    if um:
+        return {
+            "intent": "read_url",
+            "confidence": 0.95,
+            "slots": {"url": um.group(1).rstrip(".,);")},
+            "clarification_question": None,
+            "source": "rules",
+        }
+
+    if re.search(r"\b(εξέλιξη|εξελιξη|self[- ]?improve|self[- ]?improvement|βελτίωσε\s+τον\s+εαυτό|βελτιωσε\s+τον\s+εαυτο)\b", m):
+        return {
+            "intent": "evolve",
+            "confidence": 0.9,
+            "slots": {},
+            "clarification_question": None,
+            "source": "rules",
+        }
+
+    if re.search(r"\b(σταμάτα|σταματα|stop)\s+(την\s+)?(αυτόνομη|αυτονομη|autonomous)\b", m) or re.search(
+        r"\b(απενεργοποίησε|απενεργοποιησε)\s+(την\s+)?(αυτόνομη|αυτονομη|autonomous)\b", m
+    ):
+        return {
+            "intent": "autonomous_stop",
+            "confidence": 0.93,
+            "slots": {},
+            "clarification_question": None,
+            "source": "rules",
+        }
+    if re.search(r"\b(ξεκίνα|ξεκινα|ενεργοποίησε|ενεργοποιησε|start)\s+(την\s+)?(αυτόνομη|αυτονομη|autonomous)\b", m):
+        return {
+            "intent": "autonomous_start",
+            "confidence": 0.93,
+            "slots": {},
+            "clarification_question": None,
+            "source": "rules",
+        }
+    if re.search(r"\b(αυτόνομη|αυτονομη|autonomous)\s+(λειτουργία|λειτουργια|mode|status|κατάσταση|κατασταση)\b", m) or re.search(
+        r"\b(κατάσταση|κατασταση)\s+(αυτόνομης|αυτονομης|autonomous)\b", m
+    ):
+        return {
+            "intent": "autonomous_status",
+            "confidence": 0.9,
+            "slots": {},
+            "clarification_question": None,
+            "source": "rules",
+        }
+
     return None
 
-
-# ---------------------------------------------------------------------------
-# LLM classification
-# ---------------------------------------------------------------------------
 
 _CLASSIFIER_SYSTEM = """Είσαι ο ταξινομητής προθέσεων του ΝΟΥΣ AI OS.
 Δέχεσαι ένα μήνυμα χρήστη στα ελληνικά (ή μεικτά) και επιστρέφεις ΜΟΝΟ έγκυρο JSON, χωρίς markdown, χωρίς εξηγήσεις έξω από το JSON.
 
 Διαθέσιμα intents:
-- system_status: κατάσταση συστήματος, τι τρέχει, όλα καλά;
-- health_check: ρητός έλεγχος υγείας / project health
-- missions_list: δείξε αποστολές
-- goals_list: δείξε στόχους
-- create_mission: δημιούργησε αποστολή (slots: goal)
-- create_goal: δημιούργησε στόχο (slots: title)
-- search_web: αναζήτηση στο internet (slots: query)
-- deep_research: βαθιά έρευνα (slots: query)
-- read_url: διάβασε URL (slots: url)
-- memory_recall: θυμάσαι / τι είχαμε πει (slots: query)
-- knowledge_query: από έγγραφα / μνήμη γνώσης
-- evolve: εξέλιξη / self-improve / αναβάθμιση εαυτού
+- system_status, health_check, missions_list, goals_list
+- create_mission (slots: goal), create_goal (slots: title)
+- search_web (slots: query), deep_research (slots: query), read_url (slots: url)
+- memory_recall (slots: query), knowledge_query, evolve
 - autonomous_start / autonomous_stop / autonomous_status
-- capabilities: τι μπορείς να κάνεις
-- identity: ποιος είσαι
-- calculator: μαθηματικός υπολογισμός
-- general_chat: απλή συζήτηση / γνώμη / συζήτηση
-- unclear: δεν κατάλαβα αρκετά
+- capabilities, identity, calculator, general_chat, unclear
 
 Κανόνες:
-1. confidence από 0.0 έως 1.0 (ρεαλιστικά).
-2. Αν λείπει απαραίτητο slot (π.χ. goal για create_mission) ή confidence < 0.55 → intent="unclear" και γράψε φιλική clarification_question στα ελληνικά.
-3. Μην εφευρίσκεις intents που δεν υπάρχουν στη λίστα.
-4. Για αόριστες φράσεις τύπου "κοίτα το λίγο", "φτιάξε το", "έλεγχος" → unclear + ρώτα τι ακριβώς.
-5. Προτίμησε natural Greek clarification questions (όχι "Παρακαλώ διευκρινίστε το intent").
-6. Για create_mission / create_goal: εκτέλεση απευθείας — δεν χρειάζεται /plan.
+1. confidence 0.0–1.0.
+2. Αν λείπει slot ή confidence < 0.55 → intent=unclear + clarification_question στα ελληνικά.
+3. Μην εφευρίσκεις intents.
+4. Αόριστες φράσεις → unclear.
+5. create_mission/create_goal εκτελούνται απευθείας (όχι /plan).
 
-Παράδειγμα εξόδου:
-{"intent":"system_status","confidence":0.88,"slots":{},"clarification_question":null,"reasoning":"ρωτά για κατάσταση συστήματος"}
+Παράδειγμα:
+{"intent":"system_status","confidence":0.88,"slots":{},"clarification_question":null,"reasoning":"κατάσταση"}
 """
 
 
@@ -210,7 +233,6 @@ def _extract_json(text: str) -> dict[str, Any] | None:
     if not text:
         return None
     text = text.strip()
-    # strip markdown fences if any
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
@@ -220,7 +242,6 @@ def _extract_json(text: str) -> dict[str, Any] | None:
             return data
     except Exception:
         pass
-    # try to find first {...}
     match = re.search(r"\{[\s\S]*\}", text)
     if match:
         try:
@@ -277,24 +298,7 @@ def _llm_classify(message: str) -> dict[str, Any] | None:
     }
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 def classify_intent(message: str, use_llm: bool = True) -> dict[str, Any]:
-    """
-    Classify user message into structured intent.
-
-    Returns:
-      {
-        "intent": str,
-        "confidence": float,
-        "slots": dict,
-        "clarification_question": str | None,
-        "source": "rules" | "llm" | "fallback",
-        "needs_clarification": bool,
-      }
-    """
     message = (message or "").strip()
     if not message:
         return {
@@ -306,13 +310,11 @@ def classify_intent(message: str, use_llm: bool = True) -> dict[str, Any]:
             "needs_clarification": True,
         }
 
-    # 1) Fast rules
     ruled = _rule_based(message)
     if ruled and ruled["confidence"] >= CONFIDENCE_ACT:
         ruled["needs_clarification"] = False
         return ruled
 
-    # 2) LLM
     if use_llm:
         llm_result = _llm_classify(message)
         if llm_result:
@@ -320,7 +322,6 @@ def classify_intent(message: str, use_llm: bool = True) -> dict[str, Any]:
             intent = llm_result["intent"]
             slots = llm_result.get("slots") or {}
 
-            # Force clarification when low confidence or missing critical slots
             needs = False
             question = llm_result.get("clarification_question")
 
@@ -338,8 +339,14 @@ def classify_intent(message: str, use_llm: bool = True) -> dict[str, Any]:
             elif intent == "read_url" and not slots.get("url"):
                 needs = True
                 question = question or "Ποιο URL να ανοίξω;"
-            elif conf < CONFIDENCE_ACT and intent not in ("general_chat", "capabilities", "identity", "memory_recall"):
-                # Medium confidence actionable intent → safer to confirm
+            elif conf < CONFIDENCE_ACT and intent not in (
+                "general_chat",
+                "capabilities",
+                "identity",
+                "memory_recall",
+                "evolve",
+                "autonomous_status",
+            ):
                 needs = True
                 if not question:
                     question = f"Κατάλαβα ότι θέλεις «{intent}». Να προχωρήσω;"
@@ -351,7 +358,6 @@ def classify_intent(message: str, use_llm: bool = True) -> dict[str, Any]:
             llm_result["clarification_question"] = question if needs else None
             return llm_result
 
-    # 3) Fallback: treat as general chat (no forced clarification)
     if ruled:
         ruled["needs_clarification"] = ruled["confidence"] < CONFIDENCE_ACT
         return ruled
@@ -367,7 +373,6 @@ def classify_intent(message: str, use_llm: bool = True) -> dict[str, Any]:
 
 
 def format_clarification_response(classification: dict[str, Any]) -> dict[str, Any]:
-    """Build a chat-style response that asks for clarification."""
     question = classification.get("clarification_question") or "Μπορείς να μου εξηγήσεις λίγο περισσότερο τι θέλεις;"
     return {
         "ok": True,
