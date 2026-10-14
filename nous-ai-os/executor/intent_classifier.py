@@ -35,6 +35,8 @@ KNOWN_INTENTS = {
     "capabilities",
     "identity",
     "calculator",
+    "list_tools",
+    "run_safe_tool",
     "general_chat",
     "unclear",
 }
@@ -80,8 +82,39 @@ def _rule_based(message: str) -> dict[str, Any] | None:
     if re.search(r"\b(στόχοι|στοχοι|goals)\b", m) and not re.search(r"(δημιούργ|δημιουργ|βάλε|βαλε|πρόσθεσε|create)", m):
         return {"intent": "goals_list", "confidence": 0.9, "slots": {}, "clarification_question": None, "source": "rules"}
 
-    if re.search(r"\b(τι\s+μπορείς|τι\s+μπορεις|τι\s+κάνεις\s+εσύ|βοήθεια|help)\b", m):
-        return {"intent": "capabilities", "confidence": 0.88, "slots": {}, "clarification_question": None, "source": "rules"}
+    # List tools first (more specific than generic capabilities)
+    if re.search(
+        r"\b(τι\s+εργαλεία|τι\s+εργαλεια|ποια\s+εργαλεία|ποια\s+εργαλεια|"
+        r"λίστα\s+εργαλείων|λιστα\s+εργαλειων|tool\s*catalog|list\s+tools|"
+        r"^tools$|δείξε\s+τα\s+εργαλεία|δειξε\s+τα\s+εργαλεια)\b",
+        m,
+    ):
+        cat = None
+        cm = re.search(r"(?:κατηγορία|κατηγορια|category)\s+(\w+)", m)
+        if cm:
+            cat = cm.group(1)
+        return {
+            "intent": "list_tools",
+            "confidence": 0.94,
+            "slots": {"category": cat} if cat else {},
+            "clarification_question": None,
+            "source": "rules",
+        }
+
+    if re.search(
+        r"\b(τι\s+μπορείς|τι\s+μπορεις|τι\s+κάνεις\s+εσύ|τι\s+κανεις\s+εσυ|"
+        r"τι\s+δυνατότητες|τι\s+δυνατοτητες|βοήθεια|βοηθεια|help|what\s+can\s+you\s+do|capabilities)\b",
+        m,
+    ):
+        detailed = bool(re.search(r"\b(όλα|ολα|detailed|πλήρ|πληρ)\b", m))
+        return {
+            "intent": "capabilities",
+            "confidence": 0.92,
+            "slots": {"detailed": detailed},
+            "clarification_question": None,
+            "source": "rules",
+        }
+
     if re.search(r"\b(ποιος\s+είσαι|ποιος\s+εισαι|πώς\s+σε\s+λένε|πως\s+σε\s+λενε)\b", m):
         return {"intent": "identity", "confidence": 0.9, "slots": {}, "clarification_question": None, "source": "rules"}
 
@@ -203,29 +236,60 @@ def _rule_based(message: str) -> dict[str, Any] | None:
             "source": "rules",
         }
 
+    calc = re.match(
+        r"^(?:υπολόγισε|υπολογισε|calculate|πόσο\s+κάνει|ποσο\s+κανει)\s+(.+)$",
+        message.strip(),
+        re.IGNORECASE,
+    )
+    if calc:
+        return {
+            "intent": "calculator",
+            "confidence": 0.95,
+            "slots": {"expression": calc.group(1).strip()},
+            "clarification_question": None,
+            "source": "rules",
+        }
+
+    safe_map = [
+        (r"^(git\s+status|κατάσταση\s+git|κατασταση\s+git)$", "git_status", "git status"),
+        (r"^(daily\s+brief|ημερήσιο\s+brief|ημερησιο\s+brief)$", "daily_brief", "daily brief"),
+        (r"^(sysinfo|πληροφορίες\s+συστήματος|πληροφοριες\s+συστηματος)$", "sysinfo", "sysinfo"),
+        (r"^(schedules|χρονοδιαγράμματα|χρονοδιαγραμματα)$", "list_schedules", "schedules"),
+        (r"^(memory\s+summary|σύνοψη\s+μνήμης|συνοψη\s+μνημης)$", "memory_summary", "memory summary"),
+        (r"^(snapshot|στιγμιότυπο|στιγμιοτυπο)$", "snapshot", "snapshot"),
+        (r"^(compile|έλεγχος\s+compile|ελεγχος\s+compile)$", "compile", "compile"),
+        (r"^(cloud\s+info|πληροφορίες\s+cloud)$", "cloud_info", "cloud info"),
+        (r"^(next\s+action|επόμενη\s+ενέργεια|επομενη\s+ενεργεια)$", "next_action", "next action"),
+        (r"^(tasks|εργασίες|εργασιες)$", "tasks", "tasks"),
+        (r"^(apps|εφαρμογές|εφαρμογες)$", "list_apps", "apps"),
+        (r"^(plugins|plugin\s+list)$", "plugin", "plugins"),
+    ]
+    for pat, action, cmd in safe_map:
+        if re.search(pat, m, re.IGNORECASE):
+            return {
+                "intent": "run_safe_tool",
+                "confidence": 0.93,
+                "slots": {"action": action, "command": cmd},
+                "clarification_question": None,
+                "source": "rules",
+            }
+
     return None
 
 
 _CLASSIFIER_SYSTEM = """Είσαι ο ταξινομητής προθέσεων του ΝΟΥΣ AI OS.
-Δέχεσαι ένα μήνυμα χρήστη στα ελληνικά (ή μεικτά) και επιστρέφεις ΜΟΝΟ έγκυρο JSON, χωρίς markdown, χωρίς εξηγήσεις έξω από το JSON.
+Δέχεσαι ένα μήνυμα χρήστη στα ελληνικά (ή μεικτά) και επιστρέφεις ΜΟΝΟ έγκυρο JSON.
 
 Διαθέσιμα intents:
 - system_status, health_check, missions_list, goals_list
 - create_mission (slots: goal), create_goal (slots: title)
-- search_web (slots: query), deep_research (slots: query), read_url (slots: url)
-- memory_recall (slots: query), knowledge_query, evolve
-- autonomous_start / autonomous_stop / autonomous_status
-- capabilities, identity, calculator, general_chat, unclear
+- search_web, deep_research, read_url, memory_recall, evolve
+- autonomous_start / stop / status
+- capabilities (πλήρες inventory), list_tools (slots: category)
+- calculator (slots: expression), run_safe_tool (slots: action)
+- identity, general_chat, unclear
 
-Κανόνες:
-1. confidence 0.0–1.0.
-2. Αν λείπει slot ή confidence < 0.55 → intent=unclear + clarification_question στα ελληνικά.
-3. Μην εφευρίσκεις intents.
-4. Αόριστες φράσεις → unclear.
-5. create_mission/create_goal εκτελούνται απευθείας (όχι /plan).
-
-Παράδειγμα:
-{"intent":"system_status","confidence":0.88,"slots":{},"clarification_question":null,"reasoning":"κατάσταση"}
+Κανόνες: confidence 0–1· λείπει slot → unclear + clarification· μην εφευρίσκεις intents.
 """
 
 
@@ -346,6 +410,7 @@ def classify_intent(message: str, use_llm: bool = True) -> dict[str, Any]:
                 "memory_recall",
                 "evolve",
                 "autonomous_status",
+                "list_tools",
             ):
                 needs = True
                 if not question:
