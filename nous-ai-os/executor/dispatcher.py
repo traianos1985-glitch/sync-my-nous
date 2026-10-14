@@ -1,30 +1,78 @@
-from executor.intent_v2 import detect
-from executor.web_tools import search, fetch
+"""Legacy dispatcher — now delegates to the unified intent + tools path."""
 
-def dispatch(command, context):
+from __future__ import annotations
 
-    if "http" in str(command):
-        return fetch(command)
-
-    if "search" in str(command):
-        return search(command)
+from typing import Any
 
 
-    intent = detect(command)
+def dispatch(command, context=None):
+    """Route a free-text command through intent understanding and tools.
 
-    if intent == "status":
-        return "Νοῦς AI OS RUNNING"
+    Order:
+      1) try_intent_route (chat-grade NL handlers, approvals, safe tools)
+      2) tools.run_tool when an action can be inferred
+      3) minimal legacy fallbacks (URL fetch / search string)
+    """
+    context = context if isinstance(context, dict) else {}
+    text = str(command or "").strip()
+    if not text:
+        return {"ok": False, "error": "empty_command"}
 
-    if intent == "evolve":
-        return {"evolution": "started"}
+    # 1) Unified intent path (same as chat)
+    try:
+        from executor.intent_chat_integration import try_intent_route
 
-    if intent == "plugins":
-        return {"plugins": list(context.get("plugins", {}).keys())}
+        routed = try_intent_route(text)
+        if routed is not None:
+            return routed
+    except Exception:
+        pass
 
-    if intent == "memory":
-        return context.get("memory", {})
+    # 2) Classifier → run_tool for safe / mapped actions
+    try:
+        from executor.intent_classifier import classify_intent
+        from executor.tools import run_tool
+
+        classification = classify_intent(text, use_llm=False)
+        intent = classification.get("intent")
+        slots = classification.get("slots") or {}
+        conf = float(classification.get("confidence") or 0)
+
+        if conf >= 0.72 and intent == "run_safe_tool" and slots.get("action"):
+            return run_tool(
+                {"action": slots["action"]},
+                {"command": slots.get("command") or text},
+            )
+
+        if conf >= 0.72 and intent == "search_web" and slots.get("query"):
+            return run_tool({"action": "web_search"}, {"command": f"search {slots['query']}"})
+
+        if conf >= 0.72 and intent == "list_tools":
+            return run_tool({"action": "tool_catalog"}, {"command": "tools"})
+    except Exception:
+        pass
+
+    # 3) Tiny legacy fallbacks
+    lower = text.lower()
+    if lower.startswith("http://") or lower.startswith("https://"):
+        try:
+            from executor.web_tools import fetch
+
+            return fetch(text)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    if lower.startswith("search ") or lower.startswith("ψάξε "):
+        try:
+            from executor.web_tools import search
+
+            return search(text)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
 
     return {
-        "intent": intent,
-        "output": "NO ACTION MATCHED"
+        "ok": False,
+        "intent": None,
+        "output": "NO ACTION MATCHED",
+        "hint": "Δοκίμασε φυσική γλώσσα στο chat ή «τι εργαλεία έχεις;».",
     }

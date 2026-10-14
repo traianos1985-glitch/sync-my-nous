@@ -1,4 +1,7 @@
-"""Build human-readable capability / tool awareness text for chat."""
+"""Build human-readable capability / tool awareness text for chat.
+
+Also bridges safe tools and approval-gated tools into the chat path.
+"""
 
 from __future__ import annotations
 
@@ -35,7 +38,6 @@ def _format_tool_result(result: Any) -> str:
             return str(result["output"])[:2000]
         if result.get("error"):
             return f"Σφάλμα: {result.get('error')}"
-        # compact json-ish summary
         try:
             import json
 
@@ -48,7 +50,6 @@ def _format_tool_result(result: Any) -> str:
 
 
 def build_capabilities_text(detailed: bool = False) -> str:
-    """Full self-awareness blurb for «τι μπορείς» / capabilities."""
     lines: list[str] = [
         "**Τι μπορώ να κάνω (πραγματικό inventory του ΝΟΥΣ)**",
         "",
@@ -61,10 +62,10 @@ def build_capabilities_text(detailed: bool = False) -> str:
         "• Εξέλιξη (status, χωρίς auto-patch από chat)",
         "• Αυτόνομη λειτουργία (ξεκίνα / σταμάτα / κατάσταση)",
         "• Κατάλογος εργαλείων («τι εργαλεία έχεις;» / «tools»)",
+        "• Εργαλεία με έγκριση («επισκευή συστήματος», «φτιάξε plugin …») → αίτημα approval",
         "",
     ]
 
-    # Chat document / OCR capabilities
     try:
         from executor.chat_capabilities import chat_capabilities
 
@@ -87,7 +88,6 @@ def build_capabilities_text(detailed: bool = False) -> str:
     except Exception:
         lines.append("_Δεν μπόρεσα να φορτώσω chat_capabilities._\n")
 
-    # Tool catalog
     try:
         from executor.tool_catalog import tool_catalog
 
@@ -108,7 +108,6 @@ def build_capabilities_text(detailed: bool = False) -> str:
             for t in show:
                 name = t.get("name", "?")
                 desc = (t.get("description") or "").strip()
-                risk = t.get("risk") or ""
                 appr = t.get("approval_required")
                 flag = " 🔒" if appr is True else ""
                 short = desc[:90] + ("…" if len(desc) > 90 else "")
@@ -117,8 +116,8 @@ def build_capabilities_text(detailed: bool = False) -> str:
                 lines.append(f"  • … και άλλα {len(items) - 6} (πες «δείξε όλα τα εργαλεία»)")
             lines.append("")
         lines.append(
-            "🔒 = απαιτεί έγκριση operator. "
-            "Λεπτομέρειες: πες «τι εργαλεία έχεις;» ή «εργαλεία κατηγορίας research»."
+            "🔒 = απαιτεί έγκριση operator. Από chat δημιουργείται αίτημα έγκρισης· "
+            "εκτέλεση μετά την έγκριση από dashboard / operator flow."
         )
     except Exception as exc:
         lines.append(f"_Δεν μπόρεσα να φορτώσω tool_catalog: {exc}_")
@@ -127,7 +126,6 @@ def build_capabilities_text(detailed: bool = False) -> str:
 
 
 def build_tools_list_text(category: str | None = None) -> str:
-    """Focused tool list answer."""
     try:
         from executor.tool_catalog import tool_catalog
 
@@ -160,11 +158,12 @@ def build_tools_list_text(category: str | None = None) -> str:
             lines.append(f"  εντολή: `{cmd}`")
         lines.append("")
 
-    lines.append("Μπορείς να ζητήσεις π.χ. «git status», «daily brief», «schedules», «υπολόγισε 12*7».")
+    lines.append(
+        "Ασφαλή: «git status», «daily brief». Με έγκριση: «φτιάξε plugin …», «επισκευή συστήματος»."
+    )
     return "\n".join(lines).strip()
 
 
-# Safe tools callable from chat without operator approval
 SAFE_CHAT_TOOLS = {
     "tool_catalog",
     "calculate",
@@ -195,9 +194,28 @@ SAFE_CHAT_TOOLS = {
     "agent_review",
 }
 
+# Tools that must go through operator approval before execution from chat
+PRIVILEGED_CHAT_TOOLS = {
+    "make_plugin",
+    "forge_plugin",
+    "run_plugin",
+    "test_plugin",
+    "quarantine_plugin",
+    "make_app",
+    "repair_system",
+    "autonomy_start",
+    "autonomy_cycle",
+    "clear_schedules",
+    "agent_solve",
+    "agent_checkpoint",
+    "team_plan",
+    "team_solve",
+    "notify",
+    "git_checkpoint",
+}
+
 
 def run_safe_tool(action: str, command: str = "") -> dict[str, Any]:
-    """Execute a read-only / local tool via tools.run_tool when safe."""
     action = (action or "").strip()
     if action not in SAFE_CHAT_TOOLS:
         return {
@@ -216,3 +234,65 @@ def run_safe_tool(action: str, command: str = "") -> dict[str, Any]:
         return {"ok": False, "error": "unknown_tool", "answer": f"Άγνωστο εργαλείο: `{action}`"}
 
     return {"ok": True, "result": result, "answer": _format_tool_result(result)}
+
+
+def request_privileged_tool(action: str, command: str = "", reason: str | None = None) -> dict[str, Any]:
+    """Create an operator approval request for a privileged tool (do not execute yet)."""
+    action = (action or "").strip()
+    if action not in PRIVILEGED_CHAT_TOOLS:
+        # Fall back: if catalog marks approval, still allow request; else reject
+        try:
+            from executor.tool_catalog import get_tool
+
+            meta = get_tool(action) or {}
+            if meta.get("approval_required") is not True:
+                return {
+                    "ok": False,
+                    "error": "not_privileged",
+                    "answer": (
+                        f"Το `{action}` δεν είναι στη λίστα privileged tools. "
+                        f"Δοκίμασε ασφαλή εκτέλεση ή πες «τι εργαλεία έχεις;»."
+                    ),
+                }
+        except Exception:
+            return {
+                "ok": False,
+                "error": "unknown_tool",
+                "answer": f"Άγνωστο ή μη υποστηριζόμενο εργαλείο: `{action}`",
+            }
+
+    payload = {"tool": action, "command": command or action, "source": "chat_nl"}
+    reason = reason or f"Chat ζήτησε privileged tool: {action}"
+    try:
+        from executor.operator_approval import request_approval
+
+        approval = request_approval(action, payload, reason)
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+            "answer": f"Δεν μπόρεσα να δημιουργήσω αίτημα έγκρισης για `{action}`: {exc}",
+        }
+
+    aid = None
+    if isinstance(approval, dict):
+        aid = approval.get("id") or approval.get("approval_id")
+
+    text = (
+        f"🔒 Το **`{action}`** απαιτεί έγκριση operator.\n\n"
+        f"Δημιούργησα αίτημα έγκρισης"
+        + (f" (id: `{aid}`)" if aid is not None else "")
+        + ".\n"
+        f"Εντολή/στόχος: `{command or action}`\n\n"
+        f"Μετά την έγκριση από το dashboard / operator flow, η ενέργεια μπορεί να εκτελεστεί. "
+        f"Δεν την τρέχω αυτόματα από το chat."
+    )
+    return {
+        "ok": True,
+        "approval_required": True,
+        "approval_id": str(aid) if aid is not None else None,
+        "action": action,
+        "command": command or action,
+        "approval": approval,
+        "answer": text,
+    }
