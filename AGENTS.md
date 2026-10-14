@@ -39,5 +39,6 @@
 ## Notes
 
 - TS uses standard `strict` (no noUncheckedIndexedAccess/exactOptionalPropertyTypes) — imported code wasn't written for them.
-- Dev proxy forwards only `/api/nous/*` to the Python backend; `/api/*` belongs to TanStack server routes.
+- The web client always calls the Render backend directly (`src/lib/nous-api.ts`); never route dashboard API calls through a same-origin relative path such as `/api/nous`, because preview and static hosts answer HTML there. The Vite `/api/nous` proxy stays only as a legacy local fallback.
+- Cross-site browser calls are accepted from origins in `NOUS_CORS_ORIGINS` plus any `https://*.lovable.app`, `https://*.lovableproject.com` or `https://*.lovable.dev` preview/published app (see `ALLOWED_ORIGIN_SUFFIXES` in `executor/router.py`); auth still requires the NOUS token.
 - Python cloud deploy: gunicorn on `$PORT` (Procfile), `render.yaml` with persistent `/app/data` disk.

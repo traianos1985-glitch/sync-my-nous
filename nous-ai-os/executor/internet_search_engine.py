@@ -33,7 +33,69 @@ def clean(s: str) -> str:
     return re.sub(r"\s+", " ", s or "").strip()
 
 
-# ─── DuckDuckGo Instant Answer API ────────────────────────────────────────────
+def _tokenise_query(query: str) -> set[str]:
+    stop = {
+        "the", "and", "for", "with", "from", "how", "what", "when", "where", "why",
+        "για", "στο", "στη", "της", "του", "και", "είναι", "ποιο", "ποια", "πως",
+    }
+    return {t for t in re.findall(r"[a-zA-Zα-ωΑ-Ω0-9]{3,}", (query or "").lower()) if t not in stop}
+
+
+def _score_item(tokens: set[str], item: dict) -> float:
+    """Token overlap + light domain boost for known product docs."""
+    if not tokens:
+        return 0.0
+    blob = f"{item.get('title', '')} {item.get('snippet', '')} {item.get('url', '')}".lower()
+    hits = sum(1 for t in tokens if t in blob)
+    score = float(hits)
+    url = (item.get("url") or "").lower()
+    # Prefer official / documentation hosts for product-style queries.
+    for domain, boost in (
+        ("render.com", 1.5),
+        ("docs.render.com", 2.0),
+        ("github.com", 0.5),
+        ("stackoverflow.com", 0.4),
+        ("official", 0.3),
+    ):
+        if domain in url:
+            score += boost
+    return score
+
+
+def _filter_relevant(
+    query: str,
+    results: list[dict],
+    min_keep: int = 2,
+    low_relevance_threshold: float = 1.5,
+) -> tuple[list[dict], float, bool]:
+    """Rank results, drop clear off-topic hits, report top score and low-relevance flag.
+
+    Returns (ranked_results, top_score, is_low_relevance).
+    is_low_relevance is True when the best hit is weak for multi-token product queries
+    (e.g. "Render free tier" returning unrelated Shiny / GeForce hits).
+    """
+    if not results:
+        return [], 0.0, True
+    tokens = _tokenise_query(query)
+    if not tokens:
+        return results, 0.0, False
+
+    scored = [(_score_item(tokens, r), r) for r in results]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top_score = scored[0][0] if scored else 0.0
+
+    good = [r for s, r in scored if s >= 1.0]
+    ranked = [r for _, r in scored]
+    if len(good) >= min_keep:
+        ranked = good
+
+    # Attach numeric score for downstream consumers / debugging.
+    for s, r in scored:
+        r["relevance_score"] = round(s, 2)
+
+    is_low = top_score < low_relevance_threshold and len(tokens) >= 2
+    return ranked, top_score, is_low
+
 
 def _ddg_instant(query: str) -> list[dict]:
     try:
@@ -64,13 +126,10 @@ def _ddg_instant(query: str) -> list[dict]:
         return []
 
 
-# ─── Wikipedia API (free, no key) ─────────────────────────────────────────────
-
 def _wikipedia_search(query: str) -> list[dict]:
     try:
         import requests
         results = []
-        # Try Greek Wikipedia first, fallback to English
         for lang in ["el", "en"]:
             if results:
                 break
@@ -100,8 +159,6 @@ def _wikipedia_search(query: str) -> list[dict]:
     except Exception:
         return []
 
-
-# ─── DuckDuckGo HTML scraper (fallback) ───────────────────────────────────────
 
 def _ddg_html(query: str, limit: int = 5) -> list[dict]:
     try:
@@ -146,8 +203,6 @@ def _ddg_html(query: str, limit: int = 5) -> list[dict]:
     return []
 
 
-# ─── LLM fallback ─────────────────────────────────────────────────────────────
-
 def _llm_web_answer(query: str) -> str | None:
     try:
         from executor.remote_llm import ask_remote_llm
@@ -164,39 +219,49 @@ def _llm_web_answer(query: str) -> str | None:
     return None
 
 
-# ─── Main entry points ────────────────────────────────────────────────────────
-
 def search_web(query: str, limit: int = 5) -> dict[str, Any]:
     q = clean(query)
     if not q:
         return {"ok": False, "error": "empty_query"}
 
-    # 1. DuckDuckGo Instant Answer
     results = _ddg_instant(q)
+    wiki = _wikipedia_search(q)
+    if wiki:
+        results = (results or []) + [w for w in wiki if w not in (results or [])]
+    if len(results or []) < 2:
+        html = _ddg_html(q, limit)
+        if html:
+            results = (results or []) + html
 
-    # 2. Wikipedia (free, always works)
+    results, top_score, low_relevance = _filter_relevant(q, results or [])
+
     if not results:
-        results = _wikipedia_search(q)
+        results, top_score, low_relevance = _filter_relevant(
+            q, _ddg_html(q, limit) or [], min_keep=1
+        )
 
-    # 3. DuckDuckGo HTML
-    if not results:
-        results = _ddg_html(q, limit)
-
-    payload = {
+    payload: dict[str, Any] = {
         "ok": bool(results),
         "tool": "Internet Search Engine",
         "timestamp": now_iso(),
         "query": q,
         "results": results[:limit],
+        "top_relevance_score": round(top_score, 2),
+        "low_relevance": low_relevance,
     }
     if not results:
         payload["error"] = "no_results"
+    elif low_relevance:
+        payload["warning"] = "low_relevance_hits"
 
-    cache = load_json(CACHE, [])
-    if not isinstance(cache, list):
-        cache = []
-    cache.append(payload)
-    save_json(CACHE, cache[-100:])
+    try:
+        cache = load_json(CACHE, [])
+        if not isinstance(cache, list):
+            cache = []
+        cache.append(payload)
+        save_json(CACHE, cache[-100:])
+    except Exception:
+        pass
 
     return payload
 
@@ -204,9 +269,11 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
 def answer_from_web(query: str) -> dict[str, Any]:
     res = search_web(query)
     results = res.get("results", [])
+    low_relevance = bool(res.get("low_relevance"))
     llm_ans = None
+    mode = "internet_search"
 
-    if results:
+    if results and not low_relevance:
         lines = ["🔍 Βρήκα αυτά τα σχετικά αποτελέσματα:"]
         for i, x in enumerate(results[:4], 1):
             lines.append(f"\n**{i}. {x.get('title', 'Αποτέλεσμα')}**")
@@ -219,27 +286,53 @@ def answer_from_web(query: str) -> dict[str, Any]:
                 lines.append(f"   🔗 {x.get('url')}")
         answer = "\n".join(lines)
     else:
+        # No hits OR weak relevance (e.g. product pricing queries that surface
+        # unrelated DDG/Wikipedia pages) → LLM knowledge fallback.
         llm_ans = _llm_web_answer(query)
         if llm_ans:
-            answer = f"Δεν βρήκα live αποτελέσματα, αλλά με βάση τις γνώσεις μου:\n\n{llm_ans}"
+            if results and low_relevance:
+                mode = "llm_fallback_low_relevance"
+                # Keep the weak hits as secondary context so the user can still open them.
+                secondary = "\n".join(
+                    f"- {x.get('title', '')}: {x.get('url', '')}" for x in results[:3]
+                )
+                answer = (
+                    f"Τα live αποτελέσματα είχαν χαμηλή σχετικότητα για «{query}». "
+                    f"Απάντηση με βάση γνώσεις + διαθέσιμες πηγές:\n\n{llm_ans}"
+                )
+                if secondary:
+                    answer += f"\n\n_Δευτερεύουσες πηγές (χαμηλή relevance):_\n{secondary}"
+            else:
+                mode = "knowledge_fallback_no_web"
+                answer = f"Δεν βρήκα live αποτελέσματα, αλλά με βάση τις γνώσεις μου:\n\n{llm_ans}"
         else:
-            answer = "Δεν μπόρεσα να βρω αποτελέσματα γι' αυτή την αναζήτηση."
+            mode = "internet_search_empty"
+            if results and low_relevance:
+                lines = [
+                    f"⚠️ Βρήκα αποτελέσματα, αλλά η σχετικότητά τους για «{query}» είναι χαμηλή:"
+                ]
+                for i, x in enumerate(results[:4], 1):
+                    lines.append(f"\n**{i}. {x.get('title', 'Αποτέλεσμα')}**")
+                    if x.get("url"):
+                        lines.append(f"   🔗 {x.get('url')}")
+                answer = "\n".join(lines)
+            else:
+                answer = "Δεν μπόρεσα να βρω αποτελέσματα γι' αυτή την αναζήτηση."
 
     return {
-        "ok": bool(results) or bool(llm_ans if not results else False),
+        "ok": bool(results) or bool(llm_ans),
         "web_ok": bool(res.get("ok")),
-        "mode": "internet_search" if results else ("knowledge_fallback_no_web" if llm_ans else "internet_search_empty"),
+        "mode": mode,
+        "low_relevance": low_relevance,
+        "top_relevance_score": res.get("top_relevance_score", 0),
         "answer": answer,
         "results": results[:4],
         "raw": {
             "ok": bool(res.get("ok")),
             "query": res.get("query"),
             "results_count": len(results),
+            "low_relevance": low_relevance,
             **({"error": res.get("error")} if res.get("error") else {}),
+            **({"warning": res.get("warning")} if res.get("warning") else {}),
         },
     }
-
-
-if __name__ == "__main__":
-    import sys
-    print(json.dumps(answer_from_web(" ".join(sys.argv[1:])), indent=2, ensure_ascii=False))

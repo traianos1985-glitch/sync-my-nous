@@ -5,6 +5,34 @@ import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousMissions } from "../lib/db/schema";
 
+const NOUS_API_FALLBACK = "https://nous-ai-os-api.onrender.com";
+
+// Forward a new mission to the Nous backend on Render so it is actually planned,
+// instead of sitting in "queued" forever. Plan only (no execution) — execution
+// still goes through the approval flow.
+async function dispatchToNous(objective: string): Promise<{ status: string; error?: string }> {
+  const token = process.env["NOUS_API_TOKEN"] ?? process.env["NOUS_TOKEN"];
+  if (!token) return { status: "queued", error: "NOUS_API_TOKEN not configured" };
+  const base = (process.env["NOUS_API_URL"] ?? NOUS_API_FALLBACK).replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/remote/executive/plan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-NOUS-TOKEN": token },
+      body: JSON.stringify({ prompt: objective.slice(0, 2000) }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`Nous dispatch failed [${res.status}]: ${text}`);
+      return { status: "failed", error: `Render ${res.status}: ${text.slice(0, 300)}` };
+    }
+    return { status: "awaiting_approval" };
+  } catch (err) {
+    console.error("Nous dispatch error", err);
+    return { status: "failed", error: String(err) };
+  }
+}
+
 async function userId(request: Request) {
   return requireAuthenticatedUserId(request);
 }
@@ -58,7 +86,18 @@ export const Route = createFileRoute("/api/missions")({
           status: "queued",
         };
         await db.insert(nousMissions).values(mission);
-        return Response.json({ ok: true, mission }, { status: 201 });
+        const dispatch = await dispatchToNous(objective);
+        if (dispatch.status !== mission.status) {
+          await db
+            .update(nousMissions)
+            .set({ status: dispatch.status, updatedAt: new Date() })
+            .where(eq(nousMissions.id, mission.id));
+          mission.status = dispatch.status;
+        }
+        return Response.json(
+          { ok: true, mission, dispatch: { error: dispatch.error } },
+          { status: 201 },
+        );
       },
     },
   },

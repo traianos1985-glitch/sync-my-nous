@@ -12,10 +12,72 @@ export class NousApiError extends Error {
   }
 }
 
-const defaultApiBase = import.meta.env.DEV ? "/api/nous" : "https://nous-ai-os-api.onrender.com";
-const apiBase = (import.meta.env["VITE_NOUS_API_URL"] || defaultApiBase).replace(/\/$/, "");
+// Every dashboard request goes straight to the Render service. A relative base
+// such as "/api/nous" only works behind the Vite dev proxy — the Lovable preview
+// origin answers HTML requests there and rejects API calls with
+// "Only HTML requests are supported here".
+const RENDER_API_BASE = "https://nous-ai-os-api.onrender.com";
+
+function resolveApiBase(): string {
+  const configured = import.meta.env["VITE_NOUS_API_URL"]?.trim();
+  // Honour an explicit absolute override (own staging backend), but never a
+  // relative one: it would send dashboard calls back to the HTML-only origin.
+  const base = configured && /^https?:\/\//i.test(configured) ? configured : RENDER_API_BASE;
+  return base.replace(/\/+$/, "");
+}
+
+const apiBase = resolveApiBase();
 const tokenStorageKey = "nous-dashboard-token";
-const requestTimeoutMs = 35_000;
+const requestTimeoutMs = 75_000;
+
+// ---- Cold-start (Render wake-up) signal ----
+const slowRequestMs = 4_000;
+let pendingSlow = 0;
+let gatewayFailures = 0;
+const wakeListeners = new Set<(waking: boolean) => void>();
+let lastWaking = false;
+function emitWake() {
+  const waking = pendingSlow > 0 || gatewayFailures >= 2;
+  if (waking === lastWaking) return;
+  lastWaking = waking;
+  wakeListeners.forEach((listener) => listener(waking));
+}
+export function subscribeBackendWaking(listener: (waking: boolean) => void): () => void {
+  wakeListeners.add(listener);
+  listener(lastWaking);
+  return () => wakeListeners.delete(listener);
+}
+function trackRequest<T>(run: () => Promise<T>): Promise<T> {
+  let slow = false;
+  const timer = window.setTimeout(() => {
+    slow = true;
+    pendingSlow += 1;
+    emitWake();
+  }, slowRequestMs);
+  const finish = () => {
+    window.clearTimeout(timer);
+    if (slow) pendingSlow -= 1;
+    emitWake();
+  };
+  return run().then(
+    (value) => {
+      gatewayFailures = 0;
+      finish();
+      return value;
+    },
+    (error) => {
+      const status = (error as { status?: number })?.status;
+      const msg = error instanceof Error ? error.message : "";
+      if ((status && [502, 503, 504].includes(status)) || /\((502|503|504)\)/.test(msg)) {
+        gatewayFailures += 1;
+      } else if (!(error instanceof DOMException)) {
+        gatewayFailures = Math.max(0, gatewayFailures);
+      }
+      finish();
+      throw error;
+    },
+  );
+}
 const retryableStatuses = new Set([502, 503, 504]);
 
 function shouldRetry(request: RequestInit, response: Response, attempt: number): boolean {
@@ -97,7 +159,13 @@ function adaptBody(path: string, body: RequestInit["body"]): RequestInit["body"]
 
 function getStoredToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
-  return window.sessionStorage.getItem(tokenStorageKey) || undefined;
+  // Keep the token across preview iframe reloads and chat navigation. The value
+  // never leaves the browser except as an Authorization header to the NOUS API.
+  return (
+    window.localStorage.getItem(tokenStorageKey) ||
+    window.sessionStorage.getItem(tokenStorageKey) ||
+    undefined
+  );
 }
 
 export function hasConfiguredNousApi(): boolean {
@@ -121,8 +189,7 @@ export function setNousToken(token: string): void {
   if ([...normalizedToken].some((character) => character.charCodeAt(0) > 255)) {
     throw new Error("Το NOUS token πρέπει να αποτελείται μόνο από λατινικούς χαρακτήρες.");
   }
-  if (typeof window !== "undefined")
-    window.sessionStorage.setItem(tokenStorageKey, normalizedToken);
+  if (typeof window !== "undefined") window.localStorage.setItem(tokenStorageKey, normalizedToken);
 }
 
 function setAuthorizationHeader(headers: Headers, token: string | undefined): void {
@@ -136,10 +203,17 @@ function setAuthorizationHeader(headers: Headers, token: string | undefined): vo
 }
 
 export function clearNousToken(): void {
-  if (typeof window !== "undefined") window.sessionStorage.removeItem(tokenStorageKey);
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(tokenStorageKey);
+    window.sessionStorage.removeItem(tokenStorageKey);
+  }
 }
 
-export async function nousStream(path: string, options: NousApiOptions = {}): Promise<Response> {
+export function nousStream(path: string, options: NousApiOptions = {}): Promise<Response> {
+  return trackRequest(() => nousStreamInner(path, options));
+}
+
+async function nousStreamInner(path: string, options: NousApiOptions = {}): Promise<Response> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "text/event-stream");
   const token = options.token ?? getNousToken();
@@ -178,7 +252,11 @@ export async function nousStream(path: string, options: NousApiOptions = {}): Pr
   return response;
 }
 
-export async function nousFetch<T>(path: string, options: NousApiOptions = {}): Promise<T> {
+export function nousFetch<T>(path: string, options: NousApiOptions = {}): Promise<T> {
+  return trackRequest(() => nousFetchInner<T>(path, options));
+}
+
+async function nousFetchInner<T>(path: string, options: NousApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
   if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type"))

@@ -1,0 +1,49 @@
+{
+  "jobs": [
+    {
+      "id": 1791802827636759939,
+      "name": "Πρωινή Αναφορά",
+      "action": "generate_morning_brief",
+      "hour": 8,
+      "minute": 0,
+      "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "enabled": true,
+      "created": 1791802827.6367533,
+      "last_run": null
+    },
+    {
+      "id": 1791802827636767011,
+      "name": "Βραδινή Αναφορά",
+      "action": "generate_evening_summary",
+      "hour": 21,
+      "minute": 0,
+      "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "enabled": true,
+      "created": 1791802827.6367533,
+      "last_run": null
+    },
+    {
+      "id": 1791802827636769826,
+      "name": "Νυχτερινό Backup",
+      "action": "create_backup",
+      "hour": 2,
+      "minute": 0,
+      "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "enabled": true,
+      "created": 1791802827.6367533,
+      "last_run": null
+    },
+    {
+      "id": 1791802827636771588,
+      "name": "Αυτο-αναστοχασμός",
+      "action": "self_reflection",
+      "hour": 12,
+      "minute": 0,
+      "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "enabled": true,
+      "created": 1791802827.6367533,
+      "last_run": null
+    }
+  ],
+  "log": []
+}

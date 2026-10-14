@@ -106,6 +106,28 @@ def propose_release_evidence_plans(limit=5):
         and isinstance(source.get("url"), str)
     }
     queue = triage_latest_releases(limit=25)
+    queue_status = queue.get("status", "not_scanned")
+    if queue_status not in {"complete", "partial"}:
+        # A successful HTTP/API call is not a successful proposal run when
+        # upstream evidence was never retrieved. Keep the reason machine-readable.
+        return {
+            "ok": False,
+            "error": "release_evidence_unavailable",
+            "created_count": 0,
+            "deduped_count": 0,
+            "plans": [],
+            "deduped_plans": [],
+            "source_queue_status": queue_status,
+            "safety": {
+                "triggered_explicitly": True,
+                "release_text_executed": False,
+                "code_generated": False,
+                "code_executed": False,
+                "source_files_modified": 0,
+                "dependency_changes_performed": 0,
+                "requires_human_review": True,
+            },
+        }
     candidates = [
         item for item in queue.get("items", [])
         if isinstance(item, dict)
@@ -201,7 +223,7 @@ def propose_release_evidence_plans(limit=5):
         "deduped_count": len(deduped),
         "plans": created,
         "deduped_plans": deduped[:count],
-        "source_queue_status": queue.get("status", "not_scanned"),
+        "source_queue_status": queue_status,
         "safety": {
             "triggered_explicitly": True,
             "release_text_executed": False,

@@ -22,6 +22,10 @@ export const sectionConfigs: Record<string, SectionConfig> = {
   control: {
     endpoints: [
       { label: "Provider registry", path: "/remote/deploy/providers" },
+      { label: "Fleet integrations", path: "/api/agent-environments/fleet/integrations" },
+      { label: "Fleet instances & version drift", path: "/api/agent-environments/fleet/status" },
+      { label: "Fleet rollout preflight", path: "/api/agent-environments/fleet/rollout/preflight" },
+      { label: "Fleet rollout queue", path: "/api/agent-environments/fleet/rollout/status" },
       { label: "Safety status", path: "/remote/safety/status" },
       { label: "Runtime operations", path: "/remote/ops/status" },
     ],
@@ -109,6 +113,9 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Deploy", path: "/remote/deploy/status" },
       { label: "Vercel", path: "/remote/vercel/status" },
       { label: "Providers", path: "/remote/deploy/providers" },
+      { label: "Runtime lifecycle plan", path: "/api/agent-environments/lifecycle" },
+      { label: "NOUS fleet status", path: "/api/agent-environments/fleet/status" },
+      { label: "NOUS fleet rollout queue", path: "/api/agent-environments/fleet/rollout/status" },
     ],
   },
   backup: {

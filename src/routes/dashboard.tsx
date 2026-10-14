@@ -33,6 +33,7 @@ import {
   hasStoredNousToken,
   nousFetch,
   setNousToken,
+  subscribeBackendWaking,
 } from "@/lib/nous-api";
 
 export const Route = createFileRoute("/dashboard")({
@@ -264,6 +265,12 @@ type SystemStatus = {
 
 function Dashboard() {
   const [section, setSection] = useState("chat");
+  const [backendWaking, setBackendWaking] = useState(false);
+  useEffect(() => subscribeBackendWaking(setBackendWaking), []);
+  const [failedInitiative, setFailedInitiative] = useState<{
+    initiative: Initiative;
+    action: "approve" | "reject";
+  } | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [messages, setMessages] = useState(initialChat);
@@ -295,6 +302,8 @@ function Dashboard() {
       setMessages(stored.messages);
       setConversationId(stored.conversationId);
     }
+    setHasToken(Boolean(getNousToken()));
+    setHasSessionToken(hasStoredNousToken());
     setChatLoaded(true);
   }, []);
 
@@ -403,8 +412,9 @@ function Dashboard() {
   const [approvalStatus, setApprovalStatus] = useState<"idle" | "loading" | "error">("idle");
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [tokenDraft, setTokenDraft] = useState("");
-  const [hasToken, setHasToken] = useState(() => Boolean(getNousToken()));
-  const [hasSessionToken, setHasSessionToken] = useState(() => hasStoredNousToken());
+  // Read browser-only session storage after hydration so the server and first client render match.
+  const [hasToken, setHasToken] = useState(false);
+  const [hasSessionToken, setHasSessionToken] = useState(false);
   const [geminiTestState, setGeminiTestState] = useState<"idle" | "testing" | "ok" | "error">(
     "idle",
   );
@@ -630,42 +640,43 @@ function Dashboard() {
   const loadSystemStatus = async () => {
     setSystemStatusState("loading");
     setSystemStatusError(null);
-    try {
-      const [statusResult, metricsResult, overviewResult] = await Promise.allSettled([
-        nousFetch<SystemStatus>("/api/status"),
-        nousFetch<SystemStatus["metrics"]>("/system-info"),
-        nousFetch<SystemStatus["overview"]>("/remote/ops/status"),
-      ]);
-      const status = statusResult.status === "fulfilled" ? statusResult.value : undefined;
-      const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : undefined;
-      const overview = overviewResult.status === "fulfilled" ? overviewResult.value : undefined;
-      if (status || metrics || overview) {
-        setSystemStatus({
-          ...(status ?? {}),
-          status: status?.status ?? "online",
-          metrics,
-          overview,
-        });
-        setSystemStatusState("ready");
-        setSystemStatusCheckedAt(new Date().toISOString());
-        return;
-      }
-      throw new Error("NOUS system status unavailable");
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : "Άγνωστο σφάλμα status";
-      try {
-        const health = await nousFetch<{ status: string }>("/api/health");
-        setSystemStatus({ status: health.status === "healthy" ? "online" : "degraded" });
-        setSystemStatusState("ready");
-        setSystemStatusError(detail);
-        setSystemStatusCheckedAt(new Date().toISOString());
-      } catch (healthError) {
-        setSystemStatus({ status: "unavailable" });
-        setSystemStatusState("error");
-        setSystemStatusError(healthError instanceof Error ? healthError.message : detail);
-        setSystemStatusCheckedAt(new Date().toISOString());
-      }
-    }
+    const [healthResult, statusResult, metricsResult, overviewResult] = await Promise.allSettled([
+      // This endpoint is mapped by nous-api.ts directly to the Render backend's /health.
+      // Keep backend reachability separate from local dashboard/database status.
+      nousFetch<{ system?: string; status?: string; ok?: boolean }>("/api/health"),
+      nousFetch<SystemStatus>("/api/status"),
+      nousFetch<SystemStatus["metrics"]>("/system-info"),
+      nousFetch<SystemStatus["overview"]>("/remote/ops/status"),
+    ]);
+
+    const health = healthResult.status === "fulfilled" ? healthResult.value : undefined;
+    const status = statusResult.status === "fulfilled" ? statusResult.value : undefined;
+    const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : undefined;
+    const overview = overviewResult.status === "fulfilled" ? overviewResult.value : undefined;
+    const backendHealthy = Boolean(
+      health && (health.system === "healthy" || health.status === "healthy" || health.ok === true),
+    );
+    const hasAnyData = Boolean(status || metrics || overview);
+    const failure = healthResult.status === "rejected" ? healthResult.reason : undefined;
+    const detail =
+      failure instanceof Error
+        ? failure.message
+        : "Το Render backend δεν επιβεβαίωσε υγιή κατάσταση. Έλεγξε τη σύνδεση και το NOUS token.";
+
+    setSystemStatus({
+      ...(status ?? {}),
+      // Never infer a healthy Render backend from unrelated local DB/metrics success.
+      status: backendHealthy
+        ? (status?.status ?? "online")
+        : hasAnyData
+          ? "degraded"
+          : "unavailable",
+      metrics,
+      overview,
+    });
+    setSystemStatusState(hasAnyData || backendHealthy ? "ready" : "error");
+    setSystemStatusError(backendHealthy ? null : detail);
+    setSystemStatusCheckedAt(new Date().toISOString());
   };
 
   const testGeminiConnection = async () => {
@@ -879,7 +890,9 @@ function Dashboard() {
         body: JSON.stringify({ action, route, payload: payload ?? {} }),
         timeoutMs: 90_000,
       });
+      setFailedInitiative(null);
     } catch {
+      setFailedInitiative({ initiative, action });
       setInitiativesState("error");
       return;
     }
@@ -1187,6 +1200,17 @@ function Dashboard() {
 
       {/* Main */}
       <main className="flex min-w-0 max-w-full flex-1 flex-col">
+        {backendWaking && (
+          <div
+            role="status"
+            className="flex items-center gap-2 border-b border-warn/40 bg-warn/10 px-4 py-2 text-xs text-warn"
+          >
+            <span className="h-2 w-2 animate-pulse rounded-full bg-warn" />
+            {
+              "Ο NOUS ξυπνάει (cold start του server) — μπορεί να χρειαστεί έως ένα λεπτό. Περίμενε, το αίτημά σου συνεχίζει."
+            }
+          </div>
+        )}
         <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-3">
             <button
@@ -1221,6 +1245,15 @@ function Dashboard() {
             </button>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => go("settings")}
+              aria-label="Άνοιγμα Settings και ρυθμίσεων σύνδεσης"
+              title="Ρυθμίσεις σύνδεσης NOUS"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+            >
+              ⚙ Settings
+            </button>
             <span className="hidden rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground sm:block">
               Owner Mode
             </span>
@@ -2055,6 +2088,17 @@ function Dashboard() {
               {initiativesState === "error" && (
                 <p className="mt-3 text-xs text-warn">
                   Δεν ήταν δυνατή η φόρτωση ή εκτέλεση των προτάσεων.
+                  {failedInitiative && (
+                    <button
+                      type="button"
+                      className="ml-2 rounded-md border border-warn/50 px-2 py-0.5 font-medium hover:bg-warn/10"
+                      onClick={() =>
+                        void resolveInitiative(failedInitiative.initiative, failedInitiative.action)
+                      }
+                    >
+                      Δοκίμασε ξανά
+                    </button>
+                  )}
                 </p>
               )}
               {initiatives.length === 0 ? (
@@ -2132,7 +2176,32 @@ function Dashboard() {
                           ? "Ρυθμίσεις σύνδεσης του dashboard με το NOUS backend."
                           : `Ζωντανή κατάσταση και ενέργειες της ενότητας ${navLabel(section)} από το NOUS backend.`}
                 </p>
-                {section === "settings" && <div className="mt-5">{tokenForm}</div>}
+                {section === "settings" && (
+                  <div className="mt-5 space-y-3">
+                    {!hasToken && (
+                      <div
+                        role="status"
+                        className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
+                      >
+                        Δεν έχει οριστεί NOUS token σε αυτό το browser session. Επικόλλησε το token
+                        παρακάτω για να ενεργοποιήσεις τα προστατευμένα endpoints.
+                      </div>
+                    )}
+                    {systemStatus?.status === "degraded" ||
+                    systemStatus?.status === "unavailable" ? (
+                      <div
+                        role="status"
+                        className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
+                      >
+                        Η επικοινωνία με το Render backend δεν έχει επιβεβαιωθεί ως υγιής.
+                        {systemStatusError
+                          ? ` Λεπτομέρεια: ${systemStatusError}`
+                          : " Έλεγξε τη διεύθυνση API, το token και την κατάσταση του Render."}
+                      </div>
+                    ) : null}
+                    {tokenForm}
+                  </div>
+                )}
                 {sectionConfigs[section] && <SectionPanel section={section} />}
                 {section === "documents" && (
                   <div className="mt-5 space-y-4">

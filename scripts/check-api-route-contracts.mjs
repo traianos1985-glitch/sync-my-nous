@@ -4,6 +4,11 @@ const apiClient = readFileSync("src/lib/nous-api.ts", "utf8");
 const dashboard = readFileSync("src/routes/dashboard.tsx", "utf8");
 const flaskDashboardApi = readFileSync("nous-ai-os/executor/dashboard_api.py", "utf8");
 const flaskRouter = readFileSync("nous-ai-os/executor/router.py", "utf8");
+const fleetBlueprint = readFileSync(
+  "nous-ai-os/executor/blueprints/agent_environments_bp.py",
+  "utf8",
+);
+const sectionConfigs = readFileSync("src/components/nous/section-configs.ts", "utf8");
 const errors = [];
 
 function requireMatch(source, pattern, message) {
@@ -110,6 +115,23 @@ for (const handler of privilegedRouterHandlers) {
   const body = start < 0 ? "" : flaskRouter.slice(start, next < 0 ? undefined : next);
   if (!body.includes("check_admin_token(request)")) {
     errors.push(`Privileged router handler ${handler} must require an admin token.`);
+  }
+}
+
+// Fleet integration controls must stay wired to authenticated Flask endpoints.
+requireMatch(
+  fleetBlueprint,
+  /@agent_environments_bp\.get\("\/fleet\/integrations"\)[\s\S]{0,250}?check_admin_token\(request\)/,
+  "Fleet integration status must be exposed through an admin-authenticated Flask endpoint.",
+);
+for (const route of [
+  "/api/agent-environments/fleet/integrations",
+  "/api/agent-environments/fleet/status",
+  "/api/agent-environments/fleet/rollout/preflight",
+  "/api/agent-environments/fleet/rollout/status",
+]) {
+  if (!sectionConfigs.includes(route)) {
+    errors.push(`Control UI is missing fleet endpoint ${route}.`);
   }
 }
 
