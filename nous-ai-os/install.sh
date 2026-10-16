@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 pkg update -y
-pkg install -y python git termux-api
+pkg install -y python git termux-api tesseract
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m pip install pypdf python-docx Pillow pytesseract
