@@ -3,6 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { ChatMarkdown } from "@/components/nous/chat-markdown";
 import { sectionConfigs } from "@/components/nous/section-configs";
 import { SectionPanel } from "@/components/nous/section-panel";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from "@/components/ui/command";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import {
   Activity,
@@ -276,12 +285,23 @@ function Dashboard() {
   const [section, setSection] = useState("chat");
   const [backendWaking, setBackendWaking] = useState(false);
   useEffect(() => subscribeBackendWaking(setBackendWaking), []);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
   const [failedInitiative, setFailedInitiative] = useState<{
     initiative: Initiative;
     action: "approve" | "reject";
   } | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const [messages, setMessages] = useState(initialChat);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -670,7 +690,7 @@ function Dashboard() {
     const detail =
       failure instanceof Error
         ? failure.message
-        : "Το Render backend δεν επιβεβαίωσε υγιή κατάσταση. Έλεγξε τη σύνδεση και το NOUS token.";
+        : "Το Render backend δεν επιβεβαίωσε υγιή κατά��ταση. Έλεγξε τη σύνδεση και το NOUS token.";
 
     setSystemStatus({
       ...(status ?? {}),
@@ -728,7 +748,7 @@ function Dashboard() {
       }
       const answer = result.answer ?? result.reply ?? result.response ?? "";
       if (result.source !== "gemini" && result.provider !== "gemini") {
-        throw new Error("Το NOUS απάντησε, αλλά δεν επιβεβαίωσε provider Gemini.");
+        throw new Error("Το NOUS ��πάντησε, αλλά δεν επιβεβαίωσε provider Gemini.");
       }
       if (!answer) throw new Error("Το Gemini επέστρεψε κενή απάντηση.");
       setGeminiTestState("ok");
@@ -1127,8 +1147,57 @@ function Dashboard() {
     </form>
   );
 
+  const commandItems = navGroups.flatMap((group) => group.items);
+
   return (
-    <div className="flex h-dvh min-h-0 w-full min-w-0 max-w-full overflow-hidden bg-background font-sans text-foreground">
+    <>
+      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+        <CommandInput placeholder="Αναζήτηση στο workspace…" />
+        <CommandList>
+          <CommandEmpty>Δεν βρέθηκε ενότητα.</CommandEmpty>
+          <CommandGroup heading="Πλοήγηση">
+            {commandItems.map((item) => (
+              <CommandItem
+                key={item.id}
+                value={`${item.label} ${item.id}`}
+                onSelect={() => {
+                  go(item.id);
+                  setCommandOpen(false);
+                }}
+              >
+                <NavGlyph name={item.icon} />
+                <span>{item.label}</span>
+                {item.id === section && <CommandShortcut>active</CommandShortcut>}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandGroup heading="Γρήγορες ενέργειες">
+            <CommandItem
+              value="new message chat"
+              onSelect={() => {
+                go("chat");
+                setCommandOpen(false);
+                window.requestAnimationFrame(() => chatInputRef.current?.focus());
+              }}
+            >
+              <MessageSquare />
+              <span>Νέο μήνυμα στον NOUS</span>
+              <CommandShortcut>↵</CommandShortcut>
+            </CommandItem>
+            <CommandItem
+              value="refresh system health"
+              onSelect={() => {
+                void loadSystemStatus();
+                setCommandOpen(false);
+              }}
+            >
+              <RotateCcw />
+              <span>Ανανέωση health status</span>
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+      <div className="flex h-dvh min-h-0 w-full min-w-0 max-w-full overflow-hidden bg-background font-sans text-foreground">
       {/* Sidebar */}
       {menuOpen && (
         <button
@@ -1243,6 +1312,15 @@ function Dashboard() {
               <Menu className="size-4" />
             </button>
             <strong className="font-display text-sm">{navLabel(section)}</strong>
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              className="hidden min-w-44 items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/50 px-2.5 py-1.5 text-left text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground sm:flex"
+              aria-label="Άνοιγμα command search"
+            >
+              <span className="inline-flex items-center gap-2"><Search className="size-3.5" /> Αναζήτηση…</span>
+              <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+            </button>
             <span
               title={systemStatusError ?? undefined}
               className={`rounded-full border border-border px-2.5 py-0.5 font-mono text-xs ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
@@ -2586,7 +2664,8 @@ function Dashboard() {
           </div>
         )}
       </main>
-    </div>
+      </div>
+    </>
   );
 }
 
