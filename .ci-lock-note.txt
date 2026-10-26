@@ -1,2 +1,0 @@
-Temporary note: package-lock regeneration in progress for zod@4.6.7 (GHSA-mrhx-c7xc-m3w5).
-This file will be removed after the lockfile is updated.
