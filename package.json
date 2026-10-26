@@ -28,7 +28,10 @@
     "js-yaml": "4.3.2",
     "nanoid": "3.3.20",
     "shell-quote": "1.12.0",
-    "source-map-js": "1.2.2"
+    "source-map-js": "1.2.2",
+    "@vercel/cli-config": {
+      "zod": "4.6.6"
+    }
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

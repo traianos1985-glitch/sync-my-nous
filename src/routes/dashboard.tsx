@@ -679,6 +679,19 @@ function Dashboard() {
     setSystemStatusCheckedAt(new Date().toISOString());
   };
 
+  const copyDiagnostics = async () => {
+    const diagnostics = [
+      `NOUS API: ${hasToken ? "configured" : "missing"}`,
+      `Runtime: ${systemStatus?.status ?? "checking"}`,
+      `Gemini: ${geminiTestState === "ok" ? "connected" : geminiTestState === "error" ? "error" : "not tested"}`,
+      `Checked: ${systemStatusCheckedAt ? new Date(systemStatusCheckedAt).toISOString() : "never"}`,
+      systemStatusError ? `Error: ${systemStatusError}` : "",
+    ]
+      .filter(Boolean)
+      .join("\\n");
+    await navigator.clipboard?.writeText(diagnostics);
+  };
+
   const testGeminiConnection = async () => {
     setGeminiTestState("testing");
     setGeminiTestMessage("");
@@ -1295,6 +1308,115 @@ function Dashboard() {
                     </p>
                   </div>
                 </div>
+                <section
+                  className="mb-5 rounded-2xl border border-primary/25 bg-card/70 p-4 shadow-[0_0_32px_oklch(0.68_0.19_292_/_8%)]"
+                  aria-labelledby="connection-center-title"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Activity className="size-4 text-primary" />
+                        <h2 id="connection-center-title" className="text-sm font-semibold">
+                          Connection Center
+                        </h2>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Ξεχωριστός έλεγχος Browser, Render API και Gemini.
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void loadSystemStatus()}
+                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs hover:border-primary"
+                      >
+                        Test connection
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void copyDiagnostics()}
+                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs hover:border-primary"
+                      >
+                        Copy diagnostic
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    {[
+                      {
+                        label: "Browser",
+                        state: "connected",
+                        tone: "text-ok",
+                        detail: "Το workspace φορτώθηκε",
+                      },
+                      {
+                        label: "Render API",
+                        state:
+                          systemStatusState === "loading"
+                            ? "waking"
+                            : systemStatus?.status === "degraded" ||
+                                systemStatus?.status === "unavailable"
+                              ? "unavailable"
+                              : hasToken
+                                ? "connected"
+                                : "invalid token",
+                        tone:
+                          systemStatus?.status === "degraded" ||
+                          systemStatus?.status === "unavailable"
+                            ? "text-warn"
+                            : hasToken
+                              ? "text-ok"
+                              : "text-warn",
+                        detail: systemStatusError ?? "Authenticated backend",
+                      },
+                      {
+                        label: "Gemini",
+                        state:
+                          geminiTestState === "testing"
+                            ? "testing"
+                            : geminiTestState === "ok"
+                              ? "connected"
+                              : geminiTestState === "error"
+                                ? "error"
+                                : "not tested",
+                        tone:
+                          geminiTestState === "ok"
+                            ? "text-ok"
+                            : geminiTestState === "error"
+                              ? "text-warn"
+                              : "text-muted-foreground",
+                        detail: geminiTestMessage || "Πάτησε test για επιβεβαίωση provider",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-xl border border-border/70 bg-background/40 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium">{item.label}</span>
+                          <span
+                            className={`flex items-center gap-1.5 font-mono text-[10px] uppercase ${item.tone}`}
+                          >
+                            <span className="size-1.5 rounded-full bg-current" />
+                            {item.state}
+                          </span>
+                        </div>
+                        <p
+                          className="mt-2 truncate text-[10px] text-muted-foreground"
+                          title={item.detail}
+                        >
+                          {item.detail}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[10px] text-muted-foreground">
+                    Τελευταίος έλεγχος:{" "}
+                    {systemStatusCheckedAt
+                      ? new Date(systemStatusCheckedAt).toLocaleString("el-GR")
+                      : "δεν έχει γίνει"}
+                  </p>
+                </section>
                 <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {commandSignals.map(({ icon: Icon, label, value, detail, tone }) => (
                     <button
@@ -2104,7 +2226,7 @@ function Dashboard() {
               {initiatives.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
                   {initiativesState === "loading"
-                    ? "Φόρτωση…"
+                    ? "Φό��τωση…"
                     : "Δεν υπάρχουν εκκρεμε��ς προτάσεις."}
                 </div>
               ) : (
