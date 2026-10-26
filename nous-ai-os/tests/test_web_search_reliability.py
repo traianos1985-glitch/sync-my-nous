@@ -66,7 +66,6 @@ def test_search_status_does_not_claim_available_when_probe_fails(monkeypatch):
     assert result["error"] == "search_unavailable"
 
 
-
 def test_internet_engine_marks_empty_search_as_no_results(monkeypatch, tmp_path):
     from executor import internet_search_engine
 
@@ -100,7 +99,6 @@ def test_search_status_reports_unknown_when_empty_results_are_ambiguous(monkeypa
 def test_filter_relevant_detects_low_score_for_product_query():
     from executor.internet_search_engine import _filter_relevant
 
-    # Simulate the bad hits the screenshot complained about.
     weak = [
         {"title": "Shiny - Wikipedia", "url": "https://en.wikipedia.org/wiki/Shiny", "snippet": "Shiny is an R package"},
         {"title": "GeForce Now", "url": "https://www.nvidia.com/geforce-now", "snippet": "cloud gaming"},
@@ -120,3 +118,54 @@ def test_filter_relevant_detects_low_score_for_product_query():
     assert low2 is False
     assert top2 >= 1.5
     assert ranked2[0].get("relevance_score", 0) >= 1.5
+
+
+def test_detect_product_sites_for_render_and_vercel():
+    from executor.internet_search_engine import _detect_product_sites, _product_site_queries
+
+    hosts = _detect_product_sites("Render free tier")
+    assert "render.com" in hosts
+    assert "docs.render.com" in hosts
+
+    queries = _product_site_queries("Render free tier")
+    assert queries
+    assert "site:render.com" in queries[0]
+
+    assert _detect_product_sites("random weather athens") == []
+    assert _product_site_queries("random weather athens") == []
+
+    vercel_hosts = _detect_product_sites("Vercel pricing")
+    assert any("vercel.com" in h for h in vercel_hosts)
+
+
+def test_site_aware_path_merges_official_hits(monkeypatch, tmp_path):
+    from executor import internet_search_engine
+
+    monkeypatch.setattr(internet_search_engine, "_ddg_instant", lambda query: [])
+    monkeypatch.setattr(internet_search_engine, "_wikipedia_search", lambda query: [])
+    monkeypatch.setattr(internet_search_engine, "CACHE", tmp_path / "cache.json")
+
+    def fake_html(query, limit=5):
+        if "site:render.com" in query or "site:docs.render.com" in query:
+            return [{
+                "title": "Free Instance Types",
+                "url": "https://render.com/docs/free",
+                "snippet": "Render free tier for web services",
+                "source": "ddg_html",
+            }]
+        return [{
+            "title": "Shiny - Wikipedia",
+            "url": "https://en.wikipedia.org/wiki/Shiny",
+            "snippet": "R package",
+            "source": "ddg_html",
+        }]
+
+    monkeypatch.setattr(internet_search_engine, "_ddg_html", fake_html)
+
+    result = internet_search_engine.search_web("Render free tier", limit=5)
+
+    assert result["ok"] is True
+    assert result.get("site_aware") is True
+    urls = [r.get("url", "") for r in result.get("results", [])]
+    assert any("render.com" in u for u in urls)
+    assert result.get("low_relevance") is False
