@@ -1634,8 +1634,8 @@ function Dashboard() {
                   )}
                   {activeFocus === "audit" && (
                     <div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
                           <p className="text-sm font-semibold">Audit timeline</p>
                           <p className="text-xs text-muted-foreground">
                             Ιστορικό ενεργειών και approvals των τελευταίων 30 ημερών.
@@ -1872,10 +1872,10 @@ function Dashboard() {
                         {approvals.map((approval) => (
                           <div
                             key={approval.id}
-                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 p-3"
+                            className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between"
                           >
-                            <div>
-                              <p className="font-mono text-xs text-foreground">{approval.tool}</p>
+                            <div className="min-w-0">
+                              <p className="truncate font-mono text-xs text-foreground">{approval.tool}</p>
                               <p className="mt-1 text-[11px] text-muted-foreground">
                                 Ζητήθηκε {new Date(approval.createdAt).toLocaleString("el-GR")}
                               </p>
@@ -2497,7 +2497,10 @@ function Dashboard() {
                         />
                       </label>
                       {knowledgeUpload !== "idle" && (
-                        <p className="rounded-lg bg-background/70 p-3 text-xs text-muted-foreground">
+                        <p
+                          role={knowledgeUpload === "error" ? "alert" : "status"}
+                          className={`rounded-lg p-3 text-xs ${knowledgeUpload === "error" ? "bg-destructive/10 text-destructive" : "bg-background/70 text-muted-foreground"}`}
+                        >
                           {knowledgeUpload === "uploading"
                             ? "Ανεβαίνει και απομονώνεται…"
                             : knowledgeUpload === "indexed"
@@ -2505,12 +2508,23 @@ function Dashboard() {
                               : "Το upload απέτυχε. Έλεγξε τύπο και μέγεθος αρχείου."}
                         </p>
                       )}
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        <DocumentStat label="Σύνολο" value={knowledgeDocuments.length} />
+                        <DocumentStat
+                          label="Έτοιμα"
+                          value={knowledgeDocuments.filter((document) => document.status === "ready" || document.status === "indexed").length}
+                        />
+                        <DocumentStat
+                          label="Σε ουρά"
+                          value={knowledgeDocuments.filter((document) => !["ready", "indexed", "completed"].includes(document.status)).length}
+                        />
+                      </div>
                       <button
                         type="button"
                         onClick={() => void loadKnowledgeDocuments()}
                         className="rounded-lg border border-border px-3 py-2 text-xs font-semibold"
                       >
-                        Ανανέωση knowledge vault
+                        Ανανέωσ�� knowledge vault
                       </button>
                       {knowledgeLoadStatus === "error" && (
                         <p role="alert" className="text-sm text-destructive">
@@ -2781,6 +2795,17 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
       <h3 className="mb-3 font-display text-base font-semibold">{title}</h3>
       {children}
     </section>
+  );
+}
+
+function DocumentStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-background/50 p-3">
+      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 font-mono text-lg font-semibold text-primary">{value}</p>
+    </div>
   );
 }
 
