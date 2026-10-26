@@ -42,6 +42,7 @@ import {
   CheckCircle2,
   Brain,
   CircleDot,
+  Search,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
 import {
@@ -264,7 +265,7 @@ const initialChat: ChatMessage[] = [
   {
     id: "welcome",
     role: "assistant",
-    text: "Καλώς ήρθες. Είμαι ο NOUS. Μπορώ να συζητήσω φυσικά, να αναλύσω στόχους, να προτείνω βήματα και —όταν είναι συνδεδεμένο το backend— να εκτελέσω εγκεκριμένες ενέργειες. Δεν θα παρουσιάσω ποτέ μια πρόταση ως ολοκληρωμένη ενέργεια χωρίς επιβεβαίωση.",
+    text: "Καλώς ήρθες. Είμαι ο NOUS. Μπορώ να συζητήσω φυσικά, να αναλύσω στόχους, να προτείνω βήματα και —όταν είναι συνδεδεμένο το backend— να εκτελέσ�� εγκεκριμένες ενέργειες. Δεν θα παρουσιάσω ποτέ μια πρόταση ως ολοκληρωμένη ενέργεια χωρίς επιβεβαίωση.",
   },
 ];
 
@@ -1198,71 +1199,43 @@ function Dashboard() {
         </CommandList>
       </CommandDialog>
       <div className="flex h-dvh min-h-0 w-full min-w-0 max-w-full overflow-hidden bg-background font-sans text-foreground">
-      {/* Sidebar */}
-      {menuOpen && (
-        <button
-          aria-label="Κλείσε το μενού"
-          onClick={() => setMenuOpen(false)}
-          className="fixed inset-0 z-40 bg-black/55 lg:hidden"
-        />
-      )}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card/95 transition-transform lg:static lg:translate-x-0 ${
-          menuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="flex items-start justify-between px-4 pb-3 pt-4">
-          <div>
-            <p className="font-display text-base font-bold tracking-tight">🧠 NOUS AI OS</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Personal agent workspace</p>
-          </div>
+        {/* Sidebar */}
+        {menuOpen && (
           <button
+            aria-label="Κλείσε το μενού"
             onClick={() => setMenuOpen(false)}
-            className="text-muted-foreground lg:hidden"
-            aria-label="Κλείσε"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+            className="fixed inset-0 z-40 bg-black/55 lg:hidden"
+          />
+        )}
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card/95 transition-transform lg:static lg:translate-x-0 ${
+            menuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex items-start justify-between px-4 pb-3 pt-4">
+            <div>
+              <p className="font-display text-base font-bold tracking-tight">🧠 NOUS AI OS</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Personal agent workspace</p>
+            </div>
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="text-muted-foreground lg:hidden"
+              aria-label="Κλείσε"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
 
-        <nav className="flex-1 overflow-y-auto px-2 pb-2">
-          {navGroups
-            .filter((g) => !g.advanced)
-            .map((group, gi) => (
-              <div key={group.title ?? gi}>
-                {group.title && (
-                  <p className="px-2.5 pb-1 pt-3 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                    {group.title}
-                  </p>
-                )}
-                {group.items.map((item) => (
-                  <NavButton
-                    key={item.id}
-                    item={item}
-                    active={section === item.id}
-                    onClick={() => go(item.id)}
-                  />
-                ))}
-                {gi === 0 && <div className="my-2 h-px bg-border" />}
-              </div>
-            ))}
-
-          <div className="my-2 h-px bg-border" />
-          <button
-            onClick={() => setAdvancedOpen((o) => !o)}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            ⋯ Προχωρημένα
-            <span className="ml-auto text-[10px]">{advancedOpen ? "▾" : "▸"}</span>
-          </button>
-          {advancedOpen &&
-            navGroups
-              .filter((g) => g.advanced)
-              .map((group) => (
-                <div key={group.title}>
-                  <p className="px-2.5 pb-1 pt-3 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                    {group.title}
-                  </p>
+          <nav className="flex-1 overflow-y-auto px-2 pb-2">
+            {navGroups
+              .filter((g) => !g.advanced)
+              .map((group, gi) => (
+                <div key={group.title ?? gi}>
+                  {group.title && (
+                    <p className="px-2.5 pb-1 pt-3 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                      {group.title}
+                    </p>
+                  )}
                   {group.items.map((item) => (
                     <NavButton
                       key={item.id}
@@ -1271,1399 +1244,1445 @@ function Dashboard() {
                       onClick={() => go(item.id)}
                     />
                   ))}
+                  {gi === 0 && <div className="my-2 h-px bg-border" />}
                 </div>
               ))}
-        </nav>
 
-        <div className="border-t border-border px-3 py-3">
-          <StatBar
-            label="CPU"
-            pct={Math.round(systemStatus?.metrics?.cpu_percent ?? 0)}
-            color="bg-violet"
-          />
-          <StatBar
-            label="RAM"
-            pct={Math.round(systemStatus?.metrics?.memory_percent ?? 0)}
-            color="bg-primary"
-          />
-        </div>
-      </aside>
-
-      {/* Main */}
-      <main className="flex min-w-0 max-w-full flex-1 flex-col">
-        {backendWaking && (
-          <div
-            role="status"
-            className="flex items-center gap-2 border-b border-warn/40 bg-warn/10 px-4 py-2 text-xs text-warn"
-          >
-            <span className="h-2 w-2 animate-pulse rounded-full bg-warn" />
-            {
-              "Ο NOUS ξυπνάει (cold start του server) — μπορεί να χρειαστεί έως ένα λεπτό. Περίμενε, το αίτημά σου συνεχίζει."
-            }
-          </div>
-        )}
-        <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
-          <div className="flex min-w-0 items-center gap-3">
+            <div className="my-2 h-px bg-border" />
             <button
-              onClick={() => setMenuOpen(true)}
-              className="rounded-md border border-border p-1.5 lg:hidden"
-              aria-label="Άνοιξε το μενού"
+              onClick={() => setAdvancedOpen((o) => !o)}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
             >
-              <Menu className="size-4" />
+              ⋯ Προχωρημένα
+              <span className="ml-auto text-[10px]">{advancedOpen ? "▾" : "▸"}</span>
             </button>
-            <strong className="font-display text-sm">{navLabel(section)}</strong>
-            <button
-              type="button"
-              onClick={() => setCommandOpen(true)}
-              className="hidden min-w-44 items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/50 px-2.5 py-1.5 text-left text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground sm:flex"
-              aria-label="Άνοιγμα command search"
-            >
-              <span className="inline-flex items-center gap-2"><Search className="size-3.5" /> Αναζήτηση…</span>
-              <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
-            </button>
-            <span
-              title={systemStatusError ?? undefined}
-              className={`rounded-full border border-border px-2.5 py-0.5 font-mono text-xs ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
-            >
-              health: {systemStatus?.status ?? "checking"}
-            </span>
-            <button
-              type="button"
-              onClick={() => void loadSystemStatus()}
-              disabled={systemStatusState === "loading"}
-              aria-label="Ανανέωση health status"
-              title={
-                systemStatusCheckedAt
-                  ? `Τελευταίος έλεγχος ${new Date(systemStatusCheckedAt).toLocaleTimeString("el-GR")}`
-                  : "Ανανέωση health status"
-              }
-              className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
-            >
-              <RotateCcw
-                className={`size-3.5 ${systemStatusState === "loading" ? "animate-spin" : ""}`}
-              />
-            </button>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => go("settings")}
-              aria-label="Άνοιγμα Settings και ρυθμίσεων σύνδεσης"
-              title="Ρυθμίσεις σύνδεσης NOUS"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
-            >
-              ⚙ Settings
-            </button>
-            <span className="hidden rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground sm:block">
-              Owner Mode
-            </span>
-            <Link
-              to="/"
-              className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-primary hover:bg-accent"
-            >
-              info
-            </Link>
-          </div>
-        </header>
-
-        {section === "chat" ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
-              <div className="mx-auto max-w-4xl">
-                <div className="mb-6 flex items-start justify-between gap-4">
-                  <div>
-                    <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
-                      <span className="size-1.5 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
-                      Agent online · Owner workspace
-                    </div>
-                    <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-                      Τι αναλαμβάνουμε σήμερα;
-                    </h1>
-                    <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                      Στόχοι, missions, browser operator και κώδικας — σε μία ενιαία ροή με έγκριση
-                      πριν από κάθε εξωτερική ενέργεια.
+            {advancedOpen &&
+              navGroups
+                .filter((g) => g.advanced)
+                .map((group) => (
+                  <div key={group.title}>
+                    <p className="px-2.5 pb-1 pt-3 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                      {group.title}
                     </p>
-                  </div>
-                  <div className="hidden rounded-xl border border-border/70 bg-background/50 p-3 text-right sm:block">
-                    <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Runtime
-                    </p>
-                    <p
-                      className={`mt-1 text-sm font-semibold ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
-                    >
-                      {systemStatus?.status ?? "checking"}
-                    </p>
-                  </div>
-                </div>
-                <section
-                  className="mb-5 rounded-2xl border border-primary/25 bg-card/70 p-4 shadow-[0_0_32px_oklch(0.68_0.19_292_/_8%)]"
-                  aria-labelledby="connection-center-title"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Activity className="size-4 text-primary" />
-                        <h2 id="connection-center-title" className="text-sm font-semibold">
-                          Connection Center
-                        </h2>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Ξεχωριστός έλεγχος Browser, Render API και Gemini.
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void loadSystemStatus()}
-                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs hover:border-primary"
-                      >
-                        Test connection
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void copyDiagnostics()}
-                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs hover:border-primary"
-                      >
-                        Copy diagnostic
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                    {[
-                      {
-                        label: "Browser",
-                        state: "connected",
-                        tone: "text-ok",
-                        detail: "Το workspace φορτώθηκε",
-                      },
-                      {
-                        label: "Render API",
-                        state:
-                          systemStatusState === "loading"
-                            ? "waking"
-                            : systemStatus?.status === "degraded" ||
-                                systemStatus?.status === "unavailable"
-                              ? "unavailable"
-                              : hasToken
-                                ? "connected"
-                                : "invalid token",
-                        tone:
-                          systemStatus?.status === "degraded" ||
-                          systemStatus?.status === "unavailable"
-                            ? "text-warn"
-                            : hasToken
-                              ? "text-ok"
-                              : "text-warn",
-                        detail: systemStatusError ?? "Authenticated backend",
-                      },
-                      {
-                        label: "Gemini",
-                        state:
-                          geminiTestState === "testing"
-                            ? "testing"
-                            : geminiTestState === "ok"
-                              ? "connected"
-                              : geminiTestState === "error"
-                                ? "error"
-                                : "not tested",
-                        tone:
-                          geminiTestState === "ok"
-                            ? "text-ok"
-                            : geminiTestState === "error"
-                              ? "text-warn"
-                              : "text-muted-foreground",
-                        detail: geminiTestMessage || "Πάτησε test για επιβεβαίωση provider",
-                      },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="rounded-xl border border-border/70 bg-background/40 p-3"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-medium">{item.label}</span>
-                          <span
-                            className={`flex items-center gap-1.5 font-mono text-[10px] uppercase ${item.tone}`}
-                          >
-                            <span className="size-1.5 rounded-full bg-current" />
-                            {item.state}
-                          </span>
-                        </div>
-                        <p
-                          className="mt-2 truncate text-[10px] text-muted-foreground"
-                          title={item.detail}
-                        >
-                          {item.detail}
-                        </p>
-                      </div>
+                    {group.items.map((item) => (
+                      <NavButton
+                        key={item.id}
+                        item={item}
+                        active={section === item.id}
+                        onClick={() => go(item.id)}
+                      />
                     ))}
                   </div>
-                  <p className="mt-3 text-[10px] text-muted-foreground">
-                    Τελευταίος έλεγχος:{" "}
-                    {systemStatusCheckedAt
-                      ? new Date(systemStatusCheckedAt).toLocaleString("el-GR")
-                      : "δεν έχει γίνει"}
-                  </p>
-                </section>
-                <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {commandSignals.map(({ icon: Icon, label, value, detail, tone }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => {
-                        const focus = label.toLowerCase();
-                        if (focus === "brain") return go("brain");
-                        if (focus === "memory") return go("documents");
-                        setActiveFocus((current) => (current === focus ? "chat" : focus));
-                        if (focus === "guard") void loadApprovals();
-                        if (focus === "system") void loadSystemStatus();
-                        if (focus === "missions") void connectMissionStream();
-                        if (focus === "jobs") void loadJobHistory();
-                        if (focus === "audit") void loadAuditEvents();
-                        if (focus === "evaluation") void loadEvaluationMetrics();
-                      }}
-                      className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
-                          {label}
-                        </span>
-                        <Icon className={`size-3.5 ${tone}`} />
+                ))}
+          </nav>
+
+          <div className="border-t border-border px-3 py-3">
+            <StatBar
+              label="CPU"
+              pct={Math.round(systemStatus?.metrics?.cpu_percent ?? 0)}
+              color="bg-violet"
+            />
+            <StatBar
+              label="RAM"
+              pct={Math.round(systemStatus?.metrics?.memory_percent ?? 0)}
+              color="bg-primary"
+            />
+          </div>
+        </aside>
+
+        {/* Main */}
+        <main className="flex min-w-0 max-w-full flex-1 flex-col">
+          {backendWaking && (
+            <div
+              role="status"
+              className="flex items-center gap-2 border-b border-warn/40 bg-warn/10 px-4 py-2 text-xs text-warn"
+            >
+              <span className="h-2 w-2 animate-pulse rounded-full bg-warn" />
+              {
+                "Ο NOUS ξυπνάει (cold start του server) — μπορεί να χρειαστεί έως ένα λεπτό. Περίμενε, το αίτημά σου συνεχίζει."
+              }
+            </div>
+          )}
+          <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                onClick={() => setMenuOpen(true)}
+                className="rounded-md border border-border p-1.5 lg:hidden"
+                aria-label="Άνοιξε το μενού"
+              >
+                <Menu className="size-4" />
+              </button>
+              <strong className="font-display text-sm">{navLabel(section)}</strong>
+              <button
+                type="button"
+                onClick={() => setCommandOpen(true)}
+                className="hidden min-w-44 items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/50 px-2.5 py-1.5 text-left text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground sm:flex"
+                aria-label="Άνοιγμα command search"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Search className="size-3.5" /> Αναζήτηση…
+                </span>
+                <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
+                  ⌘K
+                </kbd>
+              </button>
+              <span
+                title={systemStatusError ?? undefined}
+                className={`rounded-full border border-border px-2.5 py-0.5 font-mono text-xs ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
+              >
+                health: {systemStatus?.status ?? "checking"}
+              </span>
+              <button
+                type="button"
+                onClick={() => void loadSystemStatus()}
+                disabled={systemStatusState === "loading"}
+                aria-label="Ανανέωση health status"
+                title={
+                  systemStatusCheckedAt
+                    ? `Τελευταίος έλεγχος ${new Date(systemStatusCheckedAt).toLocaleTimeString("el-GR")}`
+                    : "Ανανέωση health status"
+                }
+                className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+              >
+                <RotateCcw
+                  className={`size-3.5 ${systemStatusState === "loading" ? "animate-spin" : ""}`}
+                />
+              </button>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => go("settings")}
+                aria-label="Άνοιγμα Settings και ρυθμίσεων σύνδεσης"
+                title="Ρυθμίσεις σύνδεσης NOUS"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+              >
+                ⚙ Settings
+              </button>
+              <span className="hidden rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground sm:block">
+                Owner Mode
+              </span>
+              <Link
+                to="/"
+                className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-primary hover:bg-accent"
+              >
+                info
+              </Link>
+            </div>
+          </header>
+
+          {section === "chat" ? (
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+                <div className="mx-auto max-w-4xl">
+                  <div className="mb-6 flex items-start justify-between gap-4">
+                    <div>
+                      <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
+                        <span className="size-1.5 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
+                        Agent online · Owner workspace
                       </div>
-                      <p className={`mt-2 font-display text-lg font-semibold ${tone}`}>{value}</p>
-                      <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{detail}</p>
-                    </button>
-                  ))}
-                </div>
-                {activeFocus === "evaluation" && (
-                  <div className="mb-5 rounded-2xl border border-violet/30 bg-violet/5 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">Response quality</p>
-                        <p className="text-xs text-muted-foreground">
-                          Μετρικές από τις αξιολογήσεις των απαντήσεων του NOUS.
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void loadEvaluationMetrics()}
-                          className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary"
-                        >
-                          {evaluationStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={exportEvaluation}
-                          disabled={!evaluationMetrics}
-                          className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary disabled:opacity-40"
-                        >
-                          Export CSV
-                        </button>
-                      </div>
+                      <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                        Τι αναλαμβάνουμε σήμερα;
+                      </h1>
+                      <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                        Στόχοι, missions, browser operator και κώδικας — σε μία ενιαία ροή με
+                        έγκριση πριν από κάθε εξωτερική ενέργεια.
+                      </p>
                     </div>
-                    {evaluationStatus === "error" ? (
-                      <p className="mt-4 text-xs text-rose-300">
-                        Οι μετρικές δεν είναι διαθέσιμες.
+                    <div className="hidden rounded-xl border border-border/70 bg-background/50 p-3 text-right sm:block">
+                      <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Runtime
                       </p>
-                    ) : evaluationMetrics ? (
-                      <>
-                        <div className="mt-4 grid grid-cols-3 gap-2">
-                          <Metric
-                            label="Satisfaction"
-                            value={
-                              evaluationMetrics.satisfactionRate === null
-                                ? "—"
-                                : `${Math.round(evaluationMetrics.satisfactionRate * 100)}%`
-                            }
-                          />
-                          <Metric label="Positive" value={String(evaluationMetrics.positive)} />
-                          <Metric label="Rated" value={String(evaluationMetrics.total)} />
-                        </div>
-                        {evaluationMetrics.trend.length > 0 && (
-                          <div className="mt-4 space-y-2">
-                            <div className="flex items-end gap-1" aria-label="Evaluation trend">
-                              {evaluationMetrics.trend.slice(-14).map((point) => {
-                                const total = point.positive + point.negative;
-                                const positiveRatio = total ? point.positive / total : 0;
-                                return (
-                                  <div
-                                    key={point.day}
-                                    className="flex min-w-0 flex-1 flex-col items-center gap-1"
-                                    title={`${point.day}: ${point.positive} positive, ${point.negative} negative`}
-                                  >
-                                    <div className="flex h-16 w-full items-end gap-0.5 rounded-sm bg-muted/30 p-0.5">
-                                      <div
-                                        className="w-1/2 rounded-t-sm bg-emerald-400/70"
-                                        style={{
-                                          height: `${Math.max(positiveRatio * 100, total ? 8 : 0)}%`,
-                                        }}
-                                      />
-                                      <div
-                                        className="w-1/2 rounded-t-sm bg-rose-400/70"
-                                        style={{
-                                          height: `${Math.max((1 - positiveRatio) * 100, total ? 8 : 0)}%`,
-                                        }}
-                                      />
-                                    </div>
-                                    <span className="truncate text-[8px] text-muted-foreground">
-                                      {point.day.slice(5)}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground">
-                              Τάση αξιολογήσεων τελευταίων 14 ημερών
-                            </p>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <p className="mt-4 text-xs text-muted-foreground">
-                        Πάτησε «Ανανέωση�� για να φορτώσεις τα metrics.
+                      <p
+                        className={`mt-1 text-sm font-semibold ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
+                      >
+                        {systemStatus?.status ?? "checking"}
                       </p>
-                    )}
+                    </div>
                   </div>
-                )}
-                {activeFocus === "audit" && (
-                  <div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4">
-                    <div className="flex items-center justify-between gap-3">
+                  <section
+                    className="mb-5 rounded-2xl border border-primary/25 bg-card/70 p-4 shadow-[0_0_32px_oklch(0.68_0.19_292_/_8%)]"
+                    aria-labelledby="connection-center-title"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold">Audit timeline</p>
-                        <p className="text-xs text-muted-foreground">
-                          Ιστορικό ενεργειών και approvals των τελευταίων 30 ημερών.
+                        <div className="flex items-center gap-2">
+                          <Activity className="size-4 text-primary" />
+                          <h2 id="connection-center-title" className="text-sm font-semibold">
+                            Connection Center
+                          </h2>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Ξεχωριστός έλεγχος Browser, Render API και Gemini.
                         </p>
-                        <input
-                          value={auditFilter}
-                          onChange={(event) => setAuditFilter(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") void loadAuditEvents();
-                          }}
-                          placeholder="Filter event…"
-                          aria-label="Φίλτρο audit event"
-                          className="mt-2 w-full rounded-md border border-border bg-background/60 px-2.5 py-1.5 text-xs outline-none focus:border-primary"
-                        />
                       </div>
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => void loadAuditEvents()}
-                          className="rounded-lg border border-signal/30 px-3 py-1.5 text-xs text-signal"
+                          onClick={() => void loadSystemStatus()}
+                          className="rounded-lg border border-border px-2.5 py-1.5 text-xs hover:border-primary"
                         >
-                          {auditStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
+                          Test connection
                         </button>
                         <button
                           type="button"
-                          onClick={() => void exportAudit()}
-                          className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                          onClick={() => void copyDiagnostics()}
+                          className="rounded-lg border border-border px-2.5 py-1.5 text-xs hover:border-primary"
                         >
-                          Export CSV
+                          Copy diagnostic
                         </button>
                       </div>
                     </div>
-                    {auditStatus === "error" ? (
-                      <p className="mt-4 text-xs text-rose-300">
-                        Δεν ήταν δυνατή η φόρτωση του audit timeline.
-                      </p>
-                    ) : auditEvents.length === 0 ? (
-                      <p className="mt-4 text-xs text-muted-foreground">
-                        Δεν υπάρχουν audit events ακόμη.
-                      </p>
-                    ) : (
-                      <div className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
-                        {auditEvents.map((event) => (
-                          <div
-                            key={event.id}
-                            className="flex items-center justify-between gap-3 rounded-lg bg-card/70 p-2.5 text-xs"
-                          >
-                            <span className="font-medium">{event.event}</span>
-                            <time className="text-[10px] text-muted-foreground">
-                              {new Date(event.createdAt).toLocaleString()}
-                            </time>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {activeFocus === "jobs" && (
-                  <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">Job control center</p>
-                        <p className="text-xs text-muted-foreground">
-                          Ιστορικό, retries και ασφαλές cancellation.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void loadJobHistory()}
-                        className="rounded-lg border border-primary/30 px-3 py-1.5 text-xs text-primary"
-                      >
-                        {jobHistoryStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
-                      </button>
-                    </div>
-                    {jobHistoryStatus === "error" ? (
-                      <p className="mt-4 text-xs text-rose-300">
-                        Δεν ήταν δυνατή η φόρτωση του job history.
-                      </p>
-                    ) : jobHistory.length === 0 ? (
-                      <p className="mt-4 text-xs text-muted-foreground">Δεν υπάρχουν jobs ακόμη.</p>
-                    ) : (
-                      <div className="mt-3 space-y-2">
-                        {jobHistory.map((job) => (
-                          <div key={job.id} className="rounded-lg bg-card/70 p-3">
-                            <div className="flex items-center justify-between gap-3 text-xs">
-                              <span className="font-medium">{job.kind}</span>
-                              <span className="font-mono text-muted-foreground">{job.status}</span>
-                            </div>
-                            <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
-                              <span>retries: {job.retryCount}</span>
-                              <div className="flex gap-2">
-                                {["queued", "running"].includes(job.status) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => void updateJob(job.id, "cancel")}
-                                    className="text-rose-300 hover:underline"
-                                  >
-                                    Cancel
-                                  </button>
-                                )}
-                                {job.status === "failed" && job.retryCount < 3 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => void updateJob(job.id, "retry")}
-                                    className="text-primary hover:underline"
-                                  >
-                                    Retry
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            {job.lastError && (
-                              <p className="mt-2 truncate text-[10px] text-rose-300">
-                                {job.lastError}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {activeFocus === "missions" && (
-                  <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">Live mission progress</p>
-                        <p className="text-xs text-muted-foreground">
-                          Ανανέωση από το Render backend κάθε 3 δευτερόλεπτα.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void connectMissionStream()}
-                        className="rounded-lg border border-primary/30 px-3 py-1.5 text-xs text-primary"
-                      >
-                        {liveStatus === "connected" ? "Live" : "Σύνδεση"}
-                      </button>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      {liveMissions.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Δεν υπάρχουν missions ή δεν έχε�� συνδεθεί ακόμη το live stream.
-                        </p>
-                      )}
-                      {liveMissions.map((mission) => (
+                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                      {[
+                        {
+                          label: "Browser",
+                          state: "connected",
+                          tone: "text-ok",
+                          detail: "Το workspace φορτώθηκε",
+                        },
+                        {
+                          label: "Render API",
+                          state:
+                            systemStatusState === "loading"
+                              ? "waking"
+                              : systemStatus?.status === "degraded" ||
+                                  systemStatus?.status === "unavailable"
+                                ? "unavailable"
+                                : hasToken
+                                  ? "connected"
+                                  : "invalid token",
+                          tone:
+                            systemStatus?.status === "degraded" ||
+                            systemStatus?.status === "unavailable"
+                              ? "text-warn"
+                              : hasToken
+                                ? "text-ok"
+                                : "text-warn",
+                          detail: systemStatusError ?? "Authenticated backend",
+                        },
+                        {
+                          label: "Gemini",
+                          state:
+                            geminiTestState === "testing"
+                              ? "testing"
+                              : geminiTestState === "ok"
+                                ? "connected"
+                                : geminiTestState === "error"
+                                  ? "error"
+                                  : "not tested",
+                          tone:
+                            geminiTestState === "ok"
+                              ? "text-ok"
+                              : geminiTestState === "error"
+                                ? "text-warn"
+                                : "text-muted-foreground",
+                          detail: geminiTestMessage || "Πάτησε test για επιβεβαίωση provider",
+                        },
+                      ].map((item) => (
                         <div
-                          key={mission.id}
-                          className="flex items-center justify-between rounded-lg bg-card/70 px-3 py-2 text-xs"
+                          key={item.label}
+                          className="rounded-xl border border-border/70 bg-background/40 p-3"
                         >
-                          <span>{mission.title}</span>
-                          <span className="font-mono text-muted-foreground">{mission.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {activeFocus === "system" && (
-                  <div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">Runtime status</p>
-                        <p className="text-xs text-muted-foreground">
-                          Ζωντανή κατάσταση από το persisted NOUS runtime.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void loadSystemStatus()}
-                        className="rounded-lg border border-signal/30 px-3 py-1.5 text-xs text-signal hover:bg-signal/10"
-                      >
-                        Ανανέωση
-                      </button>
-                    </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                      <div className="rounded-lg bg-card/70 p-2">
-                        <p className="text-muted-foreground">Status</p>
-                        <p className="mt-1 font-semibold text-ok">
-                          {systemStatus?.status ?? "loading"}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-card/70 p-2">
-                        <p className="text-muted-foreground">Missions</p>
-                        <p className="mt-1 font-semibold">
-                          {systemStatus?.counts?.missions ?? "—"}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-card/70 p-2">
-                        <p className="text-muted-foreground">Tool runs</p>
-                        <p className="mt-1 font-semibold">
-                          {systemStatus?.counts?.toolRuns ?? "—"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {activeFocus === "guard" && (
-                  <div className="mb-5 rounded-2xl border border-warn/30 bg-warn/5 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <ShieldAlert className="size-4 text-warn" />
-                        <div>
-                          <p className="text-sm font-semibold">Approval queue</p>
-                          <p className="text-xs text-muted-foreground">
-                            Καμία εξωτερική ενέργεια χωρίς δική σου έγκριση.
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium">{item.label}</span>
+                            <span
+                              className={`flex items-center gap-1.5 font-mono text-[10px] uppercase ${item.tone}`}
+                            >
+                              <span className="size-1.5 rounded-full bg-current" />
+                              {item.state}
+                            </span>
+                          </div>
+                          <p
+                            className="mt-2 truncate text-[10px] text-muted-foreground"
+                            title={item.detail}
+                          >
+                            {item.detail}
                           </p>
                         </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void loadApprovals()}
-                        className="rounded-lg border border-warn/30 px-3 py-1.5 text-xs text-warn hover:bg-warn/10"
-                      >
-                        {approvalStatus === "loading" ? "Έλεγχος…" : "Ανανέωση"}
-                      </button>
-                    </div>
-                    {approvalStatus === "error" && (
-                      <p className="mt-3 text-xs text-destructive">
-                        Η approval queue δεν είναι διαθέσιμη.
-                      </p>
-                    )}
-                    {approvalStatus === "idle" && approvals.length === 0 && (
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        Δεν υπάρχουν pending approvals.
-                      </p>
-                    )}
-                    <div className="mt-3 space-y-2">
-                      {approvals.map((approval) => (
-                        <div
-                          key={approval.id}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 p-3"
-                        >
-                          <div>
-                            <p className="font-mono text-xs text-foreground">{approval.tool}</p>
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              Ζητήθηκε {new Date(approval.createdAt).toLocaleString("el-GR")}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => void resolveApproval(approval.id, "approved")}
-                              className="rounded-md bg-ok/15 px-3 py-1.5 text-xs font-semibold text-ok"
-                            >
-                              Έγκριση
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void resolveApproval(approval.id, "rejected")}
-                              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground"
-                            >
-                              Απόρριψη
-                            </button>
-                          </div>
-                        </div>
                       ))}
                     </div>
-                  </div>
-                )}
-                <section
-                  className="mb-5 rounded-2xl border border-primary/25 bg-primary/5 p-4"
-                  aria-labelledby="control-center-title"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">
-                        Unified control center
-                      </p>
-                      <h2 id="control-center-title" className="mt-1 text-sm font-semibold">
-                        Ένα chat για όλο το NOUS
-                      </h2>
-                      <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-                        Ζήτησε έλεγχο, διάγνωση ή ενέργεια από εδώ. Ο agent θα χρησιμοποιήσει τα
-                        συνδεδεμένα εργαλεία και θα ζητήσει έγκριση πριν από εξωτερική αλλαγή.
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-1 font-mono text-[10px] text-ok">
-                      approval-first
-                    </span>
-                  </div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      {
-                        icon: Sparkles,
-                        label: "Πλήρης έλεγχος",
-                        prompt:
-                          "Κάνε πλήρη έλεγχο του NOUS: υγεία, missions, jobs, μνήμη, approvals και διαθέσιμα εργαλεία. Δώσε μου προτεραιότητες και επόμενα βήματα.",
-                      },
-                      {
-                        icon: Activity,
-                        label: "Τρέχουσα εργασία",
-                        prompt:
-                          "Δείξε μου όλα τα ενεργά missions και jobs, τι έχει κολλήσει και ποια ενέργεια προτείνεις.",
-                      },
-                      {
-                        icon: ShieldAlert,
-                        label: "Διάγνωση",
-                        prompt:
-                          "Κάνε ασφαλή διάγνωση για προβλήματα στο backend, στις συνδέσεις και στα εργαλεία. Μην αλλάξεις τίποτα χωρίς έγκριση.",
-                      },
-                      {
-                        icon: ArrowUpRight,
-                        label: "Σχέδιο αναβάθμισης",
-                        prompt:
-                          "Ανάλυσε τι μπορεί να αναβαθμιστεί ουσιαστικά στο NOUS με βάση τις δυνατότητες και τα διαθέσιμα εργαλεία. Ταξινόμησε impact, ρίσκο και effort.",
-                      },
-                    ].map(({ icon: Icon, label, prompt }) => (
+                    <p className="mt-3 text-[10px] text-muted-foreground">
+                      Τελευταίος έλεγχος:{" "}
+                      {systemStatusCheckedAt
+                        ? new Date(systemStatusCheckedAt).toLocaleString("el-GR")
+                        : "δεν έχει γίνει"}
+                    </p>
+                  </section>
+                  <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {commandSignals.map(({ icon: Icon, label, value, detail, tone }) => (
                       <button
                         key={label}
                         type="button"
-                        onClick={() => focusChatWithPrompt(prompt)}
-                        disabled={isThinking}
-                        className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8 disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => {
+                          const focus = label.toLowerCase();
+                          if (focus === "brain") return go("brain");
+                          if (focus === "memory") return go("documents");
+                          setActiveFocus((current) => (current === focus ? "chat" : focus));
+                          if (focus === "guard") void loadApprovals();
+                          if (focus === "system") void loadSystemStatus();
+                          if (focus === "missions") void connectMissionStream();
+                          if (focus === "jobs") void loadJobHistory();
+                          if (focus === "audit") void loadAuditEvents();
+                          if (focus === "evaluation") void loadEvaluationMetrics();
+                        }}
+                        className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_oklch(0.68_0.19_292_/_12%)]" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
                       >
-                        <Icon className="size-3.5 text-primary transition-transform group-hover:scale-110" />
-                        <span>{label}</span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+                            {label}
+                          </span>
+                          <Icon className={`size-3.5 ${tone}`} />
+                        </div>
+                        <p className={`mt-2 font-display text-lg font-semibold ${tone}`}>{value}</p>
+                        <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                          {detail}
+                        </p>
                       </button>
                     ))}
                   </div>
-                </section>
-                <div className="flex flex-col gap-3">
-                  {messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`min-w-0 max-w-full rounded-2xl border p-4 text-sm leading-relaxed ${
-                        m.role === "user"
-                          ? "self-end whitespace-pre-wrap border-border bg-violet/15"
-                          : m.error
-                            ? "border-rose-400/40 bg-rose-400/5 text-rose-100"
-                            : "border-border bg-card/80"
-                      }`}
-                    >
-                      {m.role === "user" ? m.text : <ChatMarkdown text={m.text} />}
-                      {m.error && m.retryText && (
-                        <button
-                          type="button"
-                          onClick={() => void send(m.retryText, { retry: true })}
-                          disabled={isThinking}
-                          className="mt-3 inline-flex items-center gap-1 rounded-lg border border-rose-400/40 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-400/10 disabled:opacity-50"
-                        >
-                          <RotateCcw className="size-3" /> Ξαναδοκίμασε
-                        </button>
-                      )}
-                      {m.role === "assistant" && m.id !== "welcome" && !m.error && (
-                        <div className="mt-3 flex items-center gap-1 border-t border-border/60 pt-2">
-                          <span className="mr-2 text-[10px] text-muted-foreground">
-                            Αξιολόγηση απάντησης
-                          </span>
+                  {activeFocus === "evaluation" && (
+                    <div className="mb-5 rounded-2xl border border-violet/30 bg-violet/5 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">Response quality</p>
+                          <p className="text-xs text-muted-foreground">
+                            Μετρικές από τις αξιολογήσεις των απαντήσεων του NOUS.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => void submitFeedback(m.id, "positive")}
-                            aria-label="Χρήσιμη απάντηση"
-                            className={`rounded-md p-1.5 transition-colors ${m.feedback === "positive" ? "bg-emerald-400/15 text-emerald-300" : "text-muted-foreground hover:bg-emerald-400/10 hover:text-emerald-300"}`}
+                            onClick={() => void loadEvaluationMetrics()}
+                            className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary"
                           >
-                            <ThumbsUp className="size-3.5" />
+                            {evaluationStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
                           </button>
                           <button
                             type="button"
-                            onClick={() => void submitFeedback(m.id, "negative")}
-                            aria-label="Μη χρήσιμη απάντηση"
-                            className={`rounded-md p-1.5 transition-colors ${m.feedback === "negative" ? "bg-rose-400/15 text-rose-300" : "text-muted-foreground hover:bg-rose-400/10 hover:text-rose-300"}`}
+                            onClick={exportEvaluation}
+                            disabled={!evaluationMetrics}
+                            className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary disabled:opacity-40"
                           >
-                            <ThumbsDown className="size-3.5" />
+                            Export CSV
                           </button>
                         </div>
+                      </div>
+                      {evaluationStatus === "error" ? (
+                        <p className="mt-4 text-xs text-rose-300">
+                          Οι μετρικές δεν είναι διαθέσιμες.
+                        </p>
+                      ) : evaluationMetrics ? (
+                        <>
+                          <div className="mt-4 grid grid-cols-3 gap-2">
+                            <Metric
+                              label="Satisfaction"
+                              value={
+                                evaluationMetrics.satisfactionRate === null
+                                  ? "—"
+                                  : `${Math.round(evaluationMetrics.satisfactionRate * 100)}%`
+                              }
+                            />
+                            <Metric label="Positive" value={String(evaluationMetrics.positive)} />
+                            <Metric label="Rated" value={String(evaluationMetrics.total)} />
+                          </div>
+                          {evaluationMetrics.trend.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                              <div className="flex items-end gap-1" aria-label="Evaluation trend">
+                                {evaluationMetrics.trend.slice(-14).map((point) => {
+                                  const total = point.positive + point.negative;
+                                  const positiveRatio = total ? point.positive / total : 0;
+                                  return (
+                                    <div
+                                      key={point.day}
+                                      className="flex min-w-0 flex-1 flex-col items-center gap-1"
+                                      title={`${point.day}: ${point.positive} positive, ${point.negative} negative`}
+                                    >
+                                      <div className="flex h-16 w-full items-end gap-0.5 rounded-sm bg-muted/30 p-0.5">
+                                        <div
+                                          className="w-1/2 rounded-t-sm bg-emerald-400/70"
+                                          style={{
+                                            height: `${Math.max(positiveRatio * 100, total ? 8 : 0)}%`,
+                                          }}
+                                        />
+                                        <div
+                                          className="w-1/2 rounded-t-sm bg-rose-400/70"
+                                          style={{
+                                            height: `${Math.max((1 - positiveRatio) * 100, total ? 8 : 0)}%`,
+                                          }}
+                                        />
+                                      </div>
+                                      <span className="truncate text-[8px] text-muted-foreground">
+                                        {point.day.slice(5)}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground">
+                                Τάση αξιολογήσεων τελευταίων 14 ημερών
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="mt-4 text-xs text-muted-foreground">
+                          Πάτησε «Ανανέωση�� για να φορτώσεις τα metrics.
+                        </p>
                       )}
-                      {m.citations && m.citations.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
-                          {m.citations.map((citation) => (
-                            <a
-                              key={citation.url}
-                              href={citation.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex max-w-full items-center gap-1 rounded-md border border-signal/25 bg-signal/5 px-2 py-1 text-[10px] text-signal transition-colors hover:bg-signal/15"
-                              title={citation.title}
+                    </div>
+                  )}
+                  {activeFocus === "audit" && (
+                    <div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">Audit timeline</p>
+                          <p className="text-xs text-muted-foreground">
+                            Ιστορικό ενεργειών και approvals των τελευταίων 30 ημερών.
+                          </p>
+                          <input
+                            value={auditFilter}
+                            onChange={(event) => setAuditFilter(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") void loadAuditEvents();
+                            }}
+                            placeholder="Filter event…"
+                            aria-label="Φίλτρο audit event"
+                            className="mt-2 w-full rounded-md border border-border bg-background/60 px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void loadAuditEvents()}
+                            className="rounded-lg border border-signal/30 px-3 py-1.5 text-xs text-signal"
+                          >
+                            {auditStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void exportAudit()}
+                            className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                          >
+                            Export CSV
+                          </button>
+                        </div>
+                      </div>
+                      {auditStatus === "error" ? (
+                        <p className="mt-4 text-xs text-rose-300">
+                          Δεν ήταν δυνατή η φόρτωση του audit timeline.
+                        </p>
+                      ) : auditEvents.length === 0 ? (
+                        <p className="mt-4 text-xs text-muted-foreground">
+                          Δεν υπάρχουν audit events ακόμη.
+                        </p>
+                      ) : (
+                        <div className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
+                          {auditEvents.map((event) => (
+                            <div
+                              key={event.id}
+                              className="flex items-center justify-between gap-3 rounded-lg bg-card/70 p-2.5 text-xs"
                             >
-                              <ArrowUpRight className="size-3 shrink-0" />
-                              <span className="truncate">{citation.domain}</span>
-                            </a>
+                              <span className="font-medium">{event.event}</span>
+                              <time className="text-[10px] text-muted-foreground">
+                                {new Date(event.createdAt).toLocaleString()}
+                              </time>
+                            </div>
                           ))}
                         </div>
                       )}
                     </div>
-                  ))}
-                  {isThinking && (
-                    <div
-                      role="status"
-                      className="flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground"
-                    >
-                      <Loader2 className="size-4 animate-spin text-primary" />
-                      {thinkingSlow
-                        ? "Ακόμη δουλεύω… Αν το Render ξυπνά από cold start, μπορεί να πάρει έως ένα λεπτό."
-                        : researchMode === "deep"
-                          ? "Αναζήτηση → σύνθεση…"
-                          : "Ο ΝΟΥΣ σκέφτεται…"}
-                    </div>
                   )}
-                  <div ref={chatEndRef} />
-                </div>
-              </div>
-            </div>
-            <div className="min-w-0 border-t border-border/70 bg-card/75 p-4 backdrop-blur-xl">
-              <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between text-[11px] text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span>
-                    {isThinking
-                      ? researchMode === "deep"
-                        ? "Αναζήτηση → σύνθεση…"
-                        : "Ο ΝΟΥΣ σκέφτεται…"
-                      : connectionMode === "degraded"
-                        ? "Περιορισμένη λειτουργία"
-                        : "Έτοιμος για μήνυμα"}
-                  </span>
-                  <label className="flex items-center gap-1 rounded-md border border-border/70 px-2 py-1">
-                    <span className="sr-only">Research mode</span>
-                    <select
-                      value={researchMode}
-                      onChange={(event) =>
-                        setResearchMode(event.target.value as "auto" | "off" | "deep")
-                      }
-                      disabled={isThinking}
-                      className="bg-transparent text-[10px] outline-none disabled:opacity-50"
-                    >
-                      <option value="auto">Research: Auto</option>
-                      <option value="deep">Research: Deep</option>
-                      <option value="off">Research: Off</option>
-                    </select>
-                  </label>
-                </div>
-                <button
-                  type="button"
-                  onClick={clearChat}
-                  disabled={messages.length <= 1 && !conversationId}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Καθαρισμός συνομιλίας"
-                >
-                  <RotateCcw className="size-3" /> Καθαρισμός
-                </button>
-              </div>
-              <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <label className="flex items-center gap-2">
-                  <span>Γλώσσα φωνής</span>
-                  <select
-                    value={voiceLanguage}
-                    onChange={(event) => setVoiceLanguage(event.target.value)}
-                    className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
-                  >
-                    <option value="el-GR">Ελληνικά</option>
-                    <option value="en-US">English</option>
-                  </select>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={pushToTalk}
-                    onChange={(event) => {
-                      stopListening();
-                      setPushToTalk(event.target.checked);
-                    }}
-                    disabled={!voiceSupported}
-                  />
-                  Push-to-talk
-                </label>
-              </div>
-              <div className="mx-auto flex min-w-0 max-w-3xl gap-2">
-                <button
-                  type="button"
-                  onClick={pushToTalk ? undefined : toggleListening}
-                  onPointerDown={pushToTalk ? startListening : undefined}
-                  onPointerUp={pushToTalk ? stopListening : undefined}
-                  onPointerLeave={pushToTalk && isListening ? stopListening : undefined}
-                  disabled={!voiceSupported || isThinking}
-                  aria-label={
-                    pushToTalk
-                      ? "Κράτα πατημένο για να μιλήσεις"
-                      : isListening
-                        ? "Σταμάτησε την ακρόαση"
-                        : "Μίλησε στον ΝΟΥΣ"
-                  }
-                  title={
-                    !voiceSupported
-                      ? "Η φωνητική εισαγωγή δεν υποστηρίζεται σε αυτόν τον browser"
-                      : pushToTalk
-                        ? "Κράτα πατημένο, μίλα και άφησε για αποστολή"
-                        : undefined
-                  }
-                  className={`inline-flex size-11 shrink-0 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isListening ? "border-rose-400/60 bg-rose-400/15 text-rose-300" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"}`}
-                >
-                  {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
-                </button>
-                <textarea
-                  ref={chatInputRef}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  aria-label="Μήνυμα προς τον NOUS"
-                  aria-describedby="chat-input-hint"
-
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      !e.shiftKey &&
-                      !e.nativeEvent.isComposing &&
-                      e.keyCode !== 229
-                    ) {
-                      e.preventDefault();
-                      void send();
-                    }
-                  }}
-                  rows={2}
-                  placeholder="Γράψε στον ΝΟΥΣ…"
-                  className="min-w-0 flex-1 resize-none rounded-xl border border-input bg-background p-3 text-sm outline-none focus:border-primary"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVoiceEnabled((enabled) => {
-                      if (enabled) window.speechSynthesis?.cancel();
-                      return !enabled;
-                    });
-                  }}
-                  disabled={!voiceSupported}
-                  aria-label={
-                    voiceEnabled ? "Σίγασε τη φωνή του ΝΟΥΣ" : "Ενεργοποίησε τη φωνή του ΝΟΥΣ"
-                  }
-                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {voiceEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-                </button>
-                {isThinking ? (
-                  <button
-                    type="button"
-                    onClick={stopChat}
-                    className="inline-flex items-center gap-2 rounded-xl border border-rose-400/50 bg-rose-400/10 px-4 text-sm font-semibold text-rose-200"
-                    aria-label="Διακοπή απάντησης"
-                  >
-                    <Square className="size-4" />
-                    <span className="hidden sm:inline">Διακοπή</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void send()}
-                    disabled={!draft.trim()}
-                    className="inline-flex items-center gap-2 rounded-xl bg-violet px-4 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label="Στείλε μήνυμα"
-                  >
-                    <Send className="size-4" />
-                    <span className="hidden sm:inline">Στείλε</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : section === "home" ? (
-          <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
-            <div className="min-w-0 max-w-full rounded-2xl border border-border bg-gradient-to-br from-violet/20 to-primary/10 p-5">
-              <h1 className="font-display text-2xl font-bold">Καλώς ήρθες στο�� ΝΟΥΣ</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Agent chat + workspace + Android companion + deploy, σε μία οθόνη.
-              </p>
-            </div>
-
-            <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
-              <Card title="System Snapshot">
-                {tokenForm}
-                {systemStatusState === "loading" && (
-                  <p className="mb-3 text-xs text-muted-foreground">
-                    Σύνδεση με NOUS API… Το Render μπορεί να ξυπνά από cold start.
-                  </p>
-                )}
-                {systemStatusState === "error" && (
-                  <p className="mb-3 text-xs text-warn">
-                    Δεν ήταν δυνατή η σύνδεση. Έλεγξε το token και δοκίμασε Ανανέωση.
-                  </p>
-                )}
-                {snapshotLabels.map((label) => {
-                  const value =
-                    label === "Health"
-                      ? (systemStatus?.status ?? "loading")
-                      : label === "API connection"
-                        ? hasConfiguredNousApi()
-                          ? "configured"
-                          : "same-origin"
-                        : label === "Missions σε εξέλιξη"
-                          ? String(systemStatus?.counts?.missions ?? "—")
-                          : label === "Tool runs"
-                            ? String(systemStatus?.counts?.toolRuns ?? "—")
-                            : label === "CPU"
-                              ? `${systemStatus?.metrics?.cpu_percent ?? "—"}%`
-                              : label === "Memory"
-                                ? `${systemStatus?.metrics?.memory_percent ?? "—"}%`
-                                : label === "Overview"
-                                  ? systemStatus?.overview
-                                    ? "live"
-                                    : "—"
-                                  : (systemStatus?.storage ?? "—");
-                  return (
-                    <div
-                      key={label}
-                      className="flex min-w-0 items-start justify-between gap-3 border-b border-border/60 py-1.5 text-sm last:border-0"
-                    >
-                      <span className="min-w-0 break-words text-muted-foreground">{label}</span>
-                      <span
-                        className={`shrink-0 text-right ${label === "Health" && (value === "ok" || value === "online") ? "text-ok" : "text-foreground"}`}
-                      >
-                        {value}
-                      </span>
-                    </div>
-                  );
-                })}
-              </Card>
-
-              <Card title="Capabilities">
-                <div className="flex flex-wrap gap-2">
-                  {capabilities.map((c) => (
-                    <span
-                      key={c}
-                      className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-muted-foreground"
-                    >
-                      {c}
-                    </span>
-                  ))}
-                </div>
-              </Card>
-
-              <Card title="Missions">
-                <MissionList missions={liveMissions} />
-              </Card>
-
-              <Card title="Companion">
-                {companionStatus ? (
-                  <div className="space-y-1 text-sm">
-                    <p>
-                      Διαθέσιμο:{" "}
-                      <span className={companionStatus.available ? "text-ok" : "text-warn"}>
-                        {companionStatus.available ? "ναι" : "όχι"}
-                      </span>
-                    </p>
-                    {companionStatus.commands?.length ? (
-                      <p className="text-xs text-muted-foreground">
-                        Εντολές: {companionStatus.commands.join(", ")}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Δεν ήταν δυνατή η ανάγνωση της κατάστασης του companion.
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => void loadCompanionStatus()}
-                  className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs hover:border-primary"
-                >
-                  Ανανέωση
-                </button>
-              </Card>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-violet/40 bg-violet/5 p-5">
-              <h3 className="font-display text-base font-semibold">Τι θέλει να κάνει ο ΝΟΥΣ</h3>
-              <p className="text-xs text-muted-foreground">
-                Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
-              </p>
-              {initiativesState === "error" && (
-                <p className="mt-3 text-xs text-warn">
-                  Δεν ήταν δυνατή η φόρτωση ή εκτέλεση των προτάσεων.
-                  {failedInitiative && (
-                    <button
-                      type="button"
-                      className="ml-2 rounded-md border border-warn/50 px-2 py-0.5 font-medium hover:bg-warn/10"
-                      onClick={() =>
-                        void resolveInitiative(failedInitiative.initiative, failedInitiative.action)
-                      }
-                    >
-                      Δοκίμασε ξανά
-                    </button>
-                  )}
-                </p>
-              )}
-              {initiatives.length === 0 ? (
-                <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-                  {initiativesState === "loading"
-                    ? "Φό��τωση…"
-                    : "Δεν υπάρχουν εκκρεμε��ς προτάσεις."}
-                </div>
-              ) : (
-                <div className="mt-4 space-y-2">
-                  {initiatives.map((initiative) => (
-                    <div
-                      key={initiative.id}
-                      className="rounded-xl border border-border bg-card/60 p-3 text-sm"
-                    >
-                      <p className="font-semibold">
-                        {initiative.icon} {initiative.title}
-                        {initiative.priority && (
-                          <span className="ml-2 font-mono text-[10px] uppercase text-warn">
-                            {initiative.priority}
-                          </span>
-                        )}
-                      </p>
-                      {initiative.description && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {initiative.description}
-                        </p>
-                      )}
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          type="button"
-                          disabled={!initiative.approve_route}
-                          onClick={() => void resolveInitiative(initiative, "approve")}
-                          className="rounded-lg bg-ok/15 px-3 py-1.5 text-xs font-semibold text-ok disabled:opacity-40"
-                        >
-                          Έγκριση
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!initiative.reject_route}
-                          onClick={() => void resolveInitiative(initiative, "reject")}
-                          className="rounded-lg border border-border px-3 py-1.5 text-xs disabled:opacity-40"
-                        >
-                          Απόρριψη
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => void loadInitiatives()}
-                className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs hover:border-primary"
-              >
-                Ανανέωση προτάσεων
-              </button>
-            </div>
-            <div className="mt-4">
-              <SectionPanel section="home" />
-            </div>
-          </div>
-        ) : (
-          <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
-            <div className="mx-auto grid min-w-0 max-w-5xl gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-              <Card title={navLabel(section)}>
-                <p className="text-sm text-muted-foreground">
-                  {section === "missions"
-                    ? "Οι αποστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
-                    : section === "documents"
-                      ? "Ανέβασε έγγραφα στο knowledge vault ώστε ο NOUS να τα χρησιμοποιεί στο chat."
-                      : section === "control"
-                        ? "Συνδέσεις providers και defensive έλεγχοι του NOUS."
-                        : section === "settings"
-                          ? "Ρυθμίσεις σύνδεσης του dashboard με το NOUS backend."
-                          : `Ζωντανή κατάσταση και ενέργειες της ενότητας ${navLabel(section)} από το NOUS backend.`}
-                </p>
-                {section === "settings" && (
-                  <div className="mt-5 space-y-3">
-                    {!hasToken && (
-                      <div
-                        role="status"
-                        className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
-                      >
-                        Δεν έχει οριστεί NOUS token σε αυτό το browser session. Επικόλλησε το token
-                        παρακάτω για να ενεργοποιήσεις τα προστατευμένα endpoints.
-                      </div>
-                    )}
-                    {systemStatus?.status === "degraded" ||
-                    systemStatus?.status === "unavailable" ? (
-                      <div
-                        role="status"
-                        className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
-                      >
-                        Η επικοινωνία με το Render backend δεν έχει επιβεβαιωθεί ως υγιής.
-                        {systemStatusError
-                          ? ` Λεπτομέρεια: ${systemStatusError}`
-                          : " Έλεγξε τη διεύθυνση API, το token και την κατάσταση του Render."}
-                      </div>
-                    ) : null}
-                    {tokenForm}
-                  </div>
-                )}
-                {sectionConfigs[section] && <SectionPanel section={section} />}
-                {section === "documents" && (
-                  <div className="mt-5 space-y-4">
-                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-8 text-center transition-colors hover:bg-primary/10">
-                      <UploadCloud className="size-7 text-primary" />
-                      <span className="mt-3 text-sm font-semibold">
-                        Ανέβασε PDF, PNG, JPG, WEBP ή text
-                      </span>
-                      <span className="mt-1 text-xs text-muted-foreground">
-                        Private storage · έως 15 MB · indexing και vision queue
-                      </span>
-                      <input
-                        className="sr-only"
-                        type="file"
-                        accept="application/pdf,image/png,image/jpeg,image/webp,text/plain,text/markdown"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) void uploadKnowledgeDocument(file);
-                        }}
-                      />
-                    </label>
-                    {knowledgeUpload !== "idle" && (
-                      <p className="rounded-lg bg-background/70 p-3 text-xs text-muted-foreground">
-                        {knowledgeUpload === "uploading"
-                          ? "Ανεβαίνει και απομονώνεται…"
-                          : knowledgeUpload === "indexed"
-                            ? "Το αρχείο αποθηκεύτηκε και μπήκε στο knowledge index."
-                            : "Το upload απέτυχε. Έλεγξε τύπο και μέγεθος αρχείου."}
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => void loadKnowledgeDocuments()}
-                      className="rounded-lg border border-border px-3 py-2 text-xs font-semibold"
-                    >
-                      Ανανέωση knowledge vault
-                    </button>
-                    {knowledgeLoadStatus === "error" && (
-                      <p role="alert" className="text-sm text-destructive">
-                        Αποτυχία φόρτωσης εγγράφων. Δοκίμασε ξανά.
-                      </p>
-                    )}
-                    {knowledgeLoadStatus === "loading" && (
-                      <p className="text-sm text-muted-foreground">Φόρτωση εγγράφων…</p>
-                    )}
-                    {knowledgeLoadStatus === "idle" && knowledgeDocuments.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        Δεν υπάρχουν αποθηκευμένα έγγραφα.
-                      </p>
-                    )}
-                    <div className="space-y-2">
-                      {knowledgeDocuments.map((document) => (
-                        <div
-                          key={document.id}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/60 p-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">
-                              {document.originalName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {document.contentType} · {Math.ceil(document.sizeBytes / 1024)} KB
-                            </p>
-                          </div>
-                          <span className="font-mono text-[10px] uppercase text-primary">
-                            {document.status}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {section === "control" && (
-                  <div className="mt-5 space-y-4">
-                    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
-                            NOUS control plane
-                          </p>
-                          <h2 className="mt-2 font-display text-xl font-semibold">
-                            Οι συνδέσεις σου, με όρια που ελέγχεις
-                          </h2>
-                          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                            Ο NOUS μπορεί να χρησιμοποιεί model providers και repositories, αλλά
-                            κάθε εξωτερική αλλαγή παραμένει proposal-first και απαιτεί ρητή έγκριση.
-                          </p>
-                        </div>
-                        <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-1 font-mono text-[10px] text-ok">
-                          APPROVAL REQUIRED
-                        </span>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {[
-                        {
-                          name: "Google Gemini",
-                          detail: "Server-side API key στο Render · model reasoning",
-                          tone: "text-signal",
-                          scope: "Μόνο εγκεκριμένες κλήσεις",
-                        },
-                        {
-                          name: "GitHub",
-                          detail: "Repos · branches · pull requests",
-                          tone: "text-primary",
-                          scope: "Push/merge πάντα με approval",
-                        },
-                      ].map((provider) => (
-                        <div
-                          key={provider.name}
-                          className="rounded-2xl border border-border bg-card/60 p-4"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={`size-2 rounded-full bg-current ${provider.tone}`} />
-                            <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
-                              {provider.name === "GitHub" ? "GIT STATUS" : "SERVER-SIDE"}
-                            </span>
-                          </div>
-                          <p className="mt-4 font-semibold">{provider.name}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{provider.detail}</p>
-                          <p className="mt-3 rounded-lg bg-background/60 px-2 py-1.5 text-[11px] text-muted-foreground">
-                            {provider.scope}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void (provider.name === "GitHub"
-                                ? checkGithubStatus()
-                                : testGeminiConnection())
-                            }
-                            disabled={provider.name !== "GitHub" && geminiTestState === "testing"}
-                            className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-50"
-                          >
-                            {provider.name === "GitHub"
-                              ? "Έλεγχος git στο backend"
-                              : geminiTestState === "testing"
-                                ? "Έλεγχος Gemini…"
-                                : "Έλεγχος σύνδεσης Gemini"}
-                          </button>
-                          {(provider.name === "GitHub" ? githubStatus : geminiTestMessage) && (
-                            <p
-                              className={`mt-2 text-[11px] ${provider.name !== "GitHub" && geminiTestState === "ok" ? "text-ok" : "text-muted-foreground"}`}
-                            >
-                              {provider.name === "GitHub" ? githubStatus : geminiTestMessage}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                  {activeFocus === "jobs" && (
+                    <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="flex items-center gap-2 font-semibold">
-                            <ScanLine className="size-4 text-primary" /> Defensive Sentinel
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Ελέγχει μόνο defensive controls του NOUS· δεν κάνει exploit ή scanning
-                            τρίτων.
+                          <p className="text-sm font-semibold">Job control center</p>
+                          <p className="text-xs text-muted-foreground">
+                            Ιστορικό, retries και ασφαλές cancellation.
                           </p>
                         </div>
                         <button
                           type="button"
-                          onClick={async () => {
-                            try {
-                              setSentinelError(false);
-                              setSentinel(await nousFetch<typeof sentinel>("/api/security-audit"));
-                            } catch {
-                              setSentinel(null);
-                              setSentinelError(true);
-                            }
-                          }}
-                          className="rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold hover:bg-primary/10"
+                          onClick={() => void loadJobHistory()}
+                          className="rounded-lg border border-primary/30 px-3 py-1.5 text-xs text-primary"
                         >
-                          Έλεγχος τώρα
+                          {jobHistoryStatus === "loading" ? "Φόρτωση…" : "Ανανέωση"}
                         </button>
                       </div>
-                      {sentinelError && (
-                        <p className="mt-3 text-xs text-rose-300">
-                          Ο έλεγχος ασφαλείας δεν είναι διαθέσιμος αυτή τη στιγμή.
+                      {jobHistoryStatus === "error" ? (
+                        <p className="mt-4 text-xs text-rose-300">
+                          Δεν ήταν δυνατή η φόρτωση του job history.
                         </p>
-                      )}
-                      {sentinel && (
-                        <div className="mt-4 grid gap-3 md:grid-cols-[auto_1fr]">
-                          <div className="flex size-20 flex-col items-center justify-center rounded-full border-4 border-primary/40">
-                            <strong className="text-xl">{sentinel.score}</strong>
-                            <span className="font-mono text-[9px] text-muted-foreground">
-                              / 100
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {sentinel.findings.length === 0 ? (
-                              <p className="rounded-lg bg-ok/10 p-3 text-xs text-ok">
-                                Όλα τα ενεργά defensive checks είναι εντάξει.
-                              </p>
-                            ) : (
-                              sentinel.findings.map((finding) => (
-                                <div
-                                  key={finding.id}
-                                  className="rounded-lg border border-border bg-background/60 p-3"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <strong className="text-xs">{finding.title}</strong>
-                                    <span className="font-mono text-[9px] uppercase text-muted-foreground">
-                                      {finding.severity}
-                                    </span>
-                                  </div>
-                                  <p className="mt-1 text-[11px] text-muted-foreground">
-                                    {finding.detail}
-                                  </p>
-                                  <p className="mt-1 text-[11px] text-primary">
-                                    Fix: {finding.remediation}
-                                  </p>
+                      ) : jobHistory.length === 0 ? (
+                        <p className="mt-4 text-xs text-muted-foreground">
+                          Δεν υπάρχουν jobs ακόμη.
+                        </p>
+                      ) : (
+                        <div className="mt-3 space-y-2">
+                          {jobHistory.map((job) => (
+                            <div key={job.id} className="rounded-lg bg-card/70 p-3">
+                              <div className="flex items-center justify-between gap-3 text-xs">
+                                <span className="font-medium">{job.kind}</span>
+                                <span className="font-mono text-muted-foreground">
+                                  {job.status}
+                                </span>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
+                                <span>retries: {job.retryCount}</span>
+                                <div className="flex gap-2">
+                                  {["queued", "running"].includes(job.status) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void updateJob(job.id, "cancel")}
+                                      className="text-rose-300 hover:underline"
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
+                                  {job.status === "failed" && job.retryCount < 3 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void updateJob(job.id, "retry")}
+                                      className="text-primary hover:underline"
+                                    >
+                                      Retry
+                                    </button>
+                                  )}
                                 </div>
-                              ))
-                            )}
-                          </div>
+                              </div>
+                              {job.lastError && (
+                                <p className="mt-2 truncate text-[10px] text-rose-300">
+                                  {job.lastError}
+                                </p>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
-                    <div className="rounded-2xl border border-warn/25 bg-warn/5 p-4 text-sm">
-                      <div className="flex items-center gap-2 font-semibold text-warn">
-                        <ShieldAlert className="size-4" /> Action policy
+                  )}
+                  {activeFocus === "missions" && (
+                    <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">Live mission progress</p>
+                          <p className="text-xs text-muted-foreground">
+                            Ανανέωση από το Render backend κάθε 3 δευτερόλεπτα.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void connectMissionStream()}
+                          className="rounded-lg border border-primary/30 px-3 py-1.5 text-xs text-primary"
+                        >
+                          {liveStatus === "connected" ? "Live" : "Σύνδεση"}
+                        </button>
                       </div>
-                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                        Read operations μπ��ρούν να προταθούν αυτόματα. Commit, push, merge, delete
-                        και external side effects δημιουργούν approval record, diff και audit event
-                        πριν εκτελεστούν.
-                      </p>
+                      <div className="mt-3 space-y-2">
+                        {liveMissions.length === 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Δεν υπάρχουν missions ή δεν έχε�� συνδεθεί ακόμη το live stream.
+                          </p>
+                        )}
+                        {liveMissions.map((mission) => (
+                          <div
+                            key={mission.id}
+                            className="flex items-center justify-between rounded-lg bg-card/70 px-3 py-2 text-xs"
+                          >
+                            <span>{mission.title}</span>
+                            <span className="font-mono text-muted-foreground">
+                              {mission.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )}
+                  {activeFocus === "system" && (
+                    <div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">Runtime status</p>
+                          <p className="text-xs text-muted-foreground">
+                            Ζωντανή κατάσταση από το persisted NOUS runtime.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void loadSystemStatus()}
+                          className="rounded-lg border border-signal/30 px-3 py-1.5 text-xs text-signal hover:bg-signal/10"
+                        >
+                          Ανανέωση
+                        </button>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="rounded-lg bg-card/70 p-2">
+                          <p className="text-muted-foreground">Status</p>
+                          <p className="mt-1 font-semibold text-ok">
+                            {systemStatus?.status ?? "loading"}
+                          </p>
+                        </div>
+                        <div className="rounded-lg bg-card/70 p-2">
+                          <p className="text-muted-foreground">Missions</p>
+                          <p className="mt-1 font-semibold">
+                            {systemStatus?.counts?.missions ?? "—"}
+                          </p>
+                        </div>
+                        <div className="rounded-lg bg-card/70 p-2">
+                          <p className="text-muted-foreground">Tool runs</p>
+                          <p className="mt-1 font-semibold">
+                            {systemStatus?.counts?.toolRuns ?? "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {activeFocus === "guard" && (
+                    <div className="mb-5 rounded-2xl border border-warn/30 bg-warn/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <ShieldAlert className="size-4 text-warn" />
+                          <div>
+                            <p className="text-sm font-semibold">Approval queue</p>
+                            <p className="text-xs text-muted-foreground">
+                              Καμία εξωτερική ενέργεια χωρίς δική σου έγκριση.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void loadApprovals()}
+                          className="rounded-lg border border-warn/30 px-3 py-1.5 text-xs text-warn hover:bg-warn/10"
+                        >
+                          {approvalStatus === "loading" ? "Έλεγχος…" : "Ανανέωση"}
+                        </button>
+                      </div>
+                      {approvalStatus === "error" && (
+                        <p className="mt-3 text-xs text-destructive">
+                          Η approval queue δεν είναι διαθέσιμη.
+                        </p>
+                      )}
+                      {approvalStatus === "idle" && approvals.length === 0 && (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Δεν υπάρχουν pending approvals.
+                        </p>
+                      )}
+                      <div className="mt-3 space-y-2">
+                        {approvals.map((approval) => (
+                          <div
+                            key={approval.id}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 p-3"
+                          >
+                            <div>
+                              <p className="font-mono text-xs text-foreground">{approval.tool}</p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                Ζητήθηκε {new Date(approval.createdAt).toLocaleString("el-GR")}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void resolveApproval(approval.id, "approved")}
+                                className="rounded-md bg-ok/15 px-3 py-1.5 text-xs font-semibold text-ok"
+                              >
+                                Έγκριση
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void resolveApproval(approval.id, "rejected")}
+                                className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground"
+                              >
+                                Απόρριψη
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <section
+                    className="mb-5 rounded-2xl border border-primary/25 bg-primary/5 p-4"
+                    aria-labelledby="control-center-title"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">
+                          Unified control center
+                        </p>
+                        <h2 id="control-center-title" className="mt-1 text-sm font-semibold">
+                          Ένα chat για όλο το NOUS
+                        </h2>
+                        <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                          Ζήτησε έλεγχο, διάγνωση ή ενέργεια από εδώ. Ο agent θα χρησιμοποιήσει τα
+                          συνδεδεμένα εργαλεία και θα ζητήσει έγκριση πριν από εξωτερική αλλαγή.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-1 font-mono text-[10px] text-ok">
+                        approval-first
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      {[
+                        {
+                          icon: Sparkles,
+                          label: "Πλήρης έλεγχος",
+                          prompt:
+                            "Κάνε πλήρη έλεγχο του NOUS: υγεία, missions, jobs, μνήμη, approvals και διαθέσιμα εργαλεία. Δώσε μου προτεραιότητες και επόμενα βήματα.",
+                        },
+                        {
+                          icon: Activity,
+                          label: "Τρέχουσα εργασία",
+                          prompt:
+                            "Δείξε μου όλα τα ενεργά missions και jobs, τι έχει κολλήσει και ποια ενέργεια προτείνεις.",
+                        },
+                        {
+                          icon: ShieldAlert,
+                          label: "Διάγνωση",
+                          prompt:
+                            "Κάνε ασφαλή διάγνωση για προβλήματα στο backend, στις συνδέσεις και στα εργαλεία. Μην αλλάξεις τίποτα χωρίς έγκριση.",
+                        },
+                        {
+                          icon: ArrowUpRight,
+                          label: "Σχέδιο αναβάθμισης",
+                          prompt:
+                            "Ανάλυσε τι μπορεί να αναβαθμιστεί ουσιαστικά στο NOUS με βάση τις δυνατότητες και τα διαθέσιμα εργαλεία. Ταξινόμησε impact, ρίσκο και effort.",
+                        },
+                      ].map(({ icon: Icon, label, prompt }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => focusChatWithPrompt(prompt)}
+                          disabled={isThinking}
+                          className="group flex items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 py-2.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/8 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Icon className="size-3.5 text-primary transition-transform group-hover:scale-110" />
+                          <span>{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                  <div className="flex flex-col gap-3">
+                    {messages.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`min-w-0 max-w-full rounded-2xl border p-4 text-sm leading-relaxed ${
+                          m.role === "user"
+                            ? "self-end whitespace-pre-wrap border-border bg-violet/15"
+                            : m.error
+                              ? "border-rose-400/40 bg-rose-400/5 text-rose-100"
+                              : "border-border bg-card/80"
+                        }`}
+                      >
+                        {m.role === "user" ? m.text : <ChatMarkdown text={m.text} />}
+                        {m.error && m.retryText && (
+                          <button
+                            type="button"
+                            onClick={() => void send(m.retryText, { retry: true })}
+                            disabled={isThinking}
+                            className="mt-3 inline-flex items-center gap-1 rounded-lg border border-rose-400/40 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-400/10 disabled:opacity-50"
+                          >
+                            <RotateCcw className="size-3" /> Ξαναδοκίμασε
+                          </button>
+                        )}
+                        {m.role === "assistant" && m.id !== "welcome" && !m.error && (
+                          <div className="mt-3 flex items-center gap-1 border-t border-border/60 pt-2">
+                            <span className="mr-2 text-[10px] text-muted-foreground">
+                              Αξιολόγηση απάντησης
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void submitFeedback(m.id, "positive")}
+                              aria-label="Χρήσιμη απάντηση"
+                              className={`rounded-md p-1.5 transition-colors ${m.feedback === "positive" ? "bg-emerald-400/15 text-emerald-300" : "text-muted-foreground hover:bg-emerald-400/10 hover:text-emerald-300"}`}
+                            >
+                              <ThumbsUp className="size-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void submitFeedback(m.id, "negative")}
+                              aria-label="Μη χρήσιμη απάντηση"
+                              className={`rounded-md p-1.5 transition-colors ${m.feedback === "negative" ? "bg-rose-400/15 text-rose-300" : "text-muted-foreground hover:bg-rose-400/10 hover:text-rose-300"}`}
+                            >
+                              <ThumbsDown className="size-3.5" />
+                            </button>
+                          </div>
+                        )}
+                        {m.citations && m.citations.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
+                            {m.citations.map((citation) => (
+                              <a
+                                key={citation.url}
+                                href={citation.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex max-w-full items-center gap-1 rounded-md border border-signal/25 bg-signal/5 px-2 py-1 text-[10px] text-signal transition-colors hover:bg-signal/15"
+                                title={citation.title}
+                              >
+                                <ArrowUpRight className="size-3 shrink-0" />
+                                <span className="truncate">{citation.domain}</span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {isThinking && (
+                      <div
+                        role="status"
+                        className="flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground"
+                      >
+                        <Loader2 className="size-4 animate-spin text-primary" />
+                        {thinkingSlow
+                          ? "Ακόμη δουλεύω… Αν το Render ξυπνά από cold start, μπορεί να πάρει έως ένα λεπτό."
+                          : researchMode === "deep"
+                            ? "Αναζήτηση → σύνθεση…"
+                            : "Ο ΝΟΥΣ σκέφτεται…"}
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                </div>
+              </div>
+              <div className="min-w-0 border-t border-border/70 bg-card/75 p-4 backdrop-blur-xl">
+                <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {isThinking
+                        ? researchMode === "deep"
+                          ? "Αναζήτηση → σύνθεση…"
+                          : "Ο ΝΟΥΣ σκέφτεται…"
+                        : connectionMode === "degraded"
+                          ? "Περιορισμένη λειτουργία"
+                          : "Έτοιμος για μήνυμα"}
+                    </span>
+                    <label className="flex items-center gap-1 rounded-md border border-border/70 px-2 py-1">
+                      <span className="sr-only">Research mode</span>
+                      <select
+                        value={researchMode}
+                        onChange={(event) =>
+                          setResearchMode(event.target.value as "auto" | "off" | "deep")
+                        }
+                        disabled={isThinking}
+                        className="bg-transparent text-[10px] outline-none disabled:opacity-50"
+                      >
+                        <option value="auto">Research: Auto</option>
+                        <option value="deep">Research: Deep</option>
+                        <option value="off">Research: Off</option>
+                      </select>
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearChat}
+                    disabled={messages.length <= 1 && !conversationId}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Καθαρισμός συνομιλίας"
+                  >
+                    <RotateCcw className="size-3" /> Καθαρισμός
+                  </button>
+                </div>
+                <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <label className="flex items-center gap-2">
+                    <span>Γλώσσα φωνής</span>
+                    <select
+                      value={voiceLanguage}
+                      onChange={(event) => setVoiceLanguage(event.target.value)}
+                      className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
+                    >
+                      <option value="el-GR">Ελληνικά</option>
+                      <option value="en-US">English</option>
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={pushToTalk}
+                      onChange={(event) => {
+                        stopListening();
+                        setPushToTalk(event.target.checked);
+                      }}
+                      disabled={!voiceSupported}
+                    />
+                    Push-to-talk
+                  </label>
+                </div>
+                <div className="mx-auto flex min-w-0 max-w-3xl gap-2">
+                  <button
+                    type="button"
+                    onClick={pushToTalk ? undefined : toggleListening}
+                    onPointerDown={pushToTalk ? startListening : undefined}
+                    onPointerUp={pushToTalk ? stopListening : undefined}
+                    onPointerLeave={pushToTalk && isListening ? stopListening : undefined}
+                    disabled={!voiceSupported || isThinking}
+                    aria-label={
+                      pushToTalk
+                        ? "Κράτα πατημένο για να μιλήσεις"
+                        : isListening
+                          ? "Σταμάτησε την ακρόαση"
+                          : "Μίλησε στον ΝΟΥΣ"
+                    }
+                    title={
+                      !voiceSupported
+                        ? "Η φωνητική εισαγωγή δεν υποστηρίζεται σε αυτόν τον browser"
+                        : pushToTalk
+                          ? "Κράτα πατημένο, μίλα και άφησε για αποστολή"
+                          : undefined
+                    }
+                    className={`inline-flex size-11 shrink-0 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isListening ? "border-rose-400/60 bg-rose-400/15 text-rose-300" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"}`}
+                  >
+                    {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                  </button>
+                  <textarea
+                    ref={chatInputRef}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    aria-label="Μήνυμα προς τον NOUS"
+                    aria-describedby="chat-input-hint"
+
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" &&
+                        !e.shiftKey &&
+                        !e.nativeEvent.isComposing &&
+                        e.keyCode !== 229
+                      ) {
+                        e.preventDefault();
+                        void send();
+                      }
+                    }}
+                    rows={2}
+                    placeholder="Γράψε στον ΝΟΥΣ…"
+                    className="min-w-0 flex-1 resize-none rounded-xl border border-input bg-background p-3 text-sm outline-none focus:border-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoiceEnabled((enabled) => {
+                        if (enabled) window.speechSynthesis?.cancel();
+                        return !enabled;
+                      });
+                    }}
+                    disabled={!voiceSupported}
+                    aria-label={
+                      voiceEnabled ? "Σίγασε τη φωνή του ΝΟΥΣ" : "Ενεργοποίησε τη φωνή του ΝΟΥΣ"
+                    }
+                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {voiceEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+                  </button>
+                  {isThinking ? (
+                    <button
+                      type="button"
+                      onClick={stopChat}
+                      className="inline-flex items-center gap-2 rounded-xl border border-rose-400/50 bg-rose-400/10 px-4 text-sm font-semibold text-rose-200"
+                      aria-label="Διακοπή απάντησης"
+                    >
+                      <Square className="size-4" />
+                      <span className="hidden sm:inline">Διακοπή</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void send()}
+                      disabled={!draft.trim()}
+                      className="inline-flex items-center gap-2 rounded-xl bg-violet px-4 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Στείλε μήνυμα"
+                    >
+                      <Send className="size-4" />
+                      <span className="hidden sm:inline">Στείλε</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : section === "home" ? (
+            <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+              <div className="min-w-0 max-w-full rounded-2xl border border-border bg-gradient-to-br from-violet/20 to-primary/10 p-5">
+                <h1 className="font-display text-2xl font-bold">Καλώς ήρθες στο�� ΝΟΥΣ</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Agent chat + workspace + Android companion + deploy, σε μία οθόνη.
+                </p>
+              </div>
+
+              <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
+                <Card title="System Snapshot">
+                  {tokenForm}
+                  {systemStatusState === "loading" && (
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      Σύνδεση με NOUS API… Το Render μπορεί να ξυπνά από cold start.
+                    </p>
+                  )}
+                  {systemStatusState === "error" && (
+                    <p className="mb-3 text-xs text-warn">
+                      Δεν ήταν δυνατή η σύνδεση. Έλεγξε το token και δοκίμασε Ανανέωση.
+                    </p>
+                  )}
+                  {snapshotLabels.map((label) => {
+                    const value =
+                      label === "Health"
+                        ? (systemStatus?.status ?? "loading")
+                        : label === "API connection"
+                          ? hasConfiguredNousApi()
+                            ? "configured"
+                            : "same-origin"
+                          : label === "Missions σε εξέλιξη"
+                            ? String(systemStatus?.counts?.missions ?? "—")
+                            : label === "Tool runs"
+                              ? String(systemStatus?.counts?.toolRuns ?? "—")
+                              : label === "CPU"
+                                ? `${systemStatus?.metrics?.cpu_percent ?? "—"}%`
+                                : label === "Memory"
+                                  ? `${systemStatus?.metrics?.memory_percent ?? "—"}%`
+                                  : label === "Overview"
+                                    ? systemStatus?.overview
+                                      ? "live"
+                                      : "—"
+                                    : (systemStatus?.storage ?? "—");
+                    return (
+                      <div
+                        key={label}
+                        className="flex min-w-0 items-start justify-between gap-3 border-b border-border/60 py-1.5 text-sm last:border-0"
+                      >
+                        <span className="min-w-0 break-words text-muted-foreground">{label}</span>
+                        <span
+                          className={`shrink-0 text-right ${label === "Health" && (value === "ok" || value === "online") ? "text-ok" : "text-foreground"}`}
+                        >
+                          {value}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </Card>
+
+                <Card title="Capabilities">
+                  <div className="flex flex-wrap gap-2">
+                    {capabilities.map((c) => (
+                      <span
+                        key={c}
+                        className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-muted-foreground"
+                      >
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card title="Missions">
+                  <MissionList missions={liveMissions} />
+                </Card>
+
+                <Card title="Companion">
+                  {companionStatus ? (
+                    <div className="space-y-1 text-sm">
+                      <p>
+                        Διαθέσιμο:{" "}
+                        <span className={companionStatus.available ? "text-ok" : "text-warn"}>
+                          {companionStatus.available ? "ναι" : "όχι"}
+                        </span>
+                      </p>
+                      {companionStatus.commands?.length ? (
+                        <p className="text-xs text-muted-foreground">
+                          Εντολές: {companionStatus.commands.join(", ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Δεν ήταν δυνατή η ανάγνωση της κατάστασης του companion.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void loadCompanionStatus()}
+                    className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs hover:border-primary"
+                  >
+                    Ανανέωση
+                  </button>
+                </Card>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-violet/40 bg-violet/5 p-5">
+                <h3 className="font-display text-base font-semibold">Τι θέλει να κάνει ο ΝΟΥΣ</h3>
+                <p className="text-xs text-muted-foreground">
+                  Αυτόνομες προτάσεις — έγκρινε ή απόρριψε
+                </p>
+                {initiativesState === "error" && (
+                  <p className="mt-3 text-xs text-warn">
+                    Δεν ήταν δυνατή η φόρτωση ή εκτέλεση των προτάσεων.
+                    {failedInitiative && (
+                      <button
+                        type="button"
+                        className="ml-2 rounded-md border border-warn/50 px-2 py-0.5 font-medium hover:bg-warn/10"
+                        onClick={() =>
+                          void resolveInitiative(
+                            failedInitiative.initiative,
+                            failedInitiative.action,
+                          )
+                        }
+                      >
+                        Δοκίμασε ξανά
+                      </button>
+                    )}
+                  </p>
+                )}
+                {initiatives.length === 0 ? (
+                  <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                    {initiativesState === "loading"
+                      ? "Φό��τωση…"
+                      : "Δεν υπάρχουν εκκρεμε��ς προτάσεις."}
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-2">
+                    {initiatives.map((initiative) => (
+                      <div
+                        key={initiative.id}
+                        className="rounded-xl border border-border bg-card/60 p-3 text-sm"
+                      >
+                        <p className="font-semibold">
+                          {initiative.icon} {initiative.title}
+                          {initiative.priority && (
+                            <span className="ml-2 font-mono text-[10px] uppercase text-warn">
+                              {initiative.priority}
+                            </span>
+                          )}
+                        </p>
+                        {initiative.description && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {initiative.description}
+                          </p>
+                        )}
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            disabled={!initiative.approve_route}
+                            onClick={() => void resolveInitiative(initiative, "approve")}
+                            className="rounded-lg bg-ok/15 px-3 py-1.5 text-xs font-semibold text-ok disabled:opacity-40"
+                          >
+                            Έγκριση
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!initiative.reject_route}
+                            onClick={() => void resolveInitiative(initiative, "reject")}
+                            className="rounded-lg border border-border px-3 py-1.5 text-xs disabled:opacity-40"
+                          >
+                            Απόρριψη
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-                <div className="mt-5 space-y-2">
-                  {section === "missions" && <MissionList missions={liveMissions} />}
-                </div>
-              </Card>
-              <Card title="Agent guardrails">
-                <div className="space-y-3 text-sm">
-                  {[
-                    "Backend truth checks",
-                    "Approval before side effects",
-                    "Audit trail enabled",
-                  ].map((item) => (
-                    <div key={item} className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-ok" />
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </Card>
+                <button
+                  type="button"
+                  onClick={() => void loadInitiatives()}
+                  className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs hover:border-primary"
+                >
+                  Ανανέωση προτάσεων
+                </button>
+              </div>
+              <div className="mt-4">
+                <SectionPanel section="home" />
+              </div>
             </div>
-          </div>
-        )}
-      </main>
+          ) : (
+            <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+              <div className="mx-auto grid min-w-0 max-w-5xl gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+                <Card title={navLabel(section)}>
+                  <p className="text-sm text-muted-foreground">
+                    {section === "missions"
+                      ? "Οι αποστολές εκτελούνται με checkpoints, logs και έγκριση πριν από κάθε επικίνδυνη ενέργεια."
+                      : section === "documents"
+                        ? "Ανέβασε έγγραφα στο knowledge vault ώστε ο NOUS να τα χρησιμοποιεί στο chat."
+                        : section === "control"
+                          ? "Συνδέσεις providers και defensive έλεγχοι του NOUS."
+                          : section === "settings"
+                            ? "Ρυθμίσεις σύνδεσης του dashboard με το NOUS backend."
+                            : `Ζωντανή κατάσταση και ενέργειες της ενότητας ${navLabel(section)} από το NOUS backend.`}
+                  </p>
+                  {section === "settings" && (
+                    <div className="mt-5 space-y-3">
+                      {!hasToken && (
+                        <div
+                          role="status"
+                          className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
+                        >
+                          Δεν έχει οριστεί NOUS token σε αυτό το browser session. Επικόλλησε το
+                          token παρακάτω για να ενεργοποιήσεις τα προστατευμένα endpoints.
+                        </div>
+                      )}
+                      {systemStatus?.status === "degraded" ||
+                      systemStatus?.status === "unavailable" ? (
+                        <div
+                          role="status"
+                          className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-xs"
+                        >
+                          Η επικοινωνία με το Render backend δεν έχει επιβεβαιωθεί ως υγιής.
+                          {systemStatusError
+                            ? ` Λεπτομέρεια: ${systemStatusError}`
+                            : " Έλεγξε τη διεύθυνση API, το token και την κατάσταση του Render."}
+                        </div>
+                      ) : null}
+                      {tokenForm}
+                    </div>
+                  )}
+                  {sectionConfigs[section] && <SectionPanel section={section} />}
+                  {section === "documents" && (
+                    <div className="mt-5 space-y-4">
+                      <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-8 text-center transition-colors hover:bg-primary/10">
+                        <UploadCloud className="size-7 text-primary" />
+                        <span className="mt-3 text-sm font-semibold">
+                          Ανέβασε PDF, PNG, JPG, WEBP ή text
+                        </span>
+                        <span className="mt-1 text-xs text-muted-foreground">
+                          Private storage · έως 15 MB · indexing και vision queue
+                        </span>
+                        <input
+                          className="sr-only"
+                          type="file"
+                          accept="application/pdf,image/png,image/jpeg,image/webp,text/plain,text/markdown"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void uploadKnowledgeDocument(file);
+                          }}
+                        />
+                      </label>
+                      {knowledgeUpload !== "idle" && (
+                        <p className="rounded-lg bg-background/70 p-3 text-xs text-muted-foreground">
+                          {knowledgeUpload === "uploading"
+                            ? "Ανεβαίνει και απομονώνεται…"
+                            : knowledgeUpload === "indexed"
+                              ? "Το αρχείο αποθηκεύτηκε και μπήκε στο knowledge index."
+                              : "Το upload απέτυχε. Έλεγξε τύπο και μέγεθος αρχείου."}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void loadKnowledgeDocuments()}
+                        className="rounded-lg border border-border px-3 py-2 text-xs font-semibold"
+                      >
+                        Ανανέωση knowledge vault
+                      </button>
+                      {knowledgeLoadStatus === "error" && (
+                        <p role="alert" className="text-sm text-destructive">
+                          Αποτυχία φόρτωσης εγγράφων. Δοκίμασε ξανά.
+                        </p>
+                      )}
+                      {knowledgeLoadStatus === "loading" && (
+                        <p className="text-sm text-muted-foreground">Φόρτωση εγγράφων…</p>
+                      )}
+                      {knowledgeLoadStatus === "idle" && knowledgeDocuments.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          Δεν υπάρχουν αποθηκευμένα έγγραφα.
+                        </p>
+                      )}
+                      <div className="space-y-2">
+                        {knowledgeDocuments.map((document) => (
+                          <div
+                            key={document.id}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/60 p-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold">
+                                {document.originalName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {document.contentType} · {Math.ceil(document.sizeBytes / 1024)} KB
+                              </p>
+                            </div>
+                            <span className="font-mono text-[10px] uppercase text-primary">
+                              {document.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {section === "control" && (
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
+                              NOUS control plane
+                            </p>
+                            <h2 className="mt-2 font-display text-xl font-semibold">
+                              Οι συνδέσεις σου, με όρια που ελέγχεις
+                            </h2>
+                            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                              Ο NOUS μπορεί να χρησιμοποιεί model providers και repositories, αλλά
+                              κάθε εξωτερική αλλαγή παραμένει proposal-first και απαιτεί ρητή
+                              έγκριση.
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-ok/30 bg-ok/10 px-2 py-1 font-mono text-[10px] text-ok">
+                            APPROVAL REQUIRED
+                          </span>
+                        </div>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {[
+                          {
+                            name: "Google Gemini",
+                            detail: "Server-side API key στο Render · model reasoning",
+                            tone: "text-signal",
+                            scope: "Μόνο εγκεκριμένες κλήσεις",
+                          },
+                          {
+                            name: "GitHub",
+                            detail: "Repos · branches · pull requests",
+                            tone: "text-primary",
+                            scope: "Push/merge πάντα με approval",
+                          },
+                        ].map((provider) => (
+                          <div
+                            key={provider.name}
+                            className="rounded-2xl border border-border bg-card/60 p-4"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`size-2 rounded-full bg-current ${provider.tone}`} />
+                              <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+                                {provider.name === "GitHub" ? "GIT STATUS" : "SERVER-SIDE"}
+                              </span>
+                            </div>
+                            <p className="mt-4 font-semibold">{provider.name}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{provider.detail}</p>
+                            <p className="mt-3 rounded-lg bg-background/60 px-2 py-1.5 text-[11px] text-muted-foreground">
+                              {provider.scope}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void (provider.name === "GitHub"
+                                  ? checkGithubStatus()
+                                  : testGeminiConnection())
+                              }
+                              disabled={provider.name !== "GitHub" && geminiTestState === "testing"}
+                              className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-50"
+                            >
+                              {provider.name === "GitHub"
+                                ? "Έλεγχος git στο backend"
+                                : geminiTestState === "testing"
+                                  ? "Έλεγχος Gemini…"
+                                  : "Έλεγχος σύνδεσης Gemini"}
+                            </button>
+                            {(provider.name === "GitHub" ? githubStatus : geminiTestMessage) && (
+                              <p
+                                className={`mt-2 text-[11px] ${provider.name !== "GitHub" && geminiTestState === "ok" ? "text-ok" : "text-muted-foreground"}`}
+                              >
+                                {provider.name === "GitHub" ? githubStatus : geminiTestMessage}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2 font-semibold">
+                              <ScanLine className="size-4 text-primary" /> Defensive Sentinel
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Ελέγχει μόνο defensive controls του NOUS· δεν κάνει exploit ή scanning
+                              τρίτων.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                setSentinelError(false);
+                                setSentinel(
+                                  await nousFetch<typeof sentinel>("/api/security-audit"),
+                                );
+                              } catch {
+                                setSentinel(null);
+                                setSentinelError(true);
+                              }
+                            }}
+                            className="rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold hover:bg-primary/10"
+                          >
+                            Έλεγχος τώρα
+                          </button>
+                        </div>
+                        {sentinelError && (
+                          <p className="mt-3 text-xs text-rose-300">
+                            Ο έλεγχος ασφαλείας δεν είναι διαθέσιμος αυτή τη στιγμή.
+                          </p>
+                        )}
+                        {sentinel && (
+                          <div className="mt-4 grid gap-3 md:grid-cols-[auto_1fr]">
+                            <div className="flex size-20 flex-col items-center justify-center rounded-full border-4 border-primary/40">
+                              <strong className="text-xl">{sentinel.score}</strong>
+                              <span className="font-mono text-[9px] text-muted-foreground">
+                                / 100
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {sentinel.findings.length === 0 ? (
+                                <p className="rounded-lg bg-ok/10 p-3 text-xs text-ok">
+                                  Όλα τα ενεργά defensive checks είναι εντάξει.
+                                </p>
+                              ) : (
+                                sentinel.findings.map((finding) => (
+                                  <div
+                                    key={finding.id}
+                                    className="rounded-lg border border-border bg-background/60 p-3"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <strong className="text-xs">{finding.title}</strong>
+                                      <span className="font-mono text-[9px] uppercase text-muted-foreground">
+                                        {finding.severity}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-[11px] text-muted-foreground">
+                                      {finding.detail}
+                                    </p>
+                                    <p className="mt-1 text-[11px] text-primary">
+                                      Fix: {finding.remediation}
+                                    </p>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-2xl border border-warn/25 bg-warn/5 p-4 text-sm">
+                        <div className="flex items-center gap-2 font-semibold text-warn">
+                          <ShieldAlert className="size-4" /> Action policy
+                        </div>
+                        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                          Read operations μπ��ρούν να προταθούν αυτόματα. Commit, push, merge,
+                          delete και external side effects δημιουργούν approval record, diff και
+                          audit event πριν εκτελεστούν.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-5 space-y-2">
+                    {section === "missions" && <MissionList missions={liveMissions} />}
+                  </div>
+                </Card>
+                <Card title="Agent guardrails">
+                  <div className="space-y-3 text-sm">
+                    {[
+                      "Backend truth checks",
+                      "Approval before side effects",
+                      "Audit trail enabled",
+                    ].map((item) => (
+                      <div key={item} className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-ok" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
     </>
   );
