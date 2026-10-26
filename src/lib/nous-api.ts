@@ -20,8 +20,15 @@ const RENDER_API_BASE = "https://nous-ai-os-api.onrender.com";
 
 function resolveApiBase(): string {
   const configured = import.meta.env["VITE_NOUS_API_URL"]?.trim();
-  // Honour an explicit absolute override (own staging backend), but never a
-  // relative one: it would send dashboard calls back to the HTML-only origin.
+  const isLocalPreview =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+  // Local Vite previews use the existing proxy so Render does not reject the
+  // ephemeral localhost origin during CORS preflight. Published previews go
+  // directly to Render and use its allow-listed preview origins.
+  if (isLocalPreview) return "/api/nous";
+
   const base = configured && /^https?:\/\//i.test(configured) ? configured : RENDER_API_BASE;
   return base.replace(/\/+$/, "");
 }
