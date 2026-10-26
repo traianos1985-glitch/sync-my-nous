@@ -7,24 +7,24 @@ export type NavGroup = { title?: string; items: NavItem[]; advanced?: boolean };
 export const navGroups: NavGroup[] = [
   {
     items: [
-      { id: "chat", icon: "💬", label: "Chat" },
-      { id: "home", icon: "🏠", label: "Dashboard" },
+      { id: "chat", icon: "message", label: "Chat" },
+      { id: "home", icon: "home", label: "Dashboard" },
     ],
   },
   {
     title: "Εργασία",
     items: [
-      { id: "goals", icon: "🎯", label: "Goals" },
-      { id: "missions", icon: "📋", label: "Missions" },
+      { id: "goals", icon: "target", label: "Goals" },
+      { id: "missions", icon: "clipboard", label: "Missions" },
       { id: "planner", icon: "🧩", label: "Planner" },
-      { id: "brain", icon: "🧠", label: "Brain & Memory" },
+      { id: "brain", icon: "brain", label: "Brain & Memory" },
       { id: "appbuilder", icon: "🏗", label: "App Builder" },
     ],
   },
   {
     title: "Εργαλεία",
     items: [
-      { id: "documents", icon: "📚", label: "Documents" },
+      { id: "documents", icon: "library", label: "Documents" },
       { id: "scheduler", icon: "⏱", label: "Scheduler" },
       { id: "deploy", icon: "🚀", label: "Deploy" },
       { id: "backup", icon: "☁", label: "Backup" },
@@ -33,7 +33,7 @@ export const navGroups: NavGroup[] = [
       { id: "field", icon: "🔍", label: "Πεδίο & Χάρτης" },
       { id: "remote-access", icon: "📡", label: "Remote Access" },
       { id: "control", icon: "◈", label: "Control Plane" },
-      { id: "settings", icon: "⚙", label: "Settings" },
+      { id: "settings", icon: "settings", label: "Settings" },
     ],
   },
   {
@@ -57,7 +57,7 @@ export const navGroups: NavGroup[] = [
       { id: "learning", icon: "🎓", label: "Learning" },
       { id: "system", icon: "📊", label: "System" },
       { id: "command", icon: "⌨", label: "Command" },
-      { id: "approvals", icon: "✅", label: "Approvals" },
+      { id: "approvals", icon: "check", label: "Approvals" },
       { id: "audit", icon: "🧪", label: "Audit" },
       { id: "companion", icon: "📱", label: "Companion" },
       { id: "pending", icon: "📥", label: "Pending" },

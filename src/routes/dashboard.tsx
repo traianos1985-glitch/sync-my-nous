@@ -24,6 +24,15 @@ import {
   Square,
   X,
   UploadCloud,
+  Home,
+  MessageSquare,
+  Target,
+  ClipboardList,
+  Library,
+  Settings,
+  CheckCircle2,
+  Brain,
+  CircleDot,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
 import {
@@ -2581,6 +2590,21 @@ function Dashboard() {
   );
 }
 
+function NavGlyph({ name }: { name: string }) {
+  const icons: Record<string, typeof CircleDot> = {
+    message: MessageSquare,
+    home: Home,
+    target: Target,
+    clipboard: ClipboardList,
+    library: Library,
+    settings: Settings,
+    check: CheckCircle2,
+    brain: Brain,
+  };
+  const Icon = icons[name] ?? CircleDot;
+  return <Icon aria-hidden="true" className="size-4 shrink-0 text-current" />;
+}
+
 function NavButton({
   item,
   active,
@@ -2599,7 +2623,7 @@ function NavButton({
           : "text-muted-foreground hover:bg-violet/10 hover:text-foreground"
       }`}
     >
-      <span className="w-5 text-center text-base">{item.icon}</span>
+      <NavGlyph name={item.icon} />
       {item.label}
     </button>
   );

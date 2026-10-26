@@ -206,8 +206,8 @@
   --card-foreground: oklch(0.96 0.012 250);
   --popover: oklch(0.17 0.025 258);
   --popover-foreground: oklch(0.96 0.012 250);
-  --muted-foreground: oklch(0.68 0.025 250);
-  --border: oklch(1 0 0 / 11%);
+  --muted-foreground: oklch(0.74 0.025 250);
+  --border: oklch(1 0 0 / 14%);
   --input: oklch(1 0 0 / 14%);
   --accent: oklch(0.23 0.045 278);
   --grid: oklch(1 0 0 / 5%);
