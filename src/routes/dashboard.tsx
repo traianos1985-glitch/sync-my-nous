@@ -1875,7 +1875,9 @@ function Dashboard() {
                             className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="min-w-0">
-                              <p className="truncate font-mono text-xs text-foreground">{approval.tool}</p>
+                              <p className="truncate font-mono text-xs text-foreground">
+                                {approval.tool}
+                              </p>
                               <p className="mt-1 text-[11px] text-muted-foreground">
                                 Ζητήθηκε {new Date(approval.createdAt).toLocaleString("el-GR")}
                               </p>
@@ -2512,11 +2514,21 @@ function Dashboard() {
                         <DocumentStat label="Σύνολο" value={knowledgeDocuments.length} />
                         <DocumentStat
                           label="Έτοιμα"
-                          value={knowledgeDocuments.filter((document) => document.status === "ready" || document.status === "indexed").length}
+                          value={
+                            knowledgeDocuments.filter(
+                              (document) =>
+                                document.status === "ready" || document.status === "indexed",
+                            ).length
+                          }
                         />
                         <DocumentStat
                           label="Σε ουρά"
-                          value={knowledgeDocuments.filter((document) => !["ready", "indexed", "completed"].includes(document.status)).length}
+                          value={
+                            knowledgeDocuments.filter(
+                              (document) =>
+                                !["ready", "indexed", "completed"].includes(document.status),
+                            ).length
+                          }
                         />
                       </div>
                       <button
