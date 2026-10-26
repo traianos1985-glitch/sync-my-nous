@@ -1172,7 +1172,7 @@ function Dashboard() {
               </CommandItem>
             ))}
           </CommandGroup>
-          <CommandGroup heading="Γρήγορες ενέργειες">
+          <CommandGroup heading="Γρήγορες ενέργει����ς">
             <CommandItem
               value="new message chat"
               onSelect={() => {
@@ -2203,6 +2203,54 @@ function Dashboard() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Agent chat + workspace + Android companion + deploy, σε μία οθόνη.
                 </p>
+              </div>
+
+              <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    label: "Active missions",
+                    value: systemStatus?.counts?.missions ?? "—",
+                    detail: liveMissions.length ? "Live stream connected" : "Awaiting live stream",
+                    tone: "text-violet",
+                  },
+                  {
+                    label: "Pending approvals",
+                    value: approvals.length,
+                    detail: approvals.length ? "Needs your decision" : "Queue is clear",
+                    tone: approvals.length ? "text-warn" : "text-ok",
+                  },
+                  {
+                    label: "Tool runs",
+                    value: systemStatus?.counts?.toolRuns ?? "—",
+                    detail: "Recorded in the workspace",
+                    tone: "text-signal",
+                  },
+                  {
+                    label: "System health",
+                    value: systemStatus?.status ?? "—",
+                    detail:
+                      typeof systemStatus?.overview === "string"
+                        ? systemStatus.overview
+                        : "Connect to load status",
+                    tone:
+                      systemStatus?.status === "ok" || systemStatus?.status === "online"
+                        ? "text-ok"
+                        : "text-muted-foreground",
+                  },
+                ].map((metric) => (
+                  <div
+                    key={metric.label}
+                    className="min-w-0 rounded-2xl border border-border bg-card/70 p-4"
+                  >
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      {metric.label}
+                    </p>
+                    <p className={`mt-2 truncate font-mono text-xl font-semibold ${metric.tone}`}>
+                      {metric.value}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">{metric.detail}</p>
+                  </div>
+                ))}
               </div>
 
               <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
