@@ -1172,7 +1172,7 @@ function Dashboard() {
               </CommandItem>
             ))}
           </CommandGroup>
-          <CommandGroup heading="Γρήγορες ενέργει��ς">
+          <CommandGroup heading="Γρήγορες ενέργει����ς">
             <CommandItem
               value="new message chat"
               onSelect={() => {
@@ -2228,13 +2228,26 @@ function Dashboard() {
                   {
                     label: "System health",
                     value: systemStatus?.status ?? "—",
-                    detail: systemStatus?.overview ?? "Connect to load status",
-                    tone: systemStatus?.status === "ok" || systemStatus?.status === "online" ? "text-ok" : "text-muted-foreground",
+                    detail:
+                      typeof systemStatus?.overview === "string"
+                        ? systemStatus.overview
+                        : "Connect to load status",
+                    tone:
+                      systemStatus?.status === "ok" || systemStatus?.status === "online"
+                        ? "text-ok"
+                        : "text-muted-foreground",
                   },
                 ].map((metric) => (
-                  <div key={metric.label} className="min-w-0 rounded-2xl border border-border bg-card/70 p-4">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{metric.label}</p>
-                    <p className={`mt-2 truncate font-mono text-xl font-semibold ${metric.tone}`}>{metric.value}</p>
+                  <div
+                    key={metric.label}
+                    className="min-w-0 rounded-2xl border border-border bg-card/70 p-4"
+                  >
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      {metric.label}
+                    </p>
+                    <p className={`mt-2 truncate font-mono text-xl font-semibold ${metric.tone}`}>
+                      {metric.value}
+                    </p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">{metric.detail}</p>
                   </div>
                 ))}
