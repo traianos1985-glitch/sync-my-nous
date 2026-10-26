@@ -1,13 +1,15 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const publicAssetRoots = [".output/public/assets", "dist/assets"].filter((path) => {
-  try {
-    return statSync(path).isDirectory();
-  } catch {
-    return false;
-  }
-});
+const publicAssetRoots = [".output/public/assets", "dist/assets", "dist/client/assets"].filter(
+  (path) => {
+    try {
+      return statSync(path).isDirectory();
+    } catch {
+      return false;
+    }
+  },
+);
 
 if (publicAssetRoots.length === 0) {
   console.error("No public asset directory found; run the production build before scanning.");
