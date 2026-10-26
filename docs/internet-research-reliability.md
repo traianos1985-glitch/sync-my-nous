@@ -39,10 +39,19 @@ The research broker now:
 
 Specialised product queries (e.g. "Render free tier") often return mediocre DuckDuckGo / Wikipedia hits (unrelated Shiny, GeForce Now, etc.). The Internet Search Engine now:
 
-1. Computes a numeric `relevance_score` per hit (token overlap + light boost for known documentation domains such as `render.com` / `docs.render.com`).
+1. Computes a numeric `relevance_score` per hit (token overlap + domain boost for known documentation hosts).
 2. Flags `low_relevance: true` when the best score is below a threshold for multi-token queries.
 3. In `answer_from_web`, when hits are empty **or** low-relevance, falls back to an LLM knowledge answer (`mode: llm_fallback_low_relevance` or `knowledge_fallback_no_web`) while still exposing the weak live hits as secondary context.
 
 The ~2 s external-call rate limit (`capability_awareness.allow_external_call`) remains intentional and surfaces the Greek "Περίμενε ~Xs…" message; it is not a crash.
 
-This keeps the existing search path stable while improving answer quality for product-pricing style queries without inventing citations.
+## Site-aware product search (2026-10)
+
+For queries that name a known product or platform (Render, Vercel, Netlify, Fly.io, Railway, Supabase, AWS, GCP, Azure, GitHub, OpenAI, …):
+
+1. Detect preferred official hosts (`PRODUCT_SITES`).
+2. Run a parallel DuckDuckGo HTML search with `site:` restrictions to those hosts.
+3. Merge and re-rank; if first-pass relevance is still low, retry site-aware HTML only.
+4. Surface `site_aware: true` and `product_sites` in the search payload; `answer_from_web` may report `mode: internet_search_site_aware`.
+
+LLM fallback remains the safety net when even site-aware hits stay weak. No fabricated citations are introduced.
