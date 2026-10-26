@@ -10,6 +10,50 @@ from urllib.parse import quote_plus
 
 CACHE = Path("data/internet_search_cache.json")
 
+# Product / platform keywords → preferred documentation hosts.
+# Used both for query rewrite (site:) and for relevance domain boosts.
+PRODUCT_SITES: dict[str, tuple[str, ...]] = {
+    "render": ("render.com", "docs.render.com"),
+    "vercel": ("vercel.com", "vercel.com/docs"),
+    "netlify": ("netlify.com", "docs.netlify.com"),
+    "fly.io": ("fly.io", "fly.io/docs"),
+    "flyio": ("fly.io", "fly.io/docs"),
+    "railway": ("railway.app", "docs.railway.app"),
+    "supabase": ("supabase.com", "supabase.com/docs"),
+    "firebase": ("firebase.google.com", "firebase.google.com/docs"),
+    "aws": ("aws.amazon.com", "docs.aws.amazon.com"),
+    "gcp": ("cloud.google.com", "cloud.google.com/docs"),
+    "azure": ("azure.microsoft.com", "learn.microsoft.com"),
+    "digitalocean": ("digitalocean.com", "docs.digitalocean.com"),
+    "heroku": ("heroku.com", "devcenter.heroku.com"),
+    "cloudflare": ("cloudflare.com", "developers.cloudflare.com"),
+    "github": ("github.com", "docs.github.com"),
+    "gitlab": ("gitlab.com", "docs.gitlab.com"),
+    "openai": ("openai.com", "platform.openai.com/docs"),
+    "anthropic": ("anthropic.com", "docs.anthropic.com"),
+    "gemini": ("ai.google.dev", "ai.google.dev/gemini-api/docs"),
+    "stripe": ("stripe.com", "stripe.com/docs"),
+}
+
+DOMAIN_BOOSTS: tuple[tuple[str, float], ...] = (
+    ("docs.render.com", 2.5),
+    ("render.com", 2.0),
+    ("vercel.com/docs", 2.5),
+    ("vercel.com", 2.0),
+    ("docs.netlify.com", 2.0),
+    ("netlify.com", 1.5),
+    ("fly.io/docs", 2.0),
+    ("fly.io", 1.5),
+    ("docs.railway.app", 2.0),
+    ("railway.app", 1.5),
+    ("supabase.com/docs", 2.0),
+    ("supabase.com", 1.5),
+    ("docs.github.com", 2.0),
+    ("github.com", 0.8),
+    ("stackoverflow.com", 0.5),
+    ("official", 0.3),
+)
+
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
@@ -41,24 +85,42 @@ def _tokenise_query(query: str) -> set[str]:
     return {t for t in re.findall(r"[a-zA-Zα-ωΑ-Ω0-9]{3,}", (query or "").lower()) if t not in stop}
 
 
+def _detect_product_sites(query: str) -> list[str]:
+    """Return preferred hosts when the query names a known product/platform."""
+    q = (query or "").lower()
+    hosts: list[str] = []
+    for key, domains in PRODUCT_SITES.items():
+        # Word-boundary-ish match so "render" hits but not "renderer" alone as false friend.
+        if re.search(rf"\b{re.escape(key)}\b", q) or key.replace(".", "") in q.replace(".", ""):
+            for d in domains:
+                if d not in hosts:
+                    hosts.append(d)
+    return hosts
+
+
+def _product_site_queries(query: str) -> list[str]:
+    """Build site-restricted query variants for known products."""
+    hosts = _detect_product_sites(query)
+    if not hosts:
+        return []
+    base = clean(query)
+    # One combined site: query keeps ranking simple for DDG HTML.
+    site_clause = " OR ".join(f"site:{h}" for h in hosts[:3])
+    return [f"{base} {site_clause}"]
+
+
 def _score_item(tokens: set[str], item: dict) -> float:
-    """Token overlap + light domain boost for known product docs."""
+    """Token overlap + domain boost for known product docs."""
     if not tokens:
         return 0.0
     blob = f"{item.get('title', '')} {item.get('snippet', '')} {item.get('url', '')}".lower()
     hits = sum(1 for t in tokens if t in blob)
     score = float(hits)
     url = (item.get("url") or "").lower()
-    # Prefer official / documentation hosts for product-style queries.
-    for domain, boost in (
-        ("render.com", 1.5),
-        ("docs.render.com", 2.0),
-        ("github.com", 0.5),
-        ("stackoverflow.com", 0.4),
-        ("official", 0.3),
-    ):
+    for domain, boost in DOMAIN_BOOSTS:
         if domain in url:
             score += boost
+            break
     return score
 
 
@@ -89,7 +151,6 @@ def _filter_relevant(
     if len(good) >= min_keep:
         ranked = good
 
-    # Attach numeric score for downstream consumers / debugging.
     for s, r in scored:
         r["relevance_score"] = round(s, 2)
 
@@ -203,6 +264,17 @@ def _ddg_html(query: str, limit: int = 5) -> list[dict]:
     return []
 
 
+def _merge_unique(base: list[dict], extra: list[dict]) -> list[dict]:
+    seen = {(r.get("url") or "").rstrip("/") for r in base}
+    out = list(base)
+    for r in extra:
+        key = (r.get("url") or "").rstrip("/")
+        if key and key not in seen:
+            seen.add(key)
+            out.append(r)
+    return out
+
+
 def _llm_web_answer(query: str) -> str | None:
     try:
         from executor.remote_llm import ask_remote_llm
@@ -224,16 +296,37 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
     if not q:
         return {"ok": False, "error": "empty_query"}
 
+    site_queries = _product_site_queries(q)
+    used_site_aware = False
+
     results = _ddg_instant(q)
     wiki = _wikipedia_search(q)
     if wiki:
-        results = (results or []) + [w for w in wiki if w not in (results or [])]
+        results = _merge_unique(results or [], wiki)
+
+    # For known products, also pull site-restricted HTML hits early.
+    if site_queries:
+        for sq in site_queries:
+            site_hits = _ddg_html(sq, limit)
+            if site_hits:
+                results = _merge_unique(results or [], site_hits)
+                used_site_aware = True
+
     if len(results or []) < 2:
         html = _ddg_html(q, limit)
         if html:
-            results = (results or []) + html
+            results = _merge_unique(results or [], html)
 
     results, top_score, low_relevance = _filter_relevant(q, results or [])
+
+    # Second chance: if still weak and we know the product, force site-aware HTML only.
+    if (not results or low_relevance) and site_queries:
+        for sq in site_queries:
+            site_hits = _ddg_html(sq, limit)
+            if site_hits:
+                results = _merge_unique(results or [], site_hits)
+                used_site_aware = True
+        results, top_score, low_relevance = _filter_relevant(q, results or [], min_keep=1)
 
     if not results:
         results, top_score, low_relevance = _filter_relevant(
@@ -248,7 +341,10 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
         "results": results[:limit],
         "top_relevance_score": round(top_score, 2),
         "low_relevance": low_relevance,
+        "site_aware": used_site_aware,
     }
+    if site_queries:
+        payload["product_sites"] = _detect_product_sites(q)
     if not results:
         payload["error"] = "no_results"
     elif low_relevance:
@@ -285,14 +381,14 @@ def answer_from_web(query: str) -> dict[str, Any]:
             if x.get("url"):
                 lines.append(f"   🔗 {x.get('url')}")
         answer = "\n".join(lines)
+        if res.get("site_aware"):
+            mode = "internet_search_site_aware"
     else:
-        # No hits OR weak relevance (e.g. product pricing queries that surface
-        # unrelated DDG/Wikipedia pages) → LLM knowledge fallback.
+        # No hits OR weak relevance → LLM knowledge fallback.
         llm_ans = _llm_web_answer(query)
         if llm_ans:
             if results and low_relevance:
                 mode = "llm_fallback_low_relevance"
-                # Keep the weak hits as secondary context so the user can still open them.
                 secondary = "\n".join(
                     f"- {x.get('title', '')}: {x.get('url', '')}" for x in results[:3]
                 )
@@ -325,6 +421,7 @@ def answer_from_web(query: str) -> dict[str, Any]:
         "mode": mode,
         "low_relevance": low_relevance,
         "top_relevance_score": res.get("top_relevance_score", 0),
+        "site_aware": bool(res.get("site_aware")),
         "answer": answer,
         "results": results[:4],
         "raw": {
@@ -332,6 +429,8 @@ def answer_from_web(query: str) -> dict[str, Any]:
             "query": res.get("query"),
             "results_count": len(results),
             "low_relevance": low_relevance,
+            "site_aware": bool(res.get("site_aware")),
+            **({"product_sites": res.get("product_sites")} if res.get("product_sites") else {}),
             **({"error": res.get("error")} if res.get("error") else {}),
             **({"warning": res.get("warning")} if res.get("warning") else {}),
         },
