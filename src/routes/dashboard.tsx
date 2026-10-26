@@ -33,6 +33,16 @@ import {
   CheckCircle2,
   Brain,
   CircleDot,
+  Search,
+  SlidersHorizontal,
+  Wrench,
+  FileText,
+  PlayCircle,
+  Zap,
+  Database,
+  Shield,
+  BarChart3,
+  TerminalSquare,
 } from "lucide-react";
 import { navGroups, navLabel } from "@/components/nous/nav";
 import {
@@ -282,6 +292,8 @@ function Dashboard() {
   } | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
   const [messages, setMessages] = useState(initialChat);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -304,6 +316,18 @@ function Dashboard() {
   const chatAbortRef = useRef<AbortController | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((current) => !current);
+      }
+      if (event.key === "Escape") setCommandOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     const stored = loadStoredChat();
@@ -670,7 +694,7 @@ function Dashboard() {
     const detail =
       failure instanceof Error
         ? failure.message
-        : "Το Render backend δεν επιβεβαίωσε υγιή κατάσταση. Έλεγξε τη σύνδεση και το NOUS token.";
+        : "Το Render backend δεν επιβεβαίωσε υγιή κατά��ταση. Έλεγξε τη σύνδεση και το NOUS token.";
 
     setSystemStatus({
       ...(status ?? {}),
@@ -1032,6 +1056,8 @@ function Dashboard() {
   const go = (id: string) => {
     setSection(id);
     setMenuOpen(false);
+    setCommandOpen(false);
+    setCommandQuery("");
     if (id === "home") {
       void loadSystemStatus();
       void loadInitiatives();
@@ -1144,7 +1170,7 @@ function Dashboard() {
       >
         <div className="flex items-start justify-between px-4 pb-3 pt-4">
           <div>
-            <p className="font-display text-base font-bold tracking-tight">🧠 NOUS AI OS</p>
+            <p className="font-display text-base font-bold tracking-tight">NOUS AI OS</p>
             <p className="mt-0.5 text-xs text-muted-foreground">Personal agent workspace</p>
           </div>
           <button
@@ -1179,6 +1205,14 @@ function Dashboard() {
             ))}
 
           <div className="my-2 h-px bg-border" />
+          <button
+            onClick={() => setCommandOpen(true)}
+            className="mb-1 flex w-full items-center gap-2 rounded-md border border-border/70 bg-background/40 px-2.5 py-2 text-left text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground"
+          >
+            <Search className="size-3.5" />
+            <span className="flex-1">Αναζήτηση εντολών</span>
+            <kbd className="rounded border border-border px-1 font-mono text-[9px]">⌘K</kbd>
+          </button>
           <button
             onClick={() => setAdvancedOpen((o) => !o)}
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
@@ -1219,6 +1253,36 @@ function Dashboard() {
           />
         </div>
       </aside>
+
+      {commandOpen && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setCommandOpen(false)}>
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-primary/30 bg-card shadow-2xl shadow-violet/20" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="command-palette-title">
+            <div className="flex items-center gap-2 border-b border-border px-4">
+              <Search className="size-4 text-muted-foreground" />
+              <input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Αναζήτησε section ή ενέργεια…" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" aria-label="Αναζήτηση εντολών" />
+              <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">ESC</kbd>
+            </div>
+            <div className="max-h-[55vh] overflow-y-auto p-2">
+              {navGroups.flatMap((group) => group.items).filter((item) => item.label.toLowerCase().includes(commandQuery.toLowerCase())).map((item) => (
+                <button key={item.id} type="button" onClick={() => go(item.id)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-primary/10">
+                  <NavGlyph name={item.icon} />
+                  <span className="flex-1">{item.label}</span>
+                  <span className="text-[10px] text-muted-foreground">Open view</span>
+                </button>
+              ))}
+              {[
+                { label: "Test connection", icon: Activity, run: () => void loadSystemStatus() },
+                { label: "Run Gemini check", icon: Zap, run: () => void testGeminiConnection() },
+                { label: "Open settings", icon: Settings, run: () => go("settings") },
+              ].filter((item) => item.label.toLowerCase().includes(commandQuery.toLowerCase())).map((item) => (
+                <button key={item.label} type="button" onClick={() => { setCommandOpen(false); item.run(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-primary/10">
+                  <item.icon className="size-4 text-primary" /><span className="flex-1">{item.label}</span><span className="text-[10px] text-muted-foreground">Action</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main */}
       <main className="flex min-w-0 max-w-full flex-1 flex-col">
@@ -1274,7 +1338,7 @@ function Dashboard() {
               title="Ρυθμίσεις σύνδεσης NOUS"
               className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
             >
-              ⚙ Settings
+              <Settings className="size-3.5" /> Settings
             </button>
             <span className="hidden rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground sm:block">
               Owner Mode
