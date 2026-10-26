@@ -3,6 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { ChatMarkdown } from "@/components/nous/chat-markdown";
 import { sectionConfigs } from "@/components/nous/section-configs";
 import { SectionPanel } from "@/components/nous/section-panel";
+import { MissionList } from "@/components/nous/mission-list";
+import { ApprovalList } from "@/components/nous/approval-list";
+import { HealthPanel } from "@/components/nous/health-panel";
+import { summarizeMissions } from "@/components/nous/mission-status";
 import {
   CommandDialog,
   CommandEmpty,
@@ -458,6 +462,7 @@ function Dashboard() {
     Array<{ id: string; title: string; status: string }>
   >([]);
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "connected">("idle");
+  const missionSummary = summarizeMissions(liveMissions);
   const [jobHistory, setJobHistory] = useState<
     Array<{
       id: string;
@@ -800,6 +805,21 @@ function Dashboard() {
     setApprovals((items) => items.filter((item) => item.id !== id));
   };
 
+  // Home keeps approvals and Render health fresh while it is open.
+  const loadApprovalsRef = useRef(loadApprovals);
+  const loadSystemStatusRef = useRef(loadSystemStatus);
+  loadApprovalsRef.current = loadApprovals;
+  loadSystemStatusRef.current = loadSystemStatus;
+  useEffect(() => {
+    if (section !== "home") return;
+    const approvalsTimer = window.setInterval(() => void loadApprovalsRef.current(), 15_000);
+    const healthTimer = window.setInterval(() => void loadSystemStatusRef.current(), 60_000);
+    return () => {
+      window.clearInterval(approvalsTimer);
+      window.clearInterval(healthTimer);
+    };
+  }, [section]);
+
   const send = async (textOverride?: string, options: { retry?: boolean } = {}) => {
     const text = (textOverride ?? draft).trim();
     if (!text || isThinking) return;
@@ -1058,6 +1078,7 @@ function Dashboard() {
       void loadInitiatives();
       void loadCompanionStatus();
       void connectMissionStream();
+      void loadApprovals();
     }
     if (id === "missions") void connectMissionStream();
     if (id === "documents") void loadKnowledgeDocuments();
@@ -1858,48 +1879,12 @@ function Dashboard() {
                           {approvalStatus === "loading" ? "Έλεγχος…" : "Ανανέωση"}
                         </button>
                       </div>
-                      {approvalStatus === "error" && (
-                        <p className="mt-3 text-xs text-destructive">
-                          Η approval queue δεν είναι διαθέσιμη.
-                        </p>
-                      )}
-                      {approvalStatus === "idle" && approvals.length === 0 && (
-                        <p className="mt-3 text-xs text-muted-foreground">
-                          Δεν υπάρχουν pending approvals.
-                        </p>
-                      )}
-                      <div className="mt-3 space-y-2">
-                        {approvals.map((approval) => (
-                          <div
-                            key={approval.id}
-                            className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate font-mono text-xs text-foreground">
-                                {approval.tool}
-                              </p>
-                              <p className="mt-1 text-[11px] text-muted-foreground">
-                                Ζητήθηκε {new Date(approval.createdAt).toLocaleString("el-GR")}
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void resolveApproval(approval.id, "approved")}
-                                className="rounded-md bg-ok/15 px-3 py-1.5 text-xs font-semibold text-ok"
-                              >
-                                Έγκριση
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void resolveApproval(approval.id, "rejected")}
-                                className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground"
-                              >
-                                Απόρριψη
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="mt-3">
+                        <ApprovalList
+                          approvals={approvals}
+                          status={approvalStatus}
+                          onResolve={resolveApproval}
+                        />
                       </div>
                     </div>
                   )}
@@ -2318,8 +2303,48 @@ function Dashboard() {
                   </div>
                 </Card>
 
-                <Card title="Missions">
+                <Card title="Missions — ζωντανά">
+                  <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
+                    <span className="rounded-full border border-border px-2 py-0.5">
+                      Ενεργά: {missionSummary.active}
+                    </span>
+                    <span className="rounded-full border border-warn/30 px-2 py-0.5 text-warn">
+                      Θέλουν έγκριση: {missionSummary.awaiting}
+                    </span>
+                    <span className="rounded-full border border-destructive/30 px-2 py-0.5 text-destructive">
+                      Απέτυχαν: {missionSummary.failed}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {liveStatus === "connected"
+                        ? "Ανανέωση κάθε 3″"
+                        : liveStatus === "connecting"
+                          ? "Σύνδεση…"
+                          : "Εκτός σύνδεσης"}
+                    </span>
+                  </div>
                   <MissionList missions={liveMissions} />
+                </Card>
+
+                <Card title="Εγκρίσεις">
+                  <ApprovalList
+                    approvals={approvals}
+                    status={approvalStatus}
+                    onResolve={resolveApproval}
+                  />
+                </Card>
+
+                <Card title="Υγεία Render & Gemini">
+                  <HealthPanel
+                    renderStatus={systemStatus?.status}
+                    renderState={systemStatusState}
+                    checkedAt={systemStatusCheckedAt}
+                    geminiState={geminiTestState}
+                    geminiMessage={geminiTestMessage}
+                    missionsLive={liveStatus === "connected"}
+                    canTestGemini={hasToken}
+                    onRefresh={() => void loadSystemStatus()}
+                    onTestGemini={() => void testGeminiConnection()}
+                  />
                 </Card>
 
                 <Card title="Companion">
@@ -2818,41 +2843,6 @@ function DocumentStat({ label, value }: { label: string; value: number }) {
       </p>
       <p className="mt-1 font-mono text-lg font-semibold text-primary">{value}</p>
     </div>
-  );
-}
-
-function MissionList({
-  missions,
-}: {
-  missions: Array<{ id: string; title: string; status: string }>;
-}) {
-  if (missions.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">Δεν υπάρχουν ενεργά missions στο live stream.</p>
-    );
-  }
-  return (
-    <>
-      {missions.map((m) => (
-        <div
-          key={m.id}
-          className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm last:border-0"
-        >
-          <span>{m.title}</span>
-          <span
-            className={`font-mono text-xs ${
-              m.status === "running"
-                ? "text-primary"
-                : m.status === "done"
-                  ? "text-ok"
-                  : "text-warn"
-            }`}
-          >
-            {m.status}
-          </span>
-        </div>
-      ))}
-    </>
   );
 }
 
