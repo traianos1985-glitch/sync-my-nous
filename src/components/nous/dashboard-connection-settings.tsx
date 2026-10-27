@@ -67,6 +67,7 @@ export function ConnectionSettings({ dashboard }: { dashboard: ReturnType<typeof
         </Button>
         {hasSessionToken && (
           <Button
+            variant="outline"
             type="button"
             onClick={() => {
               clearNousToken();
@@ -83,9 +84,10 @@ export function ConnectionSettings({ dashboard }: { dashboard: ReturnType<typeof
         )}
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Το token είναι password field και μένει μόνο στο session του browser.
+        Το token αποθηκεύεται μόνο σε αυτόν τον browser μέχρι να το αφαιρέσεις.
       </p>
       <Button
+        variant="outline"
         type="button"
         onClick={() => void testGeminiConnection()}
         disabled={!hasToken || geminiTestState === "testing"}

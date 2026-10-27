@@ -21,8 +21,8 @@ export function DashboardHeader({ dashboard }: { dashboard: ReturnType<typeof us
   } = dashboard;
   return (
     <>
-      <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button
             variant="ghost"
             onClick={() => setMenuOpen(true)}

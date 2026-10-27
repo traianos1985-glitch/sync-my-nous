@@ -16,11 +16,11 @@ export function DashboardSidebar({ dashboard }: { dashboard: ReturnType<typeof u
           variant="ghost"
           aria-label="Κλείσε το μενού"
           onClick={() => setMenuOpen(false)}
-          className="fixed inset-0 z-40 bg-background/80 lg:hidden"
+          className="fixed inset-0 z-40 h-auto w-full bg-background/80 lg:hidden"
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card/95 transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col border-r border-border bg-card transition-transform motion-reduce:transition-none lg:static lg:translate-x-0 ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

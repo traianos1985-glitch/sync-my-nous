@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 const apiClient = readFileSync("src/lib/nous-api.ts", "utf8");
-const dashboard = readFileSync("src/components/nous/dashboard-page.tsx", "utf8");
+const dashboard = readFileSync("src/components/nous/use-dashboard.ts", "utf8");
 const flaskDashboardApi = readFileSync("nous-ai-os/executor/dashboard_api.py", "utf8");
 const flaskRouter = readFileSync("nous-ai-os/executor/router.py", "utf8");
 const fleetBlueprint = readFileSync(
@@ -75,7 +75,7 @@ if (dashboard.includes('nousStream("/api/missions/stream")')) {
 }
 requireMatch(
   dashboard,
-  /missionPollRef\.current = window\.setInterval\([\s\S]{0,400}?3_000/,
+  /missionPollRef\.current = window\.setTimeout\([\s\S]{0,400}?3_000/,
   "Mission updates must refresh every three seconds while connected.",
 );
 

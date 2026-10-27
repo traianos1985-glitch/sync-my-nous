@@ -44,6 +44,8 @@
 - Python cloud deploy: gunicorn on `$PORT` (Procfile), `render.yaml` with persistent `/app/data` disk.
 
 - Route modules retain route definitions and metadata; page and shell components live in component-only modules so Fast Refresh has valid boundaries.
+- Dashboard views, navigation, connection settings and chat persistence are separate modules; dashboard-owned requests share a cancelling/coalescing hook so independent views preserve one consistent session.
+- Render requests share one deadline/retry lifecycle and a request-ID wake tracker; retry only GET once on gateway failures, never automatically replay mutations, and schedule mission polls after completion to avoid cold-start overlap.
 - UI component modules export only components and types; shared variants and context hooks have separate modules to preserve Fast Refresh without lint exemptions.
 - Use Vite native TypeScript path resolution; the compatibility helper removes the wrapper legacy resolver and normalizes Nitro output options until upstream supports Vite 8 cleanly.
 - Let TanStack Start derive router basepath from Vite base; keep the local Render proxy serve-only so static subpath builds and previews share correct routes.

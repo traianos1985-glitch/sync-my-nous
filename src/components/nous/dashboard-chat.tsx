@@ -245,7 +245,7 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                   if (focus === "audit") void loadAuditEvents();
                   if (focus === "evaluation") void loadEvaluationMetrics();
                 }}
-                className={`group rounded-xl border p-3 text-left transition-all ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10 " : "border-border/70 bg-card/60 hover:border-primary/40"}`}
+                className={`group block h-auto min-h-24 min-w-0 whitespace-normal rounded-lg border p-3 text-left transition-colors ${activeFocus === label.toLowerCase() ? "border-primary/60 bg-primary/10" : "border-border/70 bg-card/60 hover:border-primary/40"}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
