@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { nousFetch, NousApiError } from "./nous-api";
+import { nousFetch, NousApiError } from "../src/lib/nous-api";
 import {
   REQUEST_TIMEOUT_MS,
   SLOW_REQUEST_MS,
   backendWakeTracker,
   createBackendWakeTracker,
-} from "./backend-wake-state";
+} from "../src/lib/backend-wake-state";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {
