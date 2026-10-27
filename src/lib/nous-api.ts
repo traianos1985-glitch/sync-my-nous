@@ -1,3 +1,5 @@
+import { backendWakeTracker, REQUEST_TIMEOUT_MS, SLOW_REQUEST_MS, RECOVERY_DELAY_MS, GATEWAY_STATUSES } from "./backend-wake-state";
+
 export type NousApiOptions = RequestInit & { token?: string; timeoutMs?: number };
 
 export class NousApiError extends Error {
@@ -18,82 +20,25 @@ export class NousApiError extends Error {
 // "Only HTML requests are supported here".
 const RENDER_API_BASE = "https://nous-ai-os-api.onrender.com";
 
-function resolveApiBase(): string {
-  const configured = import.meta.env["VITE_NOUS_API_URL"]?.trim();
-  const isLocalPreview =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-
-  // Local Vite previews use the existing proxy so Render does not reject the
-  // ephemeral localhost origin during CORS preflight. Published previews go
-  // directly to Render and use its allow-listed preview origins.
-  if (isLocalPreview) return "/api/nous";
-
-  const base = configured && /^https?:\/\//i.test(configured) ? configured : RENDER_API_BASE;
-  return base.replace(/\/+$/, "");
-}
-
-const apiBase = resolveApiBase();
+const apiBase = RENDER_API_BASE;
 const tokenStorageKey = "nous-dashboard-token";
-const requestTimeoutMs = 75_000;
 
-// ---- Cold-start (Render wake-up) signal ----
-const slowRequestMs = 4_000;
-let pendingSlow = 0;
-let gatewayFailures = 0;
-const wakeListeners = new Set<(waking: boolean) => void>();
-let lastWaking = false;
-function emitWake() {
-  const waking = pendingSlow > 0 || gatewayFailures >= 2;
-  if (waking === lastWaking) return;
-  lastWaking = waking;
-  wakeListeners.forEach((listener) => listener(waking));
-}
 export function subscribeBackendWaking(listener: (waking: boolean) => void): () => void {
-  wakeListeners.add(listener);
-  listener(lastWaking);
-  return () => wakeListeners.delete(listener);
-}
-function trackRequest<T>(run: () => Promise<T>): Promise<T> {
-  let slow = false;
-  const timer = window.setTimeout(() => {
-    slow = true;
-    pendingSlow += 1;
-    emitWake();
-  }, slowRequestMs);
-  const finish = () => {
-    window.clearTimeout(timer);
-    if (slow) pendingSlow -= 1;
-    emitWake();
-  };
-  return run().then(
-    (value) => {
-      gatewayFailures = 0;
-      finish();
-      return value;
-    },
-    (error) => {
-      const status = (error as { status?: number })?.status;
-      const msg = error instanceof Error ? error.message : "";
-      if ((status && [502, 503, 504].includes(status)) || /\((502|503|504)\)/.test(msg)) {
-        gatewayFailures += 1;
-      } else if (!(error instanceof DOMException)) {
-        gatewayFailures = Math.max(0, gatewayFailures);
-      }
-      finish();
-      throw error;
-    },
-  );
-}
-const retryableStatuses = new Set([502, 503, 504]);
-
-function shouldRetry(request: RequestInit, response: Response, attempt: number): boolean {
-  const method = (request.method ?? "GET").toUpperCase();
-  return attempt === 0 && method === "GET" && retryableStatuses.has(response.status);
+  const notify = () => listener(backendWakeTracker.getSnapshot().phase !== "idle");
+  notify();
+  return backendWakeTracker.subscribe(notify);
 }
 
-async function waitForRenderRecovery(): Promise<void> {
-  await new Promise((resolve) => window.setTimeout(resolve, 1_200));
+function waitForRenderRecovery(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    signal.throwIfAborted();
+    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, RECOVERY_DELAY_MS);
+    signal.addEventListener("abort", abort, { once: true });
+  });
 }
 
 async function createApiError(response: Response): Promise<NousApiError> {
@@ -216,90 +161,66 @@ export function clearNousToken(): void {
   }
 }
 
-export function nousStream(path: string, options: NousApiOptions = {}): Promise<Response> {
-  return trackRequest(() => nousStreamInner(path, options));
-}
-
-async function nousStreamInner(path: string, options: NousApiOptions = {}): Promise<Response> {
-  const headers = new Headers(options.headers);
-  headers.set("Accept", "text/event-stream");
-  const token = options.token ?? getNousToken();
-  setAuthorizationHeader(headers, token);
-  const controller = new AbortController();
-  const timeout = window.setTimeout(
-    () => controller.abort(),
-    options.timeoutMs ?? requestTimeoutMs,
-  );
-  if (options.signal)
-    options.signal.addEventListener("abort", () => controller.abort(), { once: true });
-  let response: Response;
-  const { token: _token, timeoutMs: _timeoutMs, ...requestInit } = options;
-  const request = {
-    ...requestInit,
-    body: adaptBody(path, options.body),
-    headers,
-    credentials: "include" as const,
-    signal: controller.signal,
-  };
-  try {
-    response = await fetch(requestUrl(path), request);
-    if (shouldRetry(request, response, 0)) {
-      await waitForRenderRecovery();
-      response = await fetch(requestUrl(path), request);
-    }
-  } catch (error) {
-    if (options.signal?.aborted) throw new DOMException("Request aborted", "AbortError");
-    if (controller.signal.aborted)
-      throw new Error("NOUS API timeout — το Render μπορεί να κάνει cold start. Δοκίμασε ξανά.");
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
+// One lifecycle for JSON and streaming headers. Mutations are never auto-replayed.
+async function executeRequest<T>(path: string, options: NousApiOptions, accept: string, read: (response: Response) => Promise<T>): Promise<T> {
+  options.signal?.throwIfAborted();
+  if (!path.startsWith("/") || path.startsWith("//") || /[\\\r\n]/.test(path)) {
+    throw new Error("Invalid NOUS API path");
   }
-  if (!response.ok) throw await createApiError(response);
-  return response;
-}
-
-export function nousFetch<T>(path: string, options: NousApiOptions = {}): Promise<T> {
-  return trackRequest(() => nousFetchInner<T>(path, options));
-}
-
-async function nousFetchInner<T>(path: string, options: NousApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set("Accept", "application/json");
-  if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type"))
+  headers.set("Accept", accept);
+  if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
-  const token = options.token ?? getNousToken();
-  setAuthorizationHeader(headers, token);
+  }
+  setAuthorizationHeader(headers, options.token ?? getNousToken());
   const controller = new AbortController();
-  const timeout = window.setTimeout(
-    () => controller.abort(),
-    options.timeoutMs ?? requestTimeoutMs,
-  );
-  if (options.signal)
-    options.signal.addEventListener("abort", () => controller.abort(), { once: true });
-  let response: Response;
+  const callerSignal = options.signal;
+  const abort = () => controller.abort(callerSignal?.reason);
+  callerSignal?.addEventListener("abort", abort, { once: true });
+  const id = backendWakeTracker.begin();
+  const slowTimer = setTimeout(() => backendWakeTracker.markSlow(id), SLOW_REQUEST_MS);
+  const timeout = setTimeout(() => controller.abort(new DOMException("Timeout", "TimeoutError")), options.timeoutMs ?? REQUEST_TIMEOUT_MS);
   const { token: _token, timeoutMs: _timeoutMs, ...requestInit } = options;
-  const request = {
-    ...requestInit,
-    body: adaptBody(path, options.body),
-    headers,
-    credentials: "include" as const,
-    signal: controller.signal,
+  const request: RequestInit = {
+    ...requestInit, body: adaptBody(path, options.body), headers,
+    credentials: "omit", signal: controller.signal,
   };
   try {
-    response = await fetch(requestUrl(path), request);
-    if (shouldRetry(request, response, 0)) {
-      await waitForRenderRecovery();
-      response = await fetch(requestUrl(path), request);
+    for (let attempt = 0; ; attempt += 1) {
+      controller.signal.throwIfAborted();
+      const response = await fetch(requestUrl(path), request);
+      if (GATEWAY_STATUSES.has(response.status)) {
+        backendWakeTracker.gatewayFailure();
+        if (attempt === 0 && (request.method ?? "GET").toUpperCase() === "GET") {
+          await response.body?.cancel();
+          await waitForRenderRecovery(controller.signal);
+          continue;
+        }
+      } else {
+        // Even 401/404 proves Render is awake; do not leave a stale wake banner.
+        backendWakeTracker.reachable();
+      }
+      if (!response.ok) throw await createApiError(response);
+      const value = await read(response);
+      controller.signal.throwIfAborted();
+      return value;
     }
   } catch (error) {
-    if (options.signal?.aborted) throw new DOMException("Request aborted", "AbortError");
-    if (controller.signal.aborted)
-      throw new Error("NOUS API timeout — το Render μπορεί να κάνει cold start. Δοκίμασε ξανά.");
+    if (callerSignal?.aborted) throw new DOMException("Request aborted", "AbortError");
+    if (controller.signal.aborted) throw new NousApiError(408, "Η αναμονή έληξε. Το Render μπορεί ακόμη να εκκινείται. Δοκίμασε ξανά.");
     throw error;
   } finally {
-    window.clearTimeout(timeout);
+    clearTimeout(timeout);
+    clearTimeout(slowTimer);
+    callerSignal?.removeEventListener("abort", abort);
+    backendWakeTracker.finish(id);
   }
-  if (!response.ok) throw await createApiError(response);
-  return response.json() as Promise<T>;
+}
+
+// Stream callers own body-reading cancellation after the response headers arrive.
+export function nousStream(path: string, options: NousApiOptions = {}): Promise<Response> {
+  return executeRequest(path, options, "text/event-stream", async (response) => response);
+}
+export function nousFetch<T>(path: string, options: NousApiOptions = {}): Promise<T> {
+  return executeRequest(path, options, "application/json", async (response) => response.json() as Promise<T>);
 }
