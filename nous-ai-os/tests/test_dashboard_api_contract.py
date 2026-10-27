@@ -64,7 +64,7 @@ def test_every_section_panel_path_has_a_real_flask_backend_route():
 
 
 def test_dashboard_literal_api_calls_have_flask_routes():
-    dashboard = (ROOT / "src" / "routes" / "dashboard.tsx").read_text(encoding="utf-8")
+    dashboard = (ROOT / "src" / "components" / "nous" / "dashboard-page.tsx").read_text(encoding="utf-8")
     methods = _flask_route_methods()
     api_aliases = {"/api/chat": "/chat", "/api/health": "/health"}
     paths = {
@@ -77,7 +77,7 @@ def test_dashboard_literal_api_calls_have_flask_routes():
 
 def test_dashboard_api_paths_are_sent_to_the_flask_base_url():
     source = (ROOT / "src" / "lib" / "nous-api.ts").read_text(encoding="utf-8")
-    dashboard = (ROOT / "src" / "routes" / "dashboard.tsx").read_text(encoding="utf-8")
+    dashboard = (ROOT / "src" / "components" / "nous" / "dashboard-page.tsx").read_text(encoding="utf-8")
     assert "FRONTEND_API_PREFIXES" not in source
     assert "isFrontendApiPath" not in source
     assert "requestUrl(path: string)" in source

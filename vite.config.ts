@@ -1,17 +1,23 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { nitroOutputCompatibility, withoutLegacyPaths } from "./scripts/vite-compat.ts";
+import type { ConfigEnv } from "vite";
 
-export default defineConfig({
+const baseConfig = defineConfig({
   vite: {
     base: process.env["VITE_BASE_PATH"] ?? "/",
-    optimizeDeps: {
-      exclude: ["lucide-react"],
-    },
-    server: {
-      host: "0.0.0.0",
-      // Respect the host-provided port so preview restarts do not collide with a stale Vite process.
-      port: Number(process.env["PORT"] ?? 5000),
-      strictPort: false,
-      allowedHosts: true,
+    resolve: { tsconfigPaths: true },
+    optimizeDeps: { exclude: ["lucide-react"] },
+    server: { allowedHosts: true },
+  },
+});
+
+export default async (env: ConfigEnv) => {
+  const config = await baseConfig(env);
+  config.plugins = [...withoutLegacyPaths(config.plugins), nitroOutputCompatibility];
+  // This proxy is only a local-browser CORS fallback, never a build dependency.
+  if (env.command === "serve") {
+    config.server = {
+      ...config.server,
       proxy: {
         "/api/nous": {
           target: process.env["NOUS_API_URL"] || "https://nous-ai-os-api.onrender.com",
@@ -20,6 +26,7 @@ export default defineConfig({
           rewrite: (path) => path.replace(/^\/api\/nous/, ""),
         },
       },
-    },
-  },
-});
+    };
+  }
+  return config;
+};

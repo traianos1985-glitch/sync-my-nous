@@ -7,3 +7,5 @@
 - [x] Cloud: Procfile uses PORT/gunicorn, render.yaml, docker port fix
 - [x] Dashboard live data from NOUS API (Render URL, token auth, timeout handling, CORS)
 - [x] nous-api.ts: always call Render directly (no /api/nous relative base); backend accepts https://*.lovable.app / .lovableproject.com / .lovable.dev origins
+
+- [x] Lint & Build Cleanups: split route components from exports, clean Vite/path settings, verify checks and merge into main.
