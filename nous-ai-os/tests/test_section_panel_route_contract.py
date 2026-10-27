@@ -109,7 +109,7 @@ def test_section_panel_endpoints_and_actions_use_supported_http_methods():
 
 def test_home_runtime_overview_is_rendered_by_the_home_dashboard():
     root = Path(__file__).resolve().parents[2]
-    dashboard_source = (root / "src" / "routes" / "dashboard.tsx").read_text(encoding="utf-8")
+    dashboard_source = (root / "src" / "components" / "nous" / "dashboard-page.tsx").read_text(encoding="utf-8")
     home_start = dashboard_source.index(') : section === "home" ? (')
     home_panel = dashboard_source.index('<SectionPanel section="home" />', home_start)
     home_end = dashboard_source.index('        ) : (', home_panel)
