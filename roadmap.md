@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] Split dashboard into independent views, connection settings, navigation and state hook.
+- [x] Harden Render wake-up tracking, cancellation, retries and non-overlapping polling; verified 18 request tests, 8 dashboard contract tests, 3 config tests and preview navigation/wake indicator.
+- [ ] Verify live authenticated chat and mission actions; owner must enter the real NOUS token through the dashboard Settings field.
+
 - [x] Fix broken build (vite config)
 - [x] Home ↔ dashboard link
 - [x] Loop: crash-safe cycles + backoff
