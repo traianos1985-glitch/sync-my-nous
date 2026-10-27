@@ -42,3 +42,8 @@
 - The web client always calls the Render backend directly (`src/lib/nous-api.ts`); never route dashboard API calls through a same-origin relative path such as `/api/nous`, because preview and static hosts answer HTML there. The Vite `/api/nous` proxy stays only as a legacy local fallback.
 - Cross-site browser calls are accepted from origins in `NOUS_CORS_ORIGINS` plus any `https://*.lovable.app`, `https://*.lovableproject.com` or `https://*.lovable.dev` preview/published app (see `ALLOWED_ORIGIN_SUFFIXES` in `executor/router.py`); auth still requires the NOUS token.
 - Python cloud deploy: gunicorn on `$PORT` (Procfile), `render.yaml` with persistent `/app/data` disk.
+
+- Route modules retain route definitions and metadata; page and shell components live in component-only modules so Fast Refresh has valid boundaries.
+- UI component modules export only components and types; shared variants and context hooks have separate modules to preserve Fast Refresh without lint exemptions.
+- Use Vite native TypeScript path resolution; the compatibility helper removes the wrapper legacy resolver and normalizes Nitro output options until upstream supports Vite 8 cleanly.
+- Let TanStack Start derive router basepath from Vite base; keep the local Render proxy serve-only so static subpath builds and previews share correct routes.
