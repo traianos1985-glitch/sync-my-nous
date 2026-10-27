@@ -20,19 +20,51 @@ export function createBackendWakeTracker() {
   const emit = () => {
     state = {
       phase: slow.size > 0 ? "waiting" : gatewayFailures >= 2 ? "recovering" : "idle",
-      pending: pending.size, slow: slow.size, gatewayFailures,
+      pending: pending.size,
+      slow: slow.size,
+      gatewayFailures,
     };
     listeners.forEach((listener) => listener());
   };
   return {
     getSnapshot: () => state,
-    subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    begin() { const id = ++nextId; pending.add(id); emit(); return id; },
-    markSlow(id: number) { if (pending.has(id)) { slow.add(id); emit(); } },
-    gatewayFailure() { gatewayFailures += 1; emit(); },
-    reachable() { gatewayFailures = 0; emit(); },
-    finish(id: number) { pending.delete(id); slow.delete(id); emit(); },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    begin() {
+      const id = ++nextId;
+      pending.add(id);
+      emit();
+      return id;
+    },
+    markSlow(id: number) {
+      if (pending.has(id)) {
+        slow.add(id);
+        emit();
+      }
+    },
+    gatewayFailure() {
+      gatewayFailures += 1;
+      emit();
+    },
+    reachable() {
+      gatewayFailures = 0;
+      emit();
+    },
+    finish(id: number) {
+      pending.delete(id);
+      slow.delete(id);
+      emit();
+    },
   };
 }
 export const backendWakeTracker = createBackendWakeTracker();
-export const idleBackendWakeState: BackendWakeState = { phase: "idle", pending: 0, slow: 0, gatewayFailures: 0 };
+export const idleBackendWakeState: BackendWakeState = {
+  phase: "idle",
+  pending: 0,
+  slow: 0,
+  gatewayFailures: 0,
+};

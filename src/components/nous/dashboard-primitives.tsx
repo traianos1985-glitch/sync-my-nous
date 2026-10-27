@@ -1,5 +1,15 @@
 import { Button } from "@/components/ui/button";
-import { Home, MessageSquare, Target, ClipboardList, Library, Settings, CheckCircle2, Brain, CircleDot } from "lucide-react";
+import {
+  Home,
+  MessageSquare,
+  Target,
+  ClipboardList,
+  Library,
+  Settings,
+  CheckCircle2,
+  Brain,
+  CircleDot,
+} from "lucide-react";
 export function NavGlyph({ name }: { name: string }) {
   const icons: Record<string, typeof CircleDot> = {
     message: MessageSquare,
@@ -25,7 +35,8 @@ export function NavButton({
   onClick: () => void;
 }) {
   return (
-    <Button variant="ghost"
+    <Button
+      variant="ghost"
       onClick={onClick}
       className={`my-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors ${
         active

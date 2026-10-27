@@ -1,4 +1,10 @@
-import { backendWakeTracker, REQUEST_TIMEOUT_MS, SLOW_REQUEST_MS, RECOVERY_DELAY_MS, GATEWAY_STATUSES } from "./backend-wake-state";
+import {
+  backendWakeTracker,
+  REQUEST_TIMEOUT_MS,
+  SLOW_REQUEST_MS,
+  RECOVERY_DELAY_MS,
+  GATEWAY_STATUSES,
+} from "./backend-wake-state";
 
 export type NousApiOptions = RequestInit & { token?: string; timeoutMs?: number };
 
@@ -32,7 +38,10 @@ export function subscribeBackendWaking(listener: (waking: boolean) => void): () 
 function waitForRenderRecovery(signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     signal.throwIfAborted();
-    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
     const timer = setTimeout(() => {
       signal.removeEventListener("abort", abort);
       resolve();
@@ -162,7 +171,12 @@ export function clearNousToken(): void {
 }
 
 // One lifecycle for JSON and streaming headers. Mutations are never auto-replayed.
-async function executeRequest<T>(path: string, options: NousApiOptions, accept: string, read: (response: Response) => Promise<T>): Promise<T> {
+async function executeRequest<T>(
+  path: string,
+  options: NousApiOptions,
+  accept: string,
+  read: (response: Response) => Promise<T>,
+): Promise<T> {
   options.signal?.throwIfAborted();
   if (!path.startsWith("/") || path.startsWith("//") || /[\\\r\n]/.test(path)) {
     throw new Error("Invalid NOUS API path");
@@ -179,11 +193,17 @@ async function executeRequest<T>(path: string, options: NousApiOptions, accept: 
   callerSignal?.addEventListener("abort", abort, { once: true });
   const id = backendWakeTracker.begin();
   const slowTimer = setTimeout(() => backendWakeTracker.markSlow(id), SLOW_REQUEST_MS);
-  const timeout = setTimeout(() => controller.abort(new DOMException("Timeout", "TimeoutError")), options.timeoutMs ?? REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException("Timeout", "TimeoutError")),
+    options.timeoutMs ?? REQUEST_TIMEOUT_MS,
+  );
   const { token: _token, timeoutMs: _timeoutMs, ...requestInit } = options;
   const request: RequestInit = {
-    ...requestInit, body: adaptBody(path, options.body), headers,
-    credentials: "omit", signal: controller.signal,
+    ...requestInit,
+    body: adaptBody(path, options.body),
+    headers,
+    credentials: "omit",
+    signal: controller.signal,
   };
   try {
     for (let attempt = 0; ; attempt += 1) {
@@ -207,7 +227,11 @@ async function executeRequest<T>(path: string, options: NousApiOptions, accept: 
     }
   } catch (error) {
     if (callerSignal?.aborted) throw new DOMException("Request aborted", "AbortError");
-    if (controller.signal.aborted) throw new NousApiError(408, "Η αναμονή έληξε. Το Render μπορεί ακόμη να εκκινείται. Δοκίμασε ξανά.");
+    if (controller.signal.aborted)
+      throw new NousApiError(
+        408,
+        "Η αναμονή έληξε. Το Render μπορεί ακόμη να εκκινείται. Δοκίμασε ξανά.",
+      );
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -222,5 +246,10 @@ export function nousStream(path: string, options: NousApiOptions = {}): Promise<
   return executeRequest(path, options, "text/event-stream", async (response) => response);
 }
 export function nousFetch<T>(path: string, options: NousApiOptions = {}): Promise<T> {
-  return executeRequest(path, options, "application/json", async (response) => response.json() as Promise<T>);
+  return executeRequest(
+    path,
+    options,
+    "application/json",
+    async (response) => response.json() as Promise<T>,
+  );
 }

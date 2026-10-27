@@ -1,10 +1,28 @@
+import { useDashboardRequests } from "./use-dashboard-requests";
 import { useEffect, useRef, useState } from "react";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { Activity, Sparkles, ScanLine, ShieldCheck, ShieldAlert } from "lucide-react";
 import { navGroups } from "./nav";
 import { summarizeMissions } from "./mission-status";
-import { clearNousToken, getNousToken, hasConfiguredNousApi, hasStoredNousToken, nousFetch, setNousToken } from "@/lib/nous-api";
-import { initialChat, loadStoredChat, normalizeStoredChatMessage, normalizeConversationId, sourcesToCitations, chatStorageKey, maxStoredChatMessages, type ChatMessage, type Citation, type SpeechRecognitionLike } from "./dashboard-chat-model";
+import {
+  clearNousToken,
+  getNousToken,
+  hasConfiguredNousApi,
+  hasStoredNousToken,
+  setNousToken,
+} from "@/lib/nous-api";
+import {
+  initialChat,
+  loadStoredChat,
+  normalizeStoredChatMessage,
+  normalizeConversationId,
+  sourcesToCitations,
+  chatStorageKey,
+  maxStoredChatMessages,
+  type ChatMessage,
+  type Citation,
+  type SpeechRecognitionLike,
+} from "./dashboard-chat-model";
 
 type Initiative = {
   id: string;
@@ -32,6 +50,19 @@ type SystemStatus = {
 };
 
 export function useDashboard() {
+  const nousFetch = useDashboardRequests();
+  const mountedRef = useRef(true);
+  const statusBusyRef = useRef(false);
+  const approvalsBusyRef = useRef(false);
+  const missionsBusyRef = useRef(false);
+  const initiativeBusyRef = useRef(false);
+  const [initiativePending, setInitiativePending] = useState(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const [section, setSection] = useState("chat");
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -125,7 +156,7 @@ export function useDashboard() {
     setVoiceSupported(Boolean(Recognition && "speechSynthesis" in window));
     return () => {
       window.clearInterval(statusTimer);
-      if (missionPollRef.current !== null) window.clearInterval(missionPollRef.current);
+      if (missionPollRef.current !== null) window.clearTimeout(missionPollRef.current);
       recognitionRef.current?.stop();
       chatAbortRef.current?.abort();
       window.speechSynthesis?.cancel();
@@ -311,19 +342,22 @@ export function useDashboard() {
   const missionPollRef = useRef<number | null>(null);
 
   const connectMissionStream = async () => {
-    if (liveStatus === "connecting") return;
+    if (missionsBusyRef.current) return;
     if (missionPollRef.current !== null) {
-      window.clearInterval(missionPollRef.current);
+      window.clearTimeout(missionPollRef.current);
       missionPollRef.current = null;
     }
     setLiveStatus("connecting");
 
     const refreshMissions = async (): Promise<boolean> => {
+      if (missionsBusyRef.current || !mountedRef.current) return false;
+      missionsBusyRef.current = true;
       try {
         const data = await nousFetch<
           | Array<{ id: string; title?: string; name?: string; status?: string }>
           | { missions?: Array<{ id: string; title?: string; name?: string; status?: string }> }
         >("/remote/missions");
+        if (!mountedRef.current) return false;
         const missions = Array.isArray(data) ? data : (data.missions ?? []);
         setLiveMissions(
           missions.map((mission) => ({
@@ -335,23 +369,19 @@ export function useDashboard() {
         setLiveStatus("connected");
         return true;
       } catch {
-        setLiveStatus("idle");
+        if (mountedRef.current) setLiveStatus("idle");
         return false;
+      } finally {
+        missionsBusyRef.current = false;
       }
     };
 
-    if (await refreshMissions()) {
-      // Flask exposes a regular authenticated JSON endpoint, not SSE. Poll the
-      // real backend every three seconds instead of connecting to a dead Pages route.
-      missionPollRef.current = window.setInterval(() => {
-        void refreshMissions().then((ok) => {
-          if (!ok && missionPollRef.current !== null) {
-            window.clearInterval(missionPollRef.current);
-            missionPollRef.current = null;
-          }
-        });
-      }, 3_000);
-    }
+    const poll = async () => {
+      const ok = await refreshMissions();
+      if (ok && mountedRef.current)
+        missionPollRef.current = window.setTimeout(() => void poll(), 3_000);
+    };
+    await poll();
   };
 
   const loadAuditEvents = async () => {
@@ -416,6 +446,8 @@ export function useDashboard() {
   };
 
   const loadSystemStatus = async () => {
+    if (statusBusyRef.current) return;
+    statusBusyRef.current = true;
     setSystemStatusState("loading");
     setSystemStatusError(null);
     const [healthResult, statusResult, metricsResult, overviewResult] = await Promise.allSettled([
@@ -427,6 +459,8 @@ export function useDashboard() {
       nousFetch<SystemStatus["overview"]>("/remote/ops/status"),
     ]);
 
+    statusBusyRef.current = false;
+    if (!mountedRef.current) return;
     const health = healthResult.status === "fulfilled" ? healthResult.value : undefined;
     const status = statusResult.status === "fulfilled" ? statusResult.value : undefined;
     const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : undefined;
@@ -515,6 +549,8 @@ export function useDashboard() {
   };
 
   const loadApprovals = async () => {
+    if (approvalsBusyRef.current) return;
+    approvalsBusyRef.current = true;
     setApprovalStatus("loading");
     try {
       const data = await nousFetch<{ approvals?: typeof approvals }>("/api/approvals");
@@ -522,6 +558,8 @@ export function useDashboard() {
       setApprovalStatus("idle");
     } catch {
       setApprovalStatus("error");
+    } finally {
+      approvalsBusyRef.current = false;
     }
   };
 
@@ -565,7 +603,7 @@ export function useDashboard() {
 
   const send = async (textOverride?: string, options: { retry?: boolean } = {}) => {
     const text = (textOverride ?? draft).trim();
-    if (!text || isThinking) return;
+    if (!text || chatAbortRef.current) return;
     const history = messages
       .filter((message) => message.id !== "welcome" && !message.error)
       .slice(-10)
@@ -610,6 +648,7 @@ export function useDashboard() {
         signal: controller.signal,
         timeoutMs: 120_000,
       });
+      if (!mountedRef.current || chatAbortRef.current !== controller) return;
       const answer = data.human_answer ?? data.answer ?? data.response ?? data.text;
       if (!answer) throw new Error(data.error ?? "Ο NOUS επέστρεψε κενή απάντηση.");
       setConnectionMode(data.mode === "degraded" ? "degraded" : "connected");
@@ -628,6 +667,7 @@ export function useDashboard() {
       ]);
       speak(answer);
     } catch (error) {
+      if (!mountedRef.current || chatAbortRef.current !== controller) return;
       if (error instanceof DOMException && error.name === "AbortError") {
         setMessages((m) => [
           ...m,
@@ -654,8 +694,10 @@ export function useDashboard() {
         },
       ]);
     } finally {
-      chatAbortRef.current = null;
-      setIsThinking(false);
+      if (chatAbortRef.current === controller) {
+        chatAbortRef.current = null;
+        if (mountedRef.current) setIsThinking(false);
+      }
     }
   };
 
@@ -669,6 +711,8 @@ export function useDashboard() {
 
   const clearChat = () => {
     chatAbortRef.current?.abort();
+    chatAbortRef.current = null;
+    setIsThinking(false);
     window.speechSynthesis?.cancel();
     setMessages(initialChat);
     setConversationId(null);
@@ -689,7 +733,9 @@ export function useDashboard() {
   const resolveInitiative = async (initiative: Initiative, action: "approve" | "reject") => {
     const route = action === "approve" ? initiative.approve_route : initiative.reject_route;
     const payload = action === "approve" ? initiative.approve_payload : initiative.reject_payload;
-    if (!route) return;
+    if (!route || initiativeBusyRef.current) return;
+    initiativeBusyRef.current = true;
+    setInitiativePending(true);
     try {
       await nousFetch("/remote/nous-initiatives/act", {
         method: "POST",
@@ -701,6 +747,9 @@ export function useDashboard() {
       setFailedInitiative({ initiative, action });
       setInitiativesState("error");
       return;
+    } finally {
+      initiativeBusyRef.current = false;
+      if (mountedRef.current) setInitiativePending(false);
     }
     await loadInitiatives();
   };
@@ -828,5 +877,141 @@ export function useDashboard() {
   };
 
   const commandItems = navGroups.flatMap((group) => group.items);
-  return { section, setSection, failedInitiative, setFailedInitiative, advancedOpen, setAdvancedOpen, menuOpen, setMenuOpen, commandOpen, setCommandOpen, messages, setMessages, draft, setDraft, isThinking, setIsThinking, isListening, setIsListening, voiceEnabled, setVoiceEnabled, voiceSupported, setVoiceSupported, voiceLanguage, setVoiceLanguage, pushToTalk, setPushToTalk, conversationId, setConversationId, chatLoaded, setChatLoaded, thinkingSlow, setThinkingSlow, initiatives, setInitiatives, initiativesState, setInitiativesState, companionStatus, setCompanionStatus, githubStatus, setGithubStatus, recognitionRef, chatAbortRef, chatEndRef, chatInputRef, speak, stopListening, startListening, toggleListening, researchMode, setResearchMode, connectionMode, setConnectionMode, activeFocus, setActiveFocus, approvals, setApprovals, approvalStatus, setApprovalStatus, systemStatus, setSystemStatus, tokenDraft, setTokenDraft, hasToken, setHasToken, hasSessionToken, setHasSessionToken, geminiTestState, setGeminiTestState, geminiTestMessage, setGeminiTestMessage, systemStatusState, setSystemStatusState, systemStatusCheckedAt, setSystemStatusCheckedAt, systemStatusError, setSystemStatusError, liveMissions, setLiveMissions, liveStatus, setLiveStatus, missionSummary, jobHistory, setJobHistory, jobHistoryStatus, setJobHistoryStatus, auditEvents, setAuditEvents, auditStatus, setAuditStatus, auditFilter, setAuditFilter, sentinelError, setSentinelError, knowledgeDocuments, setKnowledgeDocuments, knowledgeUpload, setKnowledgeUpload, knowledgeLoadStatus, setKnowledgeLoadStatus, evaluationMetrics, setEvaluationMetrics, evaluationStatus, setEvaluationStatus, sentinel, setSentinel, loadKnowledgeDocuments, loadEvaluationMetrics, exportEvaluation, uploadKnowledgeDocument, missionPollRef, connectMissionStream, loadAuditEvents, exportAudit, loadJobHistory, updateJob, loadSystemStatus, copyDiagnostics, testGeminiConnection, loadApprovals, resolveApproval, loadApprovalsRef, loadSystemStatusRef, send, stopChat, focusChatWithPrompt, clearChat, loadInitiatives, resolveInitiative, loadCompanionStatus, checkGithubStatus, commandSignals, submitFeedback, go, commandItems };
+  return {
+    initiativePending,
+    section,
+    setSection,
+    failedInitiative,
+    setFailedInitiative,
+    advancedOpen,
+    setAdvancedOpen,
+    menuOpen,
+    setMenuOpen,
+    commandOpen,
+    setCommandOpen,
+    messages,
+    setMessages,
+    draft,
+    setDraft,
+    isThinking,
+    setIsThinking,
+    isListening,
+    setIsListening,
+    voiceEnabled,
+    setVoiceEnabled,
+    voiceSupported,
+    setVoiceSupported,
+    voiceLanguage,
+    setVoiceLanguage,
+    pushToTalk,
+    setPushToTalk,
+    conversationId,
+    setConversationId,
+    chatLoaded,
+    setChatLoaded,
+    thinkingSlow,
+    setThinkingSlow,
+    initiatives,
+    setInitiatives,
+    initiativesState,
+    setInitiativesState,
+    companionStatus,
+    setCompanionStatus,
+    githubStatus,
+    setGithubStatus,
+    recognitionRef,
+    chatAbortRef,
+    chatEndRef,
+    chatInputRef,
+    speak,
+    stopListening,
+    startListening,
+    toggleListening,
+    researchMode,
+    setResearchMode,
+    connectionMode,
+    setConnectionMode,
+    activeFocus,
+    setActiveFocus,
+    approvals,
+    setApprovals,
+    approvalStatus,
+    setApprovalStatus,
+    systemStatus,
+    setSystemStatus,
+    tokenDraft,
+    setTokenDraft,
+    hasToken,
+    setHasToken,
+    hasSessionToken,
+    setHasSessionToken,
+    geminiTestState,
+    setGeminiTestState,
+    geminiTestMessage,
+    setGeminiTestMessage,
+    systemStatusState,
+    setSystemStatusState,
+    systemStatusCheckedAt,
+    setSystemStatusCheckedAt,
+    systemStatusError,
+    setSystemStatusError,
+    liveMissions,
+    setLiveMissions,
+    liveStatus,
+    setLiveStatus,
+    missionSummary,
+    jobHistory,
+    setJobHistory,
+    jobHistoryStatus,
+    setJobHistoryStatus,
+    auditEvents,
+    setAuditEvents,
+    auditStatus,
+    setAuditStatus,
+    auditFilter,
+    setAuditFilter,
+    sentinelError,
+    setSentinelError,
+    knowledgeDocuments,
+    setKnowledgeDocuments,
+    knowledgeUpload,
+    setKnowledgeUpload,
+    knowledgeLoadStatus,
+    setKnowledgeLoadStatus,
+    evaluationMetrics,
+    setEvaluationMetrics,
+    evaluationStatus,
+    setEvaluationStatus,
+    sentinel,
+    setSentinel,
+    loadKnowledgeDocuments,
+    loadEvaluationMetrics,
+    exportEvaluation,
+    uploadKnowledgeDocument,
+    missionPollRef,
+    connectMissionStream,
+    loadAuditEvents,
+    exportAudit,
+    loadJobHistory,
+    updateJob,
+    loadSystemStatus,
+    copyDiagnostics,
+    testGeminiConnection,
+    loadApprovals,
+    resolveApproval,
+    loadApprovalsRef,
+    loadSystemStatusRef,
+    send,
+    stopChat,
+    focusChatWithPrompt,
+    clearChat,
+    loadInitiatives,
+    resolveInitiative,
+    loadCompanionStatus,
+    checkGithubStatus,
+    commandSignals,
+    submitFeedback,
+    go,
+    commandItems,
+  };
 }

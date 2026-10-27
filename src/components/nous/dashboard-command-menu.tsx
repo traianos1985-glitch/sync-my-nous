@@ -1,12 +1,3 @@
-import { Link } from "@tanstack/react-router";
-
-import { ChatMarkdown } from "@/components/nous/chat-markdown";
-import { sectionConfigs } from "@/components/nous/section-configs";
-import { SectionPanel } from "@/components/nous/section-panel";
-import { MissionList } from "@/components/nous/mission-list";
-import { ApprovalList } from "@/components/nous/approval-list";
-import { HealthPanel } from "@/components/nous/health-panel";
-import { summarizeMissions } from "@/components/nous/mission-status";
 import {
   CommandDialog,
   CommandEmpty,
@@ -16,56 +7,21 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
-import { stripMarkdown } from "@/lib/strip-markdown";
-import {
-  Activity,
-  ArrowUpRight,
-  Loader2,
-  Mic,
-  MicOff,
-  ThumbsDown,
-  ThumbsUp,
-  Volume2,
-  VolumeX,
-  Menu,
-  RotateCcw,
-  ScanLine,
-  Send,
-  ShieldCheck,
-  ShieldAlert,
-  Sparkles,
-  Square,
-  X,
-  UploadCloud,
-  Home,
-  MessageSquare,
-  Target,
-  ClipboardList,
-  Library,
-  Settings,
-  CheckCircle2,
-  Brain,
-  CircleDot,
-  Search,
-} from "lucide-react";
-import { navGroups, navLabel } from "@/components/nous/nav";
-import {
-  clearNousToken,
-  getNousToken,
-  hasConfiguredNousApi,
-  hasStoredNousToken,
-  nousFetch,
-  setNousToken,
-} from "@/lib/nous-api";
 
-import { Button } from "@/components/ui/button";
-import { Card, DocumentStat, Metric, NavGlyph, NavButton, StatBar } from "./dashboard-primitives";
+import { RotateCcw, MessageSquare } from "lucide-react";
+
+import { NavGlyph } from "./dashboard-primitives";
 import type { useDashboard } from "./use-dashboard";
-import { ConnectionSettings } from "./dashboard-connection-settings";
 
-export function DashboardCommandMenu({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
-const { section, commandOpen, setCommandOpen, chatInputRef, loadSystemStatus, go, commandItems } = dashboard;
-return (<>
+export function DashboardCommandMenu({
+  dashboard,
+}: {
+  dashboard: ReturnType<typeof useDashboard>;
+}) {
+  const { section, commandOpen, setCommandOpen, chatInputRef, loadSystemStatus, go, commandItems } =
+    dashboard;
+  return (
+    <>
       <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
         <CommandInput placeholder="Αναζήτηση στο workspace…" />
         <CommandList>
@@ -112,6 +68,6 @@ return (<>
           </CommandGroup>
         </CommandList>
       </CommandDialog>
-
-</>);
+    </>
+  );
 }

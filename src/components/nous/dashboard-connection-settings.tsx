@@ -2,7 +2,20 @@ import { clearNousToken, getNousToken, setNousToken } from "@/lib/nous-api";
 import { Button } from "@/components/ui/button";
 import type { useDashboard } from "./use-dashboard";
 export function ConnectionSettings({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
-const { tokenDraft, setTokenDraft, hasToken, setHasToken, hasSessionToken, setHasSessionToken, geminiTestState, setGeminiTestState, geminiTestMessage, setGeminiTestMessage, loadSystemStatus, testGeminiConnection } = dashboard;
+  const {
+    tokenDraft,
+    setTokenDraft,
+    hasToken,
+    setHasToken,
+    hasSessionToken,
+    setHasSessionToken,
+    geminiTestState,
+    setGeminiTestState,
+    geminiTestMessage,
+    setGeminiTestMessage,
+    loadSystemStatus,
+    testGeminiConnection,
+  } = dashboard;
   return (
     <form
       className="mb-3 flex flex-col gap-2"
@@ -87,5 +100,4 @@ const { tokenDraft, setTokenDraft, hasToken, setHasToken, hasSessionToken, setHa
       )}
     </form>
   );
-
 }

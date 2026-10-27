@@ -100,7 +100,10 @@ export function normalizeConversationId(value: unknown): string | null {
   return typeof value === "string" && /^[0-9]{1,30}$/.test(value) ? value : null;
 }
 
-export function loadStoredChat(): { messages: ChatMessage[]; conversationId: string | null } | null {
+export function loadStoredChat(): {
+  messages: ChatMessage[];
+  conversationId: string | null;
+} | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(chatStorageKey);
@@ -156,4 +159,3 @@ export const initialChat: ChatMessage[] = [
     text: "Καλώς ήρθες. Είμαι ο NOUS. Μπορώ να συζητήσω φυσικά, να αναλύσω στόχους, να προτείνω βήματα και —όταν είναι συνδεδεμένο το backend— να εκτελέσ�� εγκεκριμένες ενέργειες. Δεν θα παρουσιάσω ποτέ μια πρόταση ως ολοκληρωμένη ενέργεια χωρίς επιβεβαίωση.",
   },
 ];
-
