@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Split dashboard into independent views, connection settings, navigation and state hook.
+- [ ] Harden Render wake-up tracking, cancellation, retries and non-overlapping polling; verify tests and UI.
+
 - [x] Fix broken build (vite config)
 - [x] Home ↔ dashboard link
 - [x] Loop: crash-safe cycles + backoff
