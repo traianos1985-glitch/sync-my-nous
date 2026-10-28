@@ -24,6 +24,7 @@ import { Route as ApiObservabilityRouteImport } from './routes/api.observability
 import { Route as ApiSecurityAuditRouteImport } from './routes/api.security-audit'
 import { Route as ApiSecurityLessonsRouteImport } from './routes/api.security-lessons'
 import { Route as ApiStatusRouteImport } from './routes/api.status'
+import { Route as ChatSessionIdRouteImport } from './routes/chat.$sessionId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiChatStreamRouteImport } from './routes/api.chat.stream'
 import { Route as ApiKnowledgeFileRouteImport } from './routes/api.knowledge.file'
@@ -107,6 +108,11 @@ const ApiStatusRoute = ApiStatusRouteImport.update({
   path: '/api/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatSessionIdRoute = ChatSessionIdRouteImport.update({
+  id: '/chat/$sessionId',
+  path: '/chat/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
@@ -183,6 +190,7 @@ export interface FileRoutesByTo {
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
@@ -208,6 +216,7 @@ export interface FileRoutesById {
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/knowledge/file': typeof ApiKnowledgeFileRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
+    | '/chat/$sessionId'
     | '/api/auth/$'
     | '/api/chat/stream'
     | '/api/knowledge/file'
@@ -258,6 +268,7 @@ export interface FileRouteTypes {
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
+    | '/chat/$sessionId'
     | '/api/auth/$'
     | '/api/chat/stream'
     | '/api/knowledge/file'
@@ -282,6 +293,7 @@ export interface FileRouteTypes {
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
+    | '/chat/$sessionId'
     | '/api/auth/$'
     | '/api/chat/stream'
     | '/api/knowledge/file'
@@ -307,6 +319,7 @@ export interface RootRouteChildren {
   ApiSecurityAuditRoute: typeof ApiSecurityAuditRoute
   ApiSecurityLessonsRoute: typeof ApiSecurityLessonsRoute
   ApiStatusRoute: typeof ApiStatusRoute
+  ChatSessionIdRoute: typeof ChatSessionIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiToolsExecuteRoute: typeof ApiToolsExecuteRoute
 }
@@ -418,6 +431,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/$sessionId': {
+      id: '/chat/$sessionId'
+      path: '/chat/$sessionId'
+      fullPath: '/chat/$sessionId'
+      preLoaderRoute: typeof ChatSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -525,6 +545,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSecurityAuditRoute: ApiSecurityAuditRoute,
   ApiSecurityLessonsRoute: ApiSecurityLessonsRoute,
   ApiStatusRoute: ApiStatusRoute,
+  ChatSessionIdRoute: ChatSessionIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiToolsExecuteRoute: ApiToolsExecuteRoute,
 }
