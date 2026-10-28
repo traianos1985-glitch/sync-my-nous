@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "./dashboard-primitives";
 import type { useDashboard } from "./use-dashboard";
 import { ConnectionSettings } from "./dashboard-connection-settings";
+import { useEffect, useState } from "react";
+import { TelemetryPanel } from "./telemetry-panel";
+import { appendResourcePoint, type ResourcePoint } from "./telemetry-model";
 
 const snapshotLabels = [
   "Health",
@@ -33,6 +36,7 @@ const capabilities = [
 ];
 
 export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
+  const [resourceHistory, setResourceHistory] = useState<ResourcePoint[]>([]);
   const {
     initiativePending,
     section,
@@ -58,6 +62,28 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
     resolveInitiative,
     loadCompanionStatus,
   } = dashboard;
+
+  useEffect(() => {
+    if (!systemStatusCheckedAt) return;
+    const timer = window.setTimeout(() => {
+      setResourceHistory((history) =>
+        appendResourcePoint(history, {
+          time: new Date(systemStatusCheckedAt).toLocaleTimeString("el-GR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          cpu: systemStatus?.metrics?.cpu_percent ?? null,
+          memory: systemStatus?.metrics?.memory_percent ?? null,
+        }),
+      );
+    }, 1);
+    return () => window.clearTimeout(timer);
+  }, [
+    systemStatusCheckedAt,
+    systemStatus?.metrics?.cpu_percent,
+    systemStatus?.metrics?.memory_percent,
+  ]);
+
   return (
     <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
       <div className="min-w-0 max-w-full rounded-2xl border border-border bg-gradient-to-br from-violet/20 to-primary/10 p-5">
@@ -113,6 +139,19 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
             <p className="mt-1 truncate text-xs text-muted-foreground">{metric.detail}</p>
           </div>
         ))}
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-border bg-card/70 p-4 md:p-5">
+        <TelemetryPanel
+          history={resourceHistory}
+          cpu={systemStatus?.metrics?.cpu_percent}
+          memory={systemStatus?.metrics?.memory_percent}
+          uptime={systemStatus?.metrics?.uptime_s}
+          checkedAt={systemStatusCheckedAt}
+          missions={missionSummary}
+          missionCount={systemStatus?.counts?.missions ?? null}
+          geminiState={geminiTestState}
+        />
       </div>
 
       <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
