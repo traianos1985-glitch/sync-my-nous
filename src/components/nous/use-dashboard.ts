@@ -16,7 +16,6 @@ import {
 import {
   initialChat,
   sourcesToCitations,
-  type ChatMessage,
   type Citation,
   type SpeechRecognitionLike,
 } from "./dashboard-chat-model";
@@ -321,15 +320,19 @@ export function useDashboard(sessionId?: string) {
   };
 
   const uploadKnowledgeDocument = async (file: File) => {
+    if (file.size > 15 * 1024 * 1024) throw new Error("Το αρχείο ξεπερνά τα 15 MB.");
+    if (!/\.(pdf|docx|txt|md|png|jpe?g|webp)$/i.test(file.name)) throw new Error("Μη υποστηριζόμενος τύπος αρχείου.");
     setKnowledgeUpload("uploading");
     const body = new FormData();
     body.append("file", file);
     try {
-      await nousFetch("/api/knowledge", { method: "POST", body });
-      setKnowledgeUpload("indexed");
+      const result = await nousFetch<{ indexed: boolean; ok: boolean }>("/api/knowledge", { method: "POST", body });
+      if (!result.ok) throw new Error("Το ανέβασμα απέτυχε.");
+      setKnowledgeUpload(result.indexed ? "indexed" : "stored");
       await loadKnowledgeDocuments();
-    } catch {
-      setKnowledgeUpload("failed");
+    } catch (error) {
+      setKnowledgeUpload("error");
+      throw error;
     }
   };
 
