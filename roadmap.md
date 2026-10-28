@@ -17,3 +17,4 @@
 - [x] Chat Workspace & Code Blocks: syntax-styled code blocks with copy button, individual message copy, Markdown & JSON chat export with metadata, and dedicated test suite.
 - [x] Telemetry & Observability Cards: add bounded CPU/memory history, uptime and mission count snapshots, mission status distribution, and Gemini connection state to the dashboard.
 - [x] Approvals Inspector & Mission Operations: expandable payload inspector with JSON formatting and copy action for pending approvals, manual approval queue refresh, and interactive mission tab filtering with instant search.
+- [x] Global Keyboard Shortcuts & Command Palette Suite: enhanced Command Menu with quick actions (Gemini test, approvals queue refresh, API base copy, shortcut cheat sheet), header approvals indicator pill, global Alt+1..5 navigation with '?' shortcuts modal, and dedicated approvals view wiring.

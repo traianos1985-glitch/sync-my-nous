@@ -1,3 +1,4 @@
+import { ApprovalList } from "@/components/nous/approval-list";
 import { sectionConfigs } from "@/components/nous/section-configs";
 import { SectionPanel } from "@/components/nous/section-panel";
 import { MissionList } from "@/components/nous/mission-list";
@@ -32,6 +33,10 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
     uploadKnowledgeDocument,
     testGeminiConnection,
     checkGithubStatus,
+    approvals,
+    approvalStatus,
+    resolveApproval,
+    loadApprovals,
   } = dashboard;
   return (
     <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
@@ -324,6 +329,14 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
           )}
           <div className="mt-5 space-y-2">
             {section === "missions" && <MissionList missions={liveMissions} />}
+            {section === "approvals" && (
+              <ApprovalList
+                approvals={approvals}
+                status={approvalStatus}
+                onResolve={resolveApproval}
+                onRefresh={loadApprovals}
+              />
+            )}
           </div>
         </Card>
         <Card title="Agent guardrails">

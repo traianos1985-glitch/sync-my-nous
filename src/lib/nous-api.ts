@@ -27,6 +27,9 @@ export class NousApiError extends Error {
 const RENDER_API_BASE = "https://nous-ai-os-api.onrender.com";
 
 const apiBase = RENDER_API_BASE;
+export function getNousApiBase(): string {
+  return apiBase;
+}
 const tokenStorageKey = "nous-dashboard-token";
 
 export function subscribeBackendWaking(listener: (waking: boolean) => void): () => void {

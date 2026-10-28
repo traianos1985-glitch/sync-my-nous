@@ -1,3 +1,4 @@
+import { shouldIgnoreKeyboardShortcut, matchSectionShortcut } from "./command-menu-model";
 import { useDashboardRequests } from "./use-dashboard-requests";
 import { useEffect, useRef, useState } from "react";
 import { stripMarkdown } from "@/lib/strip-markdown";
@@ -64,11 +65,31 @@ export function useDashboard() {
     };
   }, []);
   const [section, setSection] = useState("chat");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const goRef = useRef<(id: string) => void>(() => {});
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandOpen((open) => !open);
+        return;
+      }
+      if (shouldIgnoreKeyboardShortcut(event.target)) {
+        return;
+      }
+      if (event.key === "?" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setShortcutsOpen((open) => !open);
+        return;
+      }
+      if (event.altKey && !event.metaKey && !event.ctrlKey) {
+        const target = matchSectionShortcut(event.key);
+        if (target) {
+          event.preventDefault();
+          goRef.current(target);
+          return;
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -877,6 +898,7 @@ export function useDashboard() {
   };
 
   const commandItems = navGroups.flatMap((group) => group.items);
+  goRef.current = go;
   return {
     initiativePending,
     section,
@@ -889,6 +911,8 @@ export function useDashboard() {
     setMenuOpen,
     commandOpen,
     setCommandOpen,
+    shortcutsOpen,
+    setShortcutsOpen,
     messages,
     setMessages,
     draft,

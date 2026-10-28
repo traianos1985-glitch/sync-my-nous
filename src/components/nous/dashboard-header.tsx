@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
-import { Menu, RotateCcw, Settings, Search } from "lucide-react";
+import { Menu, RotateCcw, Search, Keyboard } from "lucide-react";
 import { navLabel } from "@/components/nous/nav";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ export function DashboardHeader({ dashboard }: { dashboard: ReturnType<typeof us
     section,
     setMenuOpen,
     setCommandOpen,
+    setShortcutsOpen,
+    approvals,
     systemStatus,
     systemStatusState,
     systemStatusCheckedAt,
@@ -19,6 +21,7 @@ export function DashboardHeader({ dashboard }: { dashboard: ReturnType<typeof us
     loadSystemStatus,
     go,
   } = dashboard;
+
   return (
     <>
       <header className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
@@ -46,6 +49,23 @@ export function DashboardHeader({ dashboard }: { dashboard: ReturnType<typeof us
               ⌘K
             </kbd>
           </Button>
+
+          {approvals.length > 0 && (
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={() => go("approvals")}
+              aria-label="Εκκρεμείς εγκρίσεις"
+              title={`${approvals.length} ${approvals.length === 1 ? "έγκριση σε εκκρεμότητα" : "εγκρίσεις σε εκκρεμότητα"}`}
+              className="flex items-center gap-1.5 rounded-full border border-warn/40 bg-warn/10 px-2.5 py-0.5 text-xs font-semibold text-warn hover:bg-warn/20"
+            >
+              <span className="size-1.5 rounded-full bg-warn animate-pulse" />
+              <span>
+                {approvals.length} {approvals.length === 1 ? "έγκριση" : "εγκρίσεις"}
+              </span>
+            </Button>
+          )}
+
           <span
             title={systemStatusError ?? undefined}
             className={`rounded-full border border-border px-2.5 py-0.5 font-mono text-xs ${systemStatus?.status === "degraded" || systemStatus?.status === "unavailable" ? "text-warn" : "text-ok"}`}
@@ -70,7 +90,18 @@ export function DashboardHeader({ dashboard }: { dashboard: ReturnType<typeof us
             />
           </Button>
         </div>
+
         <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={() => setShortcutsOpen(true)}
+            aria-label="Οδηγός συντομεύσεων πληκτρολογίου"
+            title="Συντομεύσεις πληκτρολογίου (?)"
+            className="hidden size-8 items-center justify-center rounded-lg border border-border p-0 text-muted-foreground transition hover:bg-accent hover:text-foreground sm:inline-flex"
+          >
+            <Keyboard className="size-4" />
+          </Button>
           <Button
             variant="ghost"
             type="button"
