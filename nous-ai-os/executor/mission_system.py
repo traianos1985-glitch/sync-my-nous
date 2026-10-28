@@ -1,11 +1,8 @@
 """Persistent mission execution with atomic task claims and truthful outcomes."""
-import fcntl
-import json
-import os
-import tempfile
 import time
 import uuid
 from contextlib import contextmanager
+from executor import unified_persistence as persistence
 
 from executor.ops_console import run_ops_action
 from executor.agent_journal import write_journal
@@ -38,46 +35,16 @@ APPROVAL_REQUIRED = {
 
 @contextmanager
 def _locked_items():
-    directory = os.path.dirname(FILE) or "."
-    os.makedirs(directory, exist_ok=True)
-    with open(FILE + ".lock", "a", encoding="utf-8") as lock_handle:
-        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+    with persistence.transaction(FILE, "mission_store_integrity_failure"):
+        yield
 
 
 def _load_unlocked():
-    """Load mission state without hiding corruption or resetting history."""
-    if not os.path.exists(FILE):
-        return []
-    try:
-        with open(FILE, "r", encoding="utf-8") as handle:
-            items = json.load(handle)
-    except (OSError, UnicodeError, ValueError, TypeError) as exc:
-        raise RuntimeError("mission_store_integrity_failure") from exc
-    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
-        raise RuntimeError("mission_store_integrity_failure")
-    return items
+    return persistence.load(FILE)
 
 
 def _save_unlocked(items):
-    directory = os.path.dirname(FILE) or "."
-    os.makedirs(directory, exist_ok=True)
-    fd, temp_path = tempfile.mkstemp(prefix=".missions.", suffix=".tmp", dir=directory)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(items, handle, ensure_ascii=False, indent=2)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, FILE)
-    except Exception:
-        try:
-            os.unlink(temp_path)
-        except OSError:
-            pass
-        raise
+    persistence.save(FILE, items)
 
 
 @contextmanager

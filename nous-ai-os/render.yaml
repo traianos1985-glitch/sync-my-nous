@@ -16,6 +16,8 @@ services:
         value: "0"
       - key: NOUS_ALLOW_ANONYMOUS
         value: "0"
+      - key: NOUS_DB_PATH
+        value: /app/data/nous_storage.db
     disk:
       name: nous-data
       mountPath: /app/data

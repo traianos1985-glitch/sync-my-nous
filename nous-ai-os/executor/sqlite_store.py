@@ -6,7 +6,7 @@ import os
 import sqlite3
 import time
 
-DB_PATH = "data/nous_storage.db"
+DB_PATH = os.environ.get("NOUS_DB_PATH", "data/nous_storage.db")
 MAX_MEMORIES = 500
 
 
