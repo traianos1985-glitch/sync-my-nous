@@ -13,3 +13,4 @@
 - [x] nous-api.ts: always call Render directly (no /api/nous relative base); backend accepts https://*.lovable.app / .lovableproject.com / .lovable.dev origins
 
 - [x] Lint & Build Cleanups: split route components from exports, clean Vite/path settings, verify checks and merge into main.
+- [x] CI Lockfile Sync & Render Wake Timer: sync package-lock.json with package.json dependencies and add live cold-start counter to wake banner.
