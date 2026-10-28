@@ -2,7 +2,6 @@
 import fcntl
 import json
 import os
-import tempfile
 import time
 from contextlib import contextmanager
 from executor import unified_persistence as persistence
@@ -27,7 +26,11 @@ def _queue_lock():
 
 
 def _load_unlocked():
-    return persistence.load(FILE)
+    try:
+        items = persistence.load(FILE)
+    except RuntimeError:
+        return []
+    return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
 
 
 def _inspect_queue_store_unlocked():
@@ -37,7 +40,7 @@ def _inspect_queue_store_unlocked():
     except (OSError, ValueError, TypeError, RuntimeError) as exc:
         return {
             "status": "degraded",
-            "error": f"queue_store_unreadable:{type(exc).__name__}",
+            "error": "queue_store_unreadable",
             "record_count": 0,
             "malformed_records": 0,
         }

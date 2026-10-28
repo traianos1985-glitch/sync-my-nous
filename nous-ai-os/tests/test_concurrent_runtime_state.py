@@ -13,7 +13,7 @@ def test_concurrent_queue_writes_do_not_lose_tasks(tmp_path, monkeypatch):
     with ThreadPoolExecutor(max_workers=12) as pool:
         created = list(pool.map(lambda index: task_queue.add_task(f"task-{index}"), range(60)))
 
-    persisted = json.loads(Path("data/agent_queue.json").read_text(encoding="utf-8"))
+    persisted = task_queue.list_queue()
     assert len(created) == 60
     assert len(persisted) == 60
     assert len({str(item["id"]) for item in persisted}) == 60

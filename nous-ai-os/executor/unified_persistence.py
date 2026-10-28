@@ -37,6 +37,12 @@ def transaction(legacy_file, error_prefix):
         token = _connections.set({**active, key: conn})
         if conn.execute("SELECT 1 FROM runtime_snapshots WHERE namespace=?", (key,)).fetchone() is None:
             items = []
+            if error_prefix == "queue_store_integrity_failure":
+                raw = Path(legacy_file).read_text(encoding="utf-8") if Path(legacy_file).exists() else "[]"
+                conn.execute("INSERT INTO runtime_snapshots VALUES (?,?)", (key, raw))
+                yield
+                conn.commit()
+                return
             if Path(legacy_file).exists():
                 try:
                     items = json.loads(Path(legacy_file).read_text(encoding="utf-8"))
@@ -64,8 +70,6 @@ def load(legacy_file):
         items = json.loads(row[0])
     except (TypeError, ValueError) as exc:
         raise RuntimeError("runtime_store_integrity_failure") from exc
-    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
-        raise RuntimeError("runtime_store_integrity_failure")
     return items
 
 

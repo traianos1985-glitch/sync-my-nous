@@ -24,7 +24,7 @@ def test_queue_save_is_valid_and_stale_recovery_is_bounded(tmp_path, monkeypatch
     assert second["failed"][0]["status"] == "failed"
     assert second["failed"][0]["last_error"] == "stale_running_recovery_limit_exceeded"
 
-    persisted = json.loads(Path("data/agent_queue.json").read_text(encoding="utf-8"))
+    persisted = queue.list_queue()
     assert persisted[0]["status"] == "failed"
 
 
@@ -142,4 +142,5 @@ def test_queue_mutations_preserve_malformed_records_until_explicit_clear(tmp_pat
     assert result["error"] == "queue_store_integrity_failure"
     assert Path("data/agent_queue.json").read_bytes() == original
     assert queue.clear_queue() == {"cleared": True}
-    assert json.loads(Path("data/agent_queue.json").read_text(encoding="utf-8")) == []
+    assert queue.list_queue() == []
+    assert Path("data/agent_queue.json").read_bytes() == original
