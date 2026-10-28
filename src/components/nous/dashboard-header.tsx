@@ -6,6 +6,7 @@ import { navLabel } from "@/components/nous/nav";
 import { Button } from "@/components/ui/button";
 
 import type { useDashboard } from "./use-dashboard";
+import { ChatHistoryDrawer } from './chat-history-drawer';
 
 export function DashboardHeader({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
   const {
@@ -92,6 +93,7 @@ export function DashboardHeader({ dashboard }: { dashboard: ReturnType<typeof us
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <ChatHistoryDrawer dashboard={dashboard} />
           <Button
             variant="ghost"
             type="button"

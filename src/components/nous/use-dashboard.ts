@@ -1,5 +1,6 @@
 import { shouldIgnoreKeyboardShortcut, matchSectionShortcut } from "./command-menu-model";
 import { useDashboardRequests } from "./use-dashboard-requests";
+import { useChatSessions } from './use-chat-sessions';
 import { useEffect, useRef, useState } from "react";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { Activity, Sparkles, ScanLine, ShieldCheck, ShieldAlert } from "lucide-react";
@@ -14,12 +15,7 @@ import {
 } from "@/lib/nous-api";
 import {
   initialChat,
-  loadStoredChat,
-  normalizeStoredChatMessage,
-  normalizeConversationId,
   sourcesToCitations,
-  chatStorageKey,
-  maxStoredChatMessages,
   type ChatMessage,
   type Citation,
   type SpeechRecognitionLike,
@@ -50,7 +46,9 @@ type SystemStatus = {
   overview?: { metrics?: unknown; local_llm?: unknown };
 };
 
-export function useDashboard() {
+export function useDashboard(sessionId?: string) {
+  const chatSessions = useChatSessions(sessionId);
+  const { messages, setMessages, draft, setDraft, conversationId, setConversationId, chatLoaded, setChatLoaded } = chatSessions;
   const nousFetch = useDashboardRequests();
   const mountedRef = useRef(true);
   const statusBusyRef = useRef(false);
@@ -102,16 +100,12 @@ export function useDashboard() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [messages, setMessages] = useState(initialChat);
-  const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState("el-GR");
   const [pushToTalk, setPushToTalk] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [chatLoaded, setChatLoaded] = useState(false);
   const [thinkingSlow, setThinkingSlow] = useState(false);
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [initiativesState, setInitiativesState] = useState<"idle" | "loading" | "error">("idle");
@@ -126,34 +120,13 @@ export function useDashboard() {
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    const stored = loadStoredChat();
-    if (stored) {
-      setMessages(stored.messages);
-      setConversationId(stored.conversationId);
-    }
     setHasToken(Boolean(getNousToken()));
     setHasSessionToken(hasStoredNousToken());
-    setChatLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (!chatLoaded) return;
-    try {
-      const storedMessages = messages
-        .slice(-maxStoredChatMessages)
-        .map(normalizeStoredChatMessage)
-        .filter((message): message is ChatMessage => message !== null);
-      window.localStorage.setItem(
-        chatStorageKey,
-        JSON.stringify({
-          messages: storedMessages,
-          conversationId: normalizeConversationId(conversationId),
-        }),
-      );
-    } catch {
-      // Storage full or disabled: chat still works for this page view.
-    }
-  }, [messages, conversationId, chatLoaded]);
+    if (chatLoaded && !isThinking && section === 'chat') chatInputRef.current?.focus();
+  }, [chatLoaded, isThinking, section]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -738,6 +711,7 @@ export function useDashboard() {
     setMessages(initialChat);
     setConversationId(null);
     setConnectionMode(null);
+    chatSessions.newSession();
   };
 
   const loadInitiatives = async () => {
@@ -900,6 +874,7 @@ export function useDashboard() {
   const commandItems = navGroups.flatMap((group) => group.items);
   goRef.current = go;
   return {
+    ...chatSessions,
     initiativePending,
     section,
     setSection,

@@ -8,8 +8,8 @@ import { DashboardHeader } from "./dashboard-header";
 import { BackendWakeBanner } from "./backend-wake-banner";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 
-export function Dashboard() {
-  const dashboard = useDashboard();
+export function Dashboard({ sessionId }: { sessionId?: string }) {
+  const dashboard = useDashboard(sessionId);
   return (
     <>
       <DashboardCommandMenu dashboard={dashboard} />
