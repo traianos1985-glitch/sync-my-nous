@@ -37,6 +37,7 @@ from executor.tool_catalog import tool_catalog
 from executor.intent import detect_intent
 from executor.tools import run_tool
 from executor.security import check_admin_token
+from executor.knowledge_panel import statuses, search_documents
 
 dashboard_api_bp = Blueprint("dashboard_api", __name__, url_prefix="/api")
 
@@ -55,7 +56,7 @@ TOOL_LIBRARY_ALLOWED_ACTIONS = frozenset(
 )
 
 FEEDBACK_FILE = Path("data/feedback.json")
-_UPLOAD_PREFIX = re.compile(r"^\d{8}_\d{6}_")
+_UPLOAD_PREFIX = re.compile(r"^\d{8}_\d{6}_(?:[a-f0-9]{8}_)?")
 _TRUTHY = {"1", "true", "yes", "on"}
 
 
@@ -194,6 +195,7 @@ def api_status():
 @dashboard_api_bp.get("/knowledge")
 def api_knowledge_list():
     documents = []
+    ingestion = statuses()
     if UPLOADS.exists():
         files = [p for p in UPLOADS.iterdir() if p.is_file()]
         files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
@@ -204,7 +206,7 @@ def api_knowledge_list():
                     "id": path.name,
                     "originalName": original,
                     "contentType": mimetypes.guess_type(original)[0] or "application/octet-stream",
-                    "status": "stored",
+                    "status": ingestion.get(path.name, "stored"),
                     "sizeBytes": path.stat().st_size,
                 }
             )
@@ -220,10 +222,14 @@ def api_knowledge_upload():
         return jsonify({"ok": False, "error": "missing_file"}), 400
 
     suffix = Path(upload.filename).suffix
+    if suffix.lower() not in {".pdf", ".txt", ".md", ".docx", ".png", ".jpg", ".jpeg", ".webp"}:
+        return jsonify({"ok": False, "error": "unsupported_file_type"}), 400
     handle = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     try:
         upload.save(handle)
         handle.close()
+        if Path(handle.name).stat().st_size > 15 * 1024 * 1024:
+            return jsonify({"ok": False, "error": "file_exceeds_15_mb"}), 413
         result = process_uploaded_file(handle.name, original_name=upload.filename)
     finally:
         try:
@@ -254,6 +260,21 @@ def api_knowledge_upload():
         ),
         201,
     )
+
+
+@dashboard_api_bp.get("/knowledge/search")
+def api_knowledge_search():
+    query = request.args.get("q", "").strip()
+    content_type = request.args.get("type", "")
+    if not query or len(query) > 1000 or content_type not in {"", "application/pdf", "text/", "image/", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}:
+        return jsonify({"ok": False, "error": "invalid_search_filters"}), 400
+    try:
+        min_score = float(request.args.get("min_score", "0.2"))
+        if not 0 <= min_score <= 1:
+            raise ValueError
+    except ValueError:
+        return jsonify({"ok": False, "error": "invalid_relevance_threshold"}), 400
+    return jsonify({"ok": True, "method": "local_feature_hash_cosine", "hits": search_documents(query, content_type, min_score)})
 
 
 # ---------------------------------------------------------------- evaluation + feedback

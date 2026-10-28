@@ -5,6 +5,7 @@ import os
 import tempfile
 import time
 from contextlib import contextmanager
+from executor import unified_persistence as persistence
 
 FILE = "data/agent_queue.json"
 DEFAULT_MAX_ATTEMPTS = 3
@@ -19,32 +20,21 @@ def _queue_lock():
     with open(lock_path, "a", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
         try:
-            yield
+            with persistence.transaction(FILE, "queue_store_integrity_failure"):
+                yield
         finally:
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
 
 def _load_unlocked():
-    if not os.path.exists(FILE):
-        return []
-    try:
-        with open(FILE, "r", encoding="utf-8") as handle:
-            items = json.load(handle)
-    except (OSError, ValueError, TypeError):
-        return []
-    if not isinstance(items, list):
-        return []
-    return [item for item in items if isinstance(item, dict)]
+    return persistence.load(FILE)
 
 
 def _inspect_queue_store_unlocked():
     """Inspect raw persisted queue data without filtering or modifying it."""
-    if not os.path.exists(FILE):
-        return {"status": "healthy", "record_count": 0, "malformed_records": 0}
     try:
-        with open(FILE, "r", encoding="utf-8") as handle:
-            raw = json.load(handle)
-    except (OSError, ValueError, TypeError) as exc:
+        raw = persistence.load(FILE)
+    except (OSError, ValueError, TypeError, RuntimeError) as exc:
         return {
             "status": "degraded",
             "error": f"queue_store_unreadable:{type(exc).__name__}",
@@ -81,21 +71,7 @@ def _integrity_failure(integrity):
 
 
 def _save_unlocked(items):
-    directory = os.path.dirname(FILE) or "."
-    os.makedirs(directory, exist_ok=True)
-    fd, temp_path = tempfile.mkstemp(prefix=".agent_queue.", suffix=".tmp", dir=directory)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(items, handle, ensure_ascii=False, indent=2)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, FILE)
-    except Exception:
-        try:
-            os.unlink(temp_path)
-        except OSError:
-            pass
-        raise
+    persistence.save(FILE, items)
 
 
 def _int_or(value, fallback):
