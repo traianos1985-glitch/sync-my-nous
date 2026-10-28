@@ -14,12 +14,17 @@ import {
   VolumeX,
   RotateCcw,
   Send,
+  Check,
+  Copy,
+  Download,
   ShieldAlert,
   Sparkles,
   Square,
 } from "lucide-react";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { exportChatAsMarkdown, exportChatAsJson, downloadChatFile } from "./dashboard-chat-model";
 import { Metric } from "./dashboard-primitives";
 import type { useDashboard } from "./use-dashboard";
 
@@ -88,6 +93,30 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
     submitFeedback,
     go,
   } = dashboard;
+
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  const copyMessageText = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMessageId(id);
+      window.setTimeout(() => setCopiedMessageId((cur) => (cur === id ? null : cur)), 2_000);
+    } catch {
+      // Ignore clipboard write failures in restricted contexts
+    }
+  };
+
+  const handleExportMarkdown = () => {
+    const md = exportChatAsMarkdown(messages, conversationId);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadChatFile(md, `nous-chat-${dateStr}.md`, "text/markdown;charset=utf-8");
+  };
+
+  const handleExportJson = () => {
+    const json = exportChatAsJson(messages, conversationId);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadChatFile(json, `nous-chat-${dateStr}.json`, "application/json;charset=utf-8");
+  };
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
@@ -654,7 +683,35 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                       : "border-border bg-card/80"
                 }`}
               >
-                {m.role === "user" ? m.text : <ChatMarkdown text={m.text} />}
+                {m.role === "user" ? (
+                  <div>
+                    {m.text}
+                    <div className="mt-1.5 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        onClick={() => void copyMessageText(m.id, m.text)}
+                        className="h-5 gap-1 px-1.5 text-[10px] text-muted-foreground hover:bg-violet/20 hover:text-foreground"
+                        aria-label="Αντιγραφή μηνύματος"
+                      >
+                        {copiedMessageId === m.id ? (
+                          <>
+                            <Check className="size-2.5 text-ok" />
+                            <span className="text-ok">Αντιγράφηκε</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="size-2.5" />
+                            <span>Αντιγραφή</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <ChatMarkdown text={m.text} />
+                )}
                 {m.error && m.retryText && (
                   <Button
                     variant="ghost"
@@ -666,28 +723,52 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                     <RotateCcw className="size-3" /> Ξαναδοκίμασε
                   </Button>
                 )}
-                {m.role === "assistant" && m.id !== "welcome" && !m.error && (
-                  <div className="mt-3 flex items-center gap-1 border-t border-border/60 pt-2">
-                    <span className="mr-2 text-[10px] text-muted-foreground">
-                      Αξιολόγηση απάντησης
-                    </span>
+                {m.role === "assistant" && !m.error && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2 text-[10px] text-muted-foreground">
+                    {m.id !== "welcome" ? (
+                      <div className="flex items-center gap-1">
+                        <span className="mr-1 text-[10px] text-muted-foreground">Αξιολόγηση</span>
+                        <Button
+                          variant="ghost"
+                          type="button"
+                          onClick={() => void submitFeedback(m.id, "positive")}
+                          aria-label="Χρήσιμη απάντηση"
+                          className={`rounded-md p-1.5 transition-colors ${m.feedback === "positive" ? "bg-ok/15 text-ok" : "text-muted-foreground hover:bg-ok/10 hover:text-ok"}`}
+                        >
+                          <ThumbsUp className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          type="button"
+                          onClick={() => void submitFeedback(m.id, "negative")}
+                          aria-label="Μη χρήσιμη απάντηση"
+                          className={`rounded-md p-1.5 transition-colors ${m.feedback === "negative" ? "bg-destructive/15 text-destructive" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"}`}
+                        >
+                          <ThumbsDown className="size-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div />
+                    )}
                     <Button
                       variant="ghost"
+                      size="sm"
                       type="button"
-                      onClick={() => void submitFeedback(m.id, "positive")}
-                      aria-label="Χρήσιμη απάντηση"
-                      className={`rounded-md p-1.5 transition-colors ${m.feedback === "positive" ? "bg-ok/15 text-ok" : "text-muted-foreground hover:bg-ok/10 hover:text-ok"}`}
+                      onClick={() => void copyMessageText(m.id, m.text)}
+                      className="h-6 gap-1 px-2 text-[11px] hover:bg-muted"
+                      aria-label="Αντιγραφή απάντησης"
                     >
-                      <ThumbsUp className="size-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      onClick={() => void submitFeedback(m.id, "negative")}
-                      aria-label="Μη χρήσιμη απάντηση"
-                      className={`rounded-md p-1.5 transition-colors ${m.feedback === "negative" ? "bg-destructive/15 text-destructive" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"}`}
-                    >
-                      <ThumbsDown className="size-3.5" />
+                      {copiedMessageId === m.id ? (
+                        <>
+                          <Check className="size-3 text-ok" />
+                          <span className="text-ok">Αντιγράφηκε</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="size-3" />
+                          <span>Αντιγραφή</span>
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
@@ -753,16 +834,41 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
               </select>
             </label>
           </div>
-          <Button
-            variant="ghost"
-            type="button"
-            onClick={clearChat}
-            disabled={messages.length <= 1 && !conversationId}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Καθαρισμός συνομιλίας"
-          >
-            <RotateCcw className="size-3" /> Καθαρισμός
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              onClick={handleExportMarkdown}
+              disabled={messages.length <= 1}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+              title="Εξαγωγή συνομιλίας σε Markdown"
+            >
+              <Download className="size-3" /> .md
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              onClick={handleExportJson}
+              disabled={messages.length <= 1}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+              title="Εξαγωγή συνομιλίας σε JSON"
+            >
+              <Download className="size-3" /> .json
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              onClick={clearChat}
+              disabled={messages.length <= 1 && !conversationId}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Καθαρισμός συνομιλίας"
+            >
+              <RotateCcw className="size-3" /> Καθαρισμός
+            </Button>
+          </div>
         </div>
         <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <label className="flex items-center gap-2">

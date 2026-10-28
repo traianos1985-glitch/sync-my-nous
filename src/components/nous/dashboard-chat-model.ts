@@ -159,3 +159,60 @@ export const initialChat: ChatMessage[] = [
     text: "Καλώς ήρθες. Είμαι ο NOUS. Μπορώ να συζητήσω φυσικά, να αναλύσω στόχους, να προτείνω βήματα και —όταν είναι συνδεδεμένο το backend— να εκτελέσ�� εγκεκριμένες ενέργειες. Δεν θα παρουσιάσω ποτέ μια πρόταση ως ολοκληρωμένη ενέργεια χωρίς επιβεβαίωση.",
   },
 ];
+
+export function exportChatAsMarkdown(
+  messages: ChatMessage[],
+  conversationId?: string | null,
+): string {
+  const date = new Date().toISOString().slice(0, 19).replace("T", " ");
+  let md = `# NOUS Chat Export\n\n`;
+  md += `- **Ημερομηνία:** ${date}\n`;
+  if (conversationId) {
+    md += `- **ID Συνομιλίας:** ${conversationId}\n`;
+  }
+  md += `- **Σύνολο μηνυμάτων:** ${messages.length}\n\n---\n\n`;
+
+  for (const message of messages) {
+    const roleLabel = message.role === "user" ? "Χρήστης" : "NOUS";
+    md += `### ${roleLabel}\n\n${message.text}\n\n`;
+    if (message.citations?.length) {
+      md += `*Πηγές:*\n`;
+      for (const citation of message.citations) {
+        md += `- [${citation.title}](${citation.url}) (${citation.domain})\n`;
+      }
+      md += `\n`;
+    }
+    md += `---\n\n`;
+  }
+  return md;
+}
+
+export function exportChatAsJson(messages: ChatMessage[], conversationId?: string | null): string {
+  return JSON.stringify(
+    {
+      exportedAt: new Date().toISOString(),
+      conversationId: conversationId ?? null,
+      messageCount: messages.length,
+      messages: messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        text: m.text,
+        citations: m.citations,
+        feedback: m.feedback,
+      })),
+    },
+    null,
+    2,
+  );
+}
+
+export function downloadChatFile(content: string, filename: string, mimeType: string): void {
+  if (typeof window === "undefined") return;
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}

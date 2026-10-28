@@ -1,5 +1,6 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { CodeBlock } from "./code-block";
 
 const components: Components = {
   a: ({ children, href }) => (
@@ -23,22 +24,18 @@ const components: Components = {
       {children}
     </blockquote>
   ),
-  pre: ({ children }) => (
-    <pre className="my-2 overflow-x-auto rounded-lg border border-border bg-background/80 p-3 text-xs">
-      {children}
-    </pre>
-  ),
-  code: ({ children, className }) => (
-    <code
-      className={
-        className
-          ? `${className} font-mono`
-          : "rounded bg-background/80 px-1 py-0.5 font-mono text-[0.85em]"
-      }
-    >
-      {children}
-    </code>
-  ),
+  pre: ({ children }) => <div className="my-2">{children}</div>,
+  code: ({ children, className }) => {
+    const isBlock = Boolean(className?.includes("language-") || String(children).includes("\n"));
+    if (isBlock) {
+      return <CodeBlock className={className}>{children}</CodeBlock>;
+    }
+    return (
+      <code className="rounded bg-background/80 px-1 py-0.5 font-mono text-[0.85em]">
+        {children}
+      </code>
+    );
+  },
   table: ({ children }) => (
     <div className="my-2 overflow-x-auto">
       <table className="w-full border-collapse text-xs">{children}</table>
