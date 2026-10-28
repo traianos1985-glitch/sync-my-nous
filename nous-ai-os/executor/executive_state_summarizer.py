@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from executor.mission_system import list_missions
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -38,7 +39,7 @@ def count_status(items: Any) -> dict[str, int]:
 def run_executive_state_summarizer() -> dict[str, Any]:
     REPORTS.mkdir(parents=True, exist_ok=True)
 
-    missions = load_json(DATA / "missions.json", [])
+    missions = list_missions()
     mission_proposals = load_json(DATA / "mission_proposals.json", [])
     repair_proposals = load_json(DATA / "repair_proposals.json", [])
     patch_proposals = load_json(DATA / "patch_proposals.json", [])

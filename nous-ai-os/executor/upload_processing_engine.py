@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from executor.document_intelligence_engine import learn_file
+from executor.knowledge_panel import set_status
+import uuid
 
 UPLOADS = Path("data/document_uploads")
 REPORTS = Path("data/reports")
@@ -30,12 +32,19 @@ def process_uploaded_file(source_path: str | Path, original_name: str = "", note
     if not src.exists():
         return {"ok": False, "error": "file_not_found", "path": str(src)}
 
-    target = UPLOADS / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{safe_name(original_name or src.name)}"
+    target = UPLOADS / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}_{safe_name(original_name or src.name)}"
 
     if src.resolve() != target.resolve():
         shutil.copy2(src, target)
 
-    learned = learn_file(str(target), note=note or "uploaded_file")
+    set_status(target.name, "indexing")
+    try:
+        learned = learn_file(str(target), note=note or "uploaded_file")
+        indexed = bool(learned.get("ok") and learned.get("text_extracted") and learned.get("chunks"))
+        set_status(target.name, "indexed" if indexed else "stored")
+    except Exception:
+        set_status(target.name, "failed")
+        raise
 
     answer = "Το αρχείο ανέβηκε και περάστηκε στη μνήμη εγγράφων."
     if learned.get("ok"):
@@ -48,7 +57,7 @@ def process_uploaded_file(source_path: str | Path, original_name: str = "", note
         answer = "Το αρχείο αποθηκεύτηκε, αλλά δεν αναλύθηκε σωστά."
 
     result = {
-        "ok": bool(learned.get("ok")),
+        "ok": indexed,
         "tool": "Upload Processing Engine",
         "timestamp": now_iso(),
         "stored_upload": str(target),

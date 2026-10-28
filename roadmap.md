@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] Add browser-local multi-session chat history with rename, search and session URLs.
+- [x] Add document drop zone, ingestion status and knowledge search filters.
+- [x] Unify Python missions and task claims in SQLite with legacy migration and persistence tests.
+
 - [x] Split dashboard into independent views, connection settings, navigation and state hook.
 - [x] Harden Render wake-up tracking, cancellation, retries and non-overlapping polling; verified 18 request tests, 8 dashboard contract tests, 3 config tests and preview navigation/wake indicator.
 - [ ] Verify live authenticated chat and mission actions; owner must enter the real NOUS token through the dashboard Settings field.
@@ -18,3 +22,5 @@
 - [x] Telemetry & Observability Cards: add bounded CPU/memory history, uptime and mission count snapshots, mission status distribution, and Gemini connection state to the dashboard.
 - [x] Approvals Inspector & Mission Operations: expandable payload inspector with JSON formatting and copy action for pending approvals, manual approval queue refresh, and interactive mission tab filtering with instant search.
 - [x] Global Keyboard Shortcuts & Command Palette Suite: enhanced Command Menu with quick actions (Gemini test, approvals queue refresh, API base copy, shortcut cheat sheet), header approvals indicator pill, global Alt+1..5 navigation with '?' shortcuts modal, and dedicated approvals view wiring.
+
+- [ ] Apply Python updates to Render and verify authenticated document upload/search; requires owner redeploy and NOUS token in Settings.

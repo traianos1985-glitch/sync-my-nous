@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import json
+from executor.mission_system import list_missions
 from pathlib import Path
 from typing import Any
 
@@ -74,7 +75,7 @@ def _system_status_answer() -> str:
 
 
 def _missions_answer() -> str:
-    missions_data = _load(DATA / "missions.json", [])
+    missions_data = list_missions()
     if not isinstance(missions_data, list) or not missions_data:
         return "Δεν υπάρχουν αποστολές ακόμα. Μπορείς να δημιουργήσεις μία γράφοντας /plan <στόχος>."
 

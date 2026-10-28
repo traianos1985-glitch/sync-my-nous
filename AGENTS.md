@@ -49,3 +49,6 @@
 - UI component modules export only components and types; shared variants and context hooks have separate modules to preserve Fast Refresh without lint exemptions.
 - Use Vite native TypeScript path resolution; the compatibility helper removes the wrapper legacy resolver and normalizes Nitro output options until upstream supports Vite 8 cleanly.
 - Let TanStack Start derive router basepath from Vite base; keep the local Render proxy serve-only so static subpath builds and previews share correct routes.
+- Chat sessions have dedicated route-derived IDs and isolated browser records; remount the dashboard on session changes to cancel prior work.
+- Missions and queue snapshots share SQLite transactions with explicit claim records; import legacy JSON once and retain it as backup, never read it as live state after migration.
+- Knowledge ingestion exposes persisted processing state and uses the existing local feature-hash cosine search; do not describe it as neural embeddings or add AI providers implicitly.

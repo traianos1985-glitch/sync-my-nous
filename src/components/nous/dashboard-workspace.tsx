@@ -3,13 +3,14 @@ import { sectionConfigs } from "@/components/nous/section-configs";
 import { SectionPanel } from "@/components/nous/section-panel";
 import { MissionList } from "@/components/nous/mission-list";
 
-import { ScanLine, ShieldAlert, UploadCloud } from "lucide-react";
+import { ScanLine, ShieldAlert } from "lucide-react";
 import { navLabel } from "@/components/nous/nav";
 import { nousFetch } from "@/lib/nous-api";
 
 import { Button } from "@/components/ui/button";
-import { Card, DocumentStat } from "./dashboard-primitives";
+import { Card } from "./dashboard-primitives";
 import type { useDashboard } from "./use-dashboard";
+import { KnowledgeIngestionPanel } from "./knowledge-ingestion-panel";
 import { ConnectionSettings } from "./dashboard-connection-settings";
 
 export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
@@ -24,13 +25,8 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
     liveMissions,
     sentinelError,
     setSentinelError,
-    knowledgeDocuments,
-    knowledgeUpload,
-    knowledgeLoadStatus,
     sentinel,
     setSentinel,
-    loadKnowledgeDocuments,
-    uploadKnowledgeDocument,
     testGeminiConnection,
     checkGithubStatus,
     approvals,
@@ -79,96 +75,7 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
             </div>
           )}
           {sectionConfigs[section] && <SectionPanel section={section} />}
-          {section === "documents" && (
-            <div className="mt-5 space-y-4">
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-8 text-center transition-colors hover:bg-primary/10">
-                <UploadCloud className="size-7 text-primary" />
-                <span className="mt-3 text-sm font-semibold">
-                  Ανέβασε PDF, PNG, JPG, WEBP ή text
-                </span>
-                <span className="mt-1 text-xs text-muted-foreground">
-                  Private storage · έως 15 MB · indexing και vision queue
-                </span>
-                <input
-                  className="sr-only"
-                  type="file"
-                  accept="application/pdf,image/png,image/jpeg,image/webp,text/plain,text/markdown"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void uploadKnowledgeDocument(file);
-                  }}
-                />
-              </label>
-              {knowledgeUpload !== "idle" && (
-                <p
-                  role={knowledgeUpload === "error" ? "alert" : "status"}
-                  className={`rounded-lg p-3 text-xs ${knowledgeUpload === "error" ? "bg-destructive/10 text-destructive" : "bg-background/70 text-muted-foreground"}`}
-                >
-                  {knowledgeUpload === "uploading"
-                    ? "Ανεβαίνει και απομονώνεται…"
-                    : knowledgeUpload === "indexed"
-                      ? "Το αρχείο αποθηκεύτηκε και μπήκε στο knowledge index."
-                      : "Το upload απέτυχε. Έλεγξε τύπο και μέγεθος αρχείου."}
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <DocumentStat label="Σύνολο" value={knowledgeDocuments.length} />
-                <DocumentStat
-                  label="Έτοιμα"
-                  value={
-                    knowledgeDocuments.filter(
-                      (document) => document.status === "ready" || document.status === "indexed",
-                    ).length
-                  }
-                />
-                <DocumentStat
-                  label="Σε ουρά"
-                  value={
-                    knowledgeDocuments.filter(
-                      (document) => !["ready", "indexed", "completed"].includes(document.status),
-                    ).length
-                  }
-                />
-              </div>
-              <Button
-                variant="ghost"
-                type="button"
-                onClick={() => void loadKnowledgeDocuments()}
-                className="rounded-lg border border-border px-3 py-2 text-xs font-semibold"
-              >
-                Ανανέωσ�� knowledge vault
-              </Button>
-              {knowledgeLoadStatus === "error" && (
-                <p role="alert" className="text-sm text-destructive">
-                  Αποτυχία φόρτωσης εγγράφων. Δοκίμασε ξανά.
-                </p>
-              )}
-              {knowledgeLoadStatus === "loading" && (
-                <p className="text-sm text-muted-foreground">Φόρτωση εγγράφων…</p>
-              )}
-              {knowledgeLoadStatus === "idle" && knowledgeDocuments.length === 0 && (
-                <p className="text-sm text-muted-foreground">Δεν υπάρχουν αποθηκευμένα έγγραφα.</p>
-              )}
-              <div className="space-y-2">
-                {knowledgeDocuments.map((document) => (
-                  <div
-                    key={document.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/60 p-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{document.originalName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {document.contentType} · {Math.ceil(document.sizeBytes / 1024)} KB
-                      </p>
-                    </div>
-                    <span className="font-mono text-[10px] uppercase text-primary">
-                      {document.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {section === "documents" && <KnowledgeIngestionPanel dashboard={dashboard} />}
           {section === "control" && (
             <div className="mt-5 space-y-4">
               <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
