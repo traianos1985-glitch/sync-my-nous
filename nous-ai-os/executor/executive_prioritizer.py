@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from executor.mission_system import list_missions
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -109,7 +110,7 @@ def collect_items() -> list[dict[str, Any]]:
         if isinstance(r, dict):
             items.append(score_item("pending_review", r))
 
-    for m in load_json(DATA / "missions.json", []):
+    for m in list_missions():
         if isinstance(m, dict):
             items.append(score_item("mission", m))
 

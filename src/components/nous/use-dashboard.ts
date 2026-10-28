@@ -1,6 +1,6 @@
 import { shouldIgnoreKeyboardShortcut, matchSectionShortcut } from "./command-menu-model";
 import { useDashboardRequests } from "./use-dashboard-requests";
-import { useChatSessions } from './use-chat-sessions';
+import { useChatSessions } from "./use-chat-sessions";
 import { useEffect, useRef, useState } from "react";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { Activity, Sparkles, ScanLine, ShieldCheck, ShieldAlert } from "lucide-react";
@@ -47,7 +47,16 @@ type SystemStatus = {
 
 export function useDashboard(sessionId?: string) {
   const chatSessions = useChatSessions(sessionId);
-  const { messages, setMessages, draft, setDraft, conversationId, setConversationId, chatLoaded, setChatLoaded } = chatSessions;
+  const {
+    messages,
+    setMessages,
+    draft,
+    setDraft,
+    conversationId,
+    setConversationId,
+    chatLoaded,
+    setChatLoaded,
+  } = chatSessions;
   const nousFetch = useDashboardRequests();
   const mountedRef = useRef(true);
   const statusBusyRef = useRef(false);
@@ -124,7 +133,7 @@ export function useDashboard(sessionId?: string) {
   }, []);
 
   useEffect(() => {
-    if (chatLoaded && !isThinking && section === 'chat') chatInputRef.current?.focus();
+    if (chatLoaded && !isThinking && section === "chat") chatInputRef.current?.focus();
   }, [chatLoaded, isThinking, section]);
 
   useEffect(() => {
@@ -321,12 +330,16 @@ export function useDashboard(sessionId?: string) {
 
   const uploadKnowledgeDocument = async (file: File) => {
     if (file.size > 15 * 1024 * 1024) throw new Error("Το αρχείο ξεπερνά τα 15 MB.");
-    if (!/\.(pdf|docx|txt|md|png|jpe?g|webp)$/i.test(file.name)) throw new Error("Μη υποστηριζόμενος τύπος αρχείου.");
+    if (!/\.(pdf|docx|txt|md|png|jpe?g|webp)$/i.test(file.name))
+      throw new Error("Μη υποστηριζόμενος τύπος αρχείου.");
     setKnowledgeUpload("uploading");
     const body = new FormData();
     body.append("file", file);
     try {
-      const result = await nousFetch<{ indexed: boolean; ok: boolean }>("/api/knowledge", { method: "POST", body });
+      const result = await nousFetch<{ indexed: boolean; ok: boolean }>("/api/knowledge", {
+        method: "POST",
+        body,
+      });
       if (!result.ok) throw new Error("Το ανέβασμα απέτυχε.");
       setKnowledgeUpload(result.indexed ? "indexed" : "stored");
       await loadKnowledgeDocuments();

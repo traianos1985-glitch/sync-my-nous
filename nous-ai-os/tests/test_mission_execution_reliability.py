@@ -105,7 +105,7 @@ def test_concurrent_mission_creation_does_not_lose_records(tmp_path, monkeypatch
     assert len(created) == 40
     assert len(stored) == 40
     assert len({str(item["id"]) for item in stored}) == 40
-    assert Path("data/missions.json.lock").exists()
+    assert Path("data/nous_storage.db").exists()
 
 
 def test_approval_cannot_change_a_task_after_execution_claim(tmp_path, monkeypatch):

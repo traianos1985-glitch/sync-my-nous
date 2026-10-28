@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
+from executor import unified_persistence as persistence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -38,6 +40,9 @@ def now_iso() -> str:
 
 
 def load_json(path: Path, default: Any) -> Any:
+    if path.name == "missions.json":
+        with persistence.transaction(str(path), "mission_store_integrity_failure"):
+            return persistence.load(str(path))
     if not path.exists():
         return default
     try:
@@ -47,6 +52,10 @@ def load_json(path: Path, default: Any) -> Any:
 
 
 def save_json(path: Path, data: Any) -> None:
+    if path.name == "missions.json":
+        with persistence.transaction(str(path), "mission_store_integrity_failure"):
+            persistence.save(str(path), data)
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -114,107 +123,109 @@ def deduplicate_records(records: list[Any]) -> tuple[list[Any], list[Any]]:
 
 
 def clean_json_file(path: Path) -> dict[str, Any]:
-    data = load_json(path, None)
+    with persistence.transaction(str(path), "mission_store_integrity_failure") if path.name == "missions.json" else nullcontext():
+        data = load_json(path, None)
 
-    if data is None:
-        return {"file": str(path), "status": "missing"}
+        if data is None:
+            return {"file": str(path), "status": "missing"}
 
-    if isinstance(data, list):
-        kept, removed = deduplicate_records(data)
-        if removed:
-            archive_path = ARCHIVE / f"dedup_removed_{path.stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            save_json(archive_path, removed)
-            save_json(path, kept)
+        if isinstance(data, list):
+            kept, removed = deduplicate_records(data)
+            if removed:
+                archive_path = ARCHIVE / f"dedup_removed_{path.stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                save_json(archive_path, removed)
+                save_json(path, kept)
 
-        return {
-            "file": str(path),
-            "mode": "list",
-            "before": len(data),
-            "after": len(kept),
-            "removed": len(removed),
-        }
+            return {
+                "file": str(path),
+                "mode": "list",
+                "before": len(data),
+                "after": len(kept),
+                "removed": len(removed),
+            }
 
-    if isinstance(data, dict):
-        cleaned_any = False
-        result = {
-            "file": str(path),
-            "mode": "dict",
-            "sections": [],
-        }
+        if isinstance(data, dict):
+            cleaned_any = False
+            result = {
+                "file": str(path),
+                "mode": "dict",
+                "sections": [],
+            }
 
-        for key, value in list(data.items()):
-            if isinstance(value, list):
-                kept, removed = deduplicate_records(value)
+            for key, value in list(data.items()):
+                if isinstance(value, list):
+                    kept, removed = deduplicate_records(value)
 
-                if removed:
-                    data[key] = kept
-                    cleaned_any = True
-                    archive_path = ARCHIVE / f"dedup_removed_{path.stem}_{key}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                    save_json(archive_path, removed)
+                    if removed:
+                        data[key] = kept
+                        cleaned_any = True
+                        archive_path = ARCHIVE / f"dedup_removed_{path.stem}_{key}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                        save_json(archive_path, removed)
 
-                result["sections"].append({
-                    "key": key,
-                    "before": len(value),
-                    "after": len(kept),
-                    "removed": len(removed),
-                })
+                    result["sections"].append({
+                        "key": key,
+                        "before": len(value),
+                        "after": len(kept),
+                        "removed": len(removed),
+                    })
 
-        if cleaned_any:
-            save_json(path, data)
+            if cleaned_any:
+                save_json(path, data)
 
-        return result
+            return result
 
-    return {"file": str(path), "status": "unsupported_json_type"}
+        return {"file": str(path), "status": "unsupported_json_type"}
 
 
 def archive_terminal_missions() -> dict[str, Any]:
-    path = DATA / "missions.json"
-    missions = load_json(path, [])
+    with persistence.transaction(str(DATA / "missions.json"), "mission_store_integrity_failure"):
+        path = DATA / "missions.json"
+        missions = load_json(path, [])
 
-    if not isinstance(missions, list):
-        return {"file": str(path), "archived": 0, "reason": "not_list"}
+        if not isinstance(missions, list):
+            return {"file": str(path), "archived": 0, "reason": "not_list"}
 
-    active = []
-    archived = []
+        active = []
+        archived = []
 
-    for mission in missions:
-        if not isinstance(mission, dict):
-            active.append(mission)
-            continue
+        for mission in missions:
+            if not isinstance(mission, dict):
+                active.append(mission)
+                continue
 
-        status = str(mission.get("status", "")).lower().strip()
-        tasks = mission.get("tasks", [])
+            status = str(mission.get("status", "")).lower().strip()
+            tasks = mission.get("tasks", [])
 
-        if status in {"completed", "done", "cancelled", "archived"}:
-            mission["archived_at"] = now_iso()
-            archived.append(mission)
-            continue
-
-        if isinstance(tasks, list) and tasks:
-            task_statuses = [
-                str(t.get("status", "")).lower().strip()
-                for t in tasks
-                if isinstance(t, dict)
-            ]
-
-            if task_statuses and all(s in {"done", "completed"} for s in task_statuses):
-                mission["status"] = "completed"
+            if status in {"completed", "done", "cancelled", "archived"}:
                 mission["archived_at"] = now_iso()
                 archived.append(mission)
                 continue
 
-        active.append(mission)
+            if isinstance(tasks, list) and tasks:
+                task_statuses = [
+                    str(t.get("status", "")).lower().strip()
+                    for t in tasks
+                    if isinstance(t, dict)
+                ]
 
-    if archived:
-        archive_path = ARCHIVE / f"missions_lifecycle_archive_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        save_json(archive_path, archived)
-        save_json(path, active)
+                if task_statuses and all(s in {"done", "completed"} for s in task_statuses):
+                    mission["status"] = "completed"
+                    mission["archived_at"] = now_iso()
+                    archived.append(mission)
+                    continue
 
-    return {
-        "file": str(path),
-        "archived": len(archived),
-        "remaining_active": len(active),
-    }
+            active.append(mission)
+
+        if archived:
+            archive_path = ARCHIVE / f"missions_lifecycle_archive_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            save_json(archive_path, archived)
+            save_json(path, active)
+
+        return {
+            "file": str(path),
+            "archived": len(archived),
+            "remaining_active": len(active),
+        }
 
 
 def enforce_brain_backup_retention() -> dict[str, Any]:

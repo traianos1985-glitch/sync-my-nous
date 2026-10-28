@@ -6,7 +6,7 @@ import { navLabel } from "@/components/nous/nav";
 import { Button } from "@/components/ui/button";
 
 import type { useDashboard } from "./use-dashboard";
-import { ChatHistoryDrawer } from './chat-history-drawer';
+import { ChatHistoryDrawer } from "./chat-history-drawer";
 
 export function DashboardHeader({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
   const {
