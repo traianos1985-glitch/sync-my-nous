@@ -91,7 +91,7 @@ def _queue_check() -> dict[str, Any]:
             if error.startswith("queue_store_unreadable:"):
                 # Do not expose exception text: it may contain private paths or secrets.
                 store_integrity["error"] = "queue_store_unreadable"
-            elif error in {"queue_store_not_a_list", "queue_store_integrity_failure"}:
+            elif error in {"queue_store_unreadable", "queue_store_not_a_list", "queue_store_integrity_failure"}:
                 store_integrity["error"] = error
         for key in ("record_count", "malformed_records"):
             value = store.get(key)

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Dashboard } from "@/components/nous/dashboard-page";
+import { ChatSessionPage } from "@/components/nous/chat-session-page";
 
 export const Route = createFileRoute("/chat/$sessionId")({
   head: () => ({
@@ -15,9 +15,5 @@ export const Route = createFileRoute("/chat/$sessionId")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: SessionPage,
+  component: ChatSessionPage,
 });
-function SessionPage() {
-  const { sessionId } = Route.useParams();
-  return <Dashboard key={sessionId} sessionId={sessionId} />;
-}

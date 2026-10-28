@@ -19,6 +19,7 @@ export function useChatSessions(sessionId?: string) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
     try {
       const stored = bootstrapSessions();
       const active = stored.find((s) => s.id === sessionId);
@@ -41,11 +42,13 @@ export function useChatSessions(sessionId?: string) {
       setStorageError("Το ιστορικό δεν μπορεί να αποθηκευτεί σε αυτόν τον browser.");
       setChatLoaded(true);
     }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [sessionId, navigate]);
 
   useEffect(() => {
     if (!chatLoaded || !sessionId) return;
-    setSessions((current) => {
+    const timer = window.setTimeout(() => setSessions((current) => {
       const next = current.map((s) =>
         s.id === sessionId
           ? { ...s, messages, conversationId, draft, updatedAt: new Date().toISOString() }
@@ -59,7 +62,8 @@ export function useChatSessions(sessionId?: string) {
         );
       }
       return next;
-    });
+    }), 0);
+    return () => window.clearTimeout(timer);
   }, [messages, conversationId, draft, chatLoaded, sessionId]);
 
   const selectSession = (id: string) => {
