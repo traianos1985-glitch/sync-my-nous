@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Add browser-local multi-session chat history with rename, search and session URLs.
+- [ ] Add document drop zone, ingestion status and knowledge search filters.
+- [ ] Unify Python missions and task claims in SQLite with legacy migration and persistence tests.
+
 - [x] Split dashboard into independent views, connection settings, navigation and state hook.
 - [x] Harden Render wake-up tracking, cancellation, retries and non-overlapping polling; verified 18 request tests, 8 dashboard contract tests, 3 config tests and preview navigation/wake indicator.
 - [ ] Verify live authenticated chat and mission actions; owner must enter the real NOUS token through the dashboard Settings field.
