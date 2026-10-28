@@ -58,6 +58,7 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
     loadSystemStatus,
     testGeminiConnection,
     resolveApproval,
+    loadApprovals,
     loadInitiatives,
     resolveInitiative,
     loadCompanionStatus,
@@ -240,7 +241,12 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
         </Card>
 
         <Card title="Εγκρίσεις">
-          <ApprovalList approvals={approvals} status={approvalStatus} onResolve={resolveApproval} />
+          <ApprovalList
+            approvals={approvals}
+            status={approvalStatus}
+            onResolve={resolveApproval}
+            onRefresh={loadApprovals}
+          />
         </Card>
 
         <Card title="Υγεία Render & Gemini">

@@ -47,3 +47,26 @@ export function summarizeMissions(missions: Array<{ status: string }>) {
   }
   return summary;
 }
+
+export type MissionFilterTab = "all" | "active" | "awaiting" | "failed" | "completed";
+
+export function filterMissions(
+  missions: Array<{ id: string; title: string; status: string }>,
+  tab: MissionFilterTab,
+  query = "",
+): Array<{ id: string; title: string; status: string }> {
+  const q = query.trim().toLowerCase();
+  return missions.filter((mission) => {
+    const meta = missionStatusMeta(mission.status);
+    if (tab === "active" && !meta.active) return false;
+    if (tab === "awaiting" && meta.tone !== "warn") return false;
+    if (tab === "failed" && meta.tone !== "danger") return false;
+    if (tab === "completed" && meta.tone !== "ok") return false;
+    if (q) {
+      const matchTitle = mission.title.toLowerCase().includes(q);
+      const matchId = mission.id.toLowerCase().includes(q);
+      if (!matchTitle && !matchId) return false;
+    }
+    return true;
+  });
+}
