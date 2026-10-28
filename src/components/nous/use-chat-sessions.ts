@@ -20,49 +20,57 @@ export function useChatSessions(sessionId?: string) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-    try {
-      const stored = bootstrapSessions();
-      const active = stored.find((s) => s.id === sessionId);
-      setSessions(stored);
-      if (!sessionId) {
-        const first = stored[0];
-        if (first)
-          void navigate({ to: "/chat/$sessionId", params: { sessionId: first.id }, replace: true });
-        return;
+      try {
+        const stored = bootstrapSessions();
+        const active = stored.find((s) => s.id === sessionId);
+        setSessions(stored);
+        if (!sessionId) {
+          const first = stored[0];
+          if (first)
+            void navigate({
+              to: "/chat/$sessionId",
+              params: { sessionId: first.id },
+              replace: true,
+            });
+          return;
+        }
+        if (!active) {
+          setStorageError("Η συνομιλία δεν υπάρχει σε αυτόν τον browser.");
+          return;
+        }
+        setMessages(active.messages);
+        setConversationId(active.conversationId);
+        setDraft(active.draft);
+        setChatLoaded(true);
+      } catch {
+        setStorageError("Το ιστορικό δεν μπορεί να αποθηκευτεί σε αυτόν τον browser.");
+        setChatLoaded(true);
       }
-      if (!active) {
-        setStorageError("Η συνομιλία δεν υπάρχει σε αυτόν τον browser.");
-        return;
-      }
-      setMessages(active.messages);
-      setConversationId(active.conversationId);
-      setDraft(active.draft);
-      setChatLoaded(true);
-    } catch {
-      setStorageError("Το ιστορικό δεν μπορεί να αποθηκευτεί σε αυτόν τον browser.");
-      setChatLoaded(true);
-    }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [sessionId, navigate]);
 
   useEffect(() => {
     if (!chatLoaded || !sessionId) return;
-    const timer = window.setTimeout(() => setSessions((current) => {
-      const next = current.map((s) =>
-        s.id === sessionId
-          ? { ...s, messages, conversationId, draft, updatedAt: new Date().toISOString() }
-          : s,
-      );
-      try {
-        window.localStorage.setItem(sessionsStorageKey, JSON.stringify(next));
-      } catch {
-        setStorageError(
-          "Το ιστορικό δεν αποθηκεύτηκε: ο χώρος του browser είναι γεμάτος ή μη διαθέσιμος.",
-        );
-      }
-      return next;
-    }), 0);
+    const timer = window.setTimeout(
+      () =>
+        setSessions((current) => {
+          const next = current.map((s) =>
+            s.id === sessionId
+              ? { ...s, messages, conversationId, draft, updatedAt: new Date().toISOString() }
+              : s,
+          );
+          try {
+            window.localStorage.setItem(sessionsStorageKey, JSON.stringify(next));
+          } catch {
+            setStorageError(
+              "Το ιστορικό δεν αποθηκεύτηκε: ο χώρος του browser είναι γεμάτος ή μη διαθέσιμος.",
+            );
+          }
+          return next;
+        }),
+      0,
+    );
     return () => window.clearTimeout(timer);
   }, [messages, conversationId, draft, chatLoaded, sessionId]);
 

@@ -22,7 +22,9 @@ export function KnowledgeIngestionPanel({
   const busy = useRef(false);
   const searchController = useRef<AbortController | null>(null);
   const loader = useRef(dashboard.loadKnowledgeDocuments);
-  useEffect(() => { loader.current = dashboard.loadKnowledgeDocuments; }, [dashboard.loadKnowledgeDocuments]);
+  useEffect(() => {
+    loader.current = dashboard.loadKnowledgeDocuments;
+  }, [dashboard.loadKnowledgeDocuments]);
 
   useEffect(() => {
     let disposed = false;
