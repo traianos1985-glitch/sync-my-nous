@@ -198,7 +198,7 @@ class ReActAgent:
 DEFAULT_REACT_AGENT = ReActAgent()
 
 
-def run_chat_react(turns, planner, *, first_call=None, max_steps=3, allow_web=True):
+def run_chat_react(turns, planner, *, first_call=None, max_steps=3, allow_web=True, on_event=None, cancelled=lambda: False):
     """Bounded, read-only ReAct loop; observations are data, never instructions.
 
     Uses a separate chat allowlist, not the privileged operational registry.
@@ -221,6 +221,9 @@ def run_chat_react(turns, planner, *, first_call=None, max_steps=3, allow_web=Tr
     call = first_call
     answer = ""
     for index in range(limit + 1):
+        if cancelled():
+            answer = "Η εκτέλεση διακόπηκε· δεν ξεκίνησα άλλο εργαλείο."
+            break
         if call is None:
             try:
                 result = planner(work, system=system)
@@ -254,7 +257,7 @@ def run_chat_react(turns, planner, *, first_call=None, max_steps=3, allow_web=Tr
             answer = "Η ίδια ενέργεια έχει ήδη επιχειρηθεί· δεν την επανέλαβα."
             break
         seen.add(key)
-        record = execute_call(call.get("name"), call.get("input"), call.get("summary", ""), allow_web=allow_web)
+        record = execute_call(call.get("name"), call.get("input"), call.get("summary", ""), allow_web=allow_web, on_event=on_event)
         calls.append(record)
         work.extend([
             {"role": "assistant", "content": json.dumps(call, ensure_ascii=False)},

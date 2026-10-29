@@ -51,7 +51,7 @@ def dispatch(name, arguments):
     raise ValueError("tool_not_allowed")
 
 
-def execute_call(name, arguments, summary="", *, allow_web=True):
+def execute_call(name, arguments, summary="", *, allow_web=True, on_event=None):
     record = {"id": str(uuid.uuid4()), "name": str(name)[:80], "input": arguments,
               "summary": str(summary)[:300], "status": "running", "started_at": time.time(), "executed": False}
     try:
@@ -62,6 +62,8 @@ def execute_call(name, arguments, summary="", *, allow_web=True):
             raise ValueError("invalid_tool_arguments")
         if any(not isinstance(arguments[k], t) or not arguments[k].strip() or len(arguments[k]) > 1000 for k, t in schema.items()):
             raise ValueError("invalid_tool_arguments")
+        if on_event:
+            on_event("tool", dict(record))
         result = dispatch(name, arguments)
         if isinstance(result, str) and result.startswith("[ERROR]"):
             raise RuntimeError("tool_execution_failed")
@@ -74,6 +76,8 @@ def execute_call(name, arguments, summary="", *, allow_web=True):
     except Exception:
         record.update(status="failed", error="tool_execution_failed")
     record["finished_at"] = time.time()
+    if on_event:
+        on_event("tool", dict(record))
     return record
 
 
