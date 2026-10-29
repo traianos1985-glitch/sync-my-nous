@@ -1,7 +1,7 @@
 # Roadmap
 
-- [ ] Connect chat to bounded, permission-aware ReAct tool execution with structured execution records.
-- [ ] Display expandable tool calls and retain them in chat sessions; add automated execution/normalization tests.
+- [x] Connect chat to bounded, read-only ReAct tool execution with structured execution records and streamed status.
+- [x] Display expandable AI Elements tool calls and retain them in chat sessions; verified execution, normalization, transport and existing regression tests.
 - [ ] Verify hosted tool execution; requires Render redeploy and owner-entered NOUS token.
 
 - [x] Add browser-local multi-session chat history with rename, search and session URLs.
