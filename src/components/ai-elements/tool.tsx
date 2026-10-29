@@ -41,26 +41,26 @@ export type ToolHeaderProps = {
 );
 
 const statusLabels: Record<ToolPart["state"], string> = {
-  "approval-requested": "Awaiting Approval",
-  "approval-responded": "Responded",
-  "input-available": "Running",
-  "input-streaming": "Pending",
-  "output-available": "Completed",
-  "output-denied": "Denied",
-  "output-error": "Error",
+  "approval-requested": "Αναμονή έγκρισης",
+  "approval-responded": "Εγκρίθηκε",
+  "input-available": "Εκτελείται",
+  "input-streaming": "Αναμονή",
+  "output-available": "Ολοκληρώθηκε",
+  "output-denied": "Μπλοκαρίστηκε",
+  "output-error": "Αποτυχία",
 };
 
 const statusIcons: Record<ToolPart["state"], ReactNode> = {
-  "approval-requested": <ClockIcon className="size-4 text-yellow-600" />,
-  "approval-responded": <CheckCircleIcon className="size-4 text-blue-600" />,
+  "approval-requested": <ClockIcon className="size-4 text-warn" />,
+  "approval-responded": <CheckCircleIcon className="size-4 text-primary" />,
   "input-available": <ClockIcon className="size-4 animate-pulse" />,
   "input-streaming": <CircleIcon className="size-4" />,
-  "output-available": <CheckCircleIcon className="size-4 text-green-600" />,
-  "output-denied": <XCircleIcon className="size-4 text-orange-600" />,
-  "output-error": <XCircleIcon className="size-4 text-red-600" />,
+  "output-available": <CheckCircleIcon className="size-4 text-ok" />,
+  "output-denied": <XCircleIcon className="size-4 text-warn" />,
+  "output-error": <XCircleIcon className="size-4 text-destructive" />,
 };
 
-export const getStatusBadge = (status: ToolPart["state"]) => (
+const getStatusBadge = (status: ToolPart["state"]) => (
   <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
     {statusIcons[status]}
     {statusLabels[status]}
@@ -82,12 +82,12 @@ export const ToolHeader = ({
       className={cn("flex w-full items-center justify-between gap-4 p-3", className)}
       {...props}
     >
-      <div className="flex items-center gap-2">
-        <WrenchIcon className="size-4 text-muted-foreground" />
-        <span className="font-medium text-sm">{title ?? derivedName}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 text-left">
+        <WrenchIcon className="size-4 shrink-0 text-muted-foreground" />
+        <span className="break-all font-medium text-sm">{title ?? derivedName}</span>
         {getStatusBadge(state)}
       </div>
-      <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
     </CollapsibleTrigger>
   );
 };

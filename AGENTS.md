@@ -52,3 +52,5 @@
 - Chat sessions have dedicated route-derived IDs and isolated browser records; remount the dashboard on session changes to cancel prior work.
 - Missions and queue snapshots share SQLite transactions with explicit claim records; import legacy JSON once and retain it as backup, never read it as live state after migration.
 - Knowledge ingestion exposes persisted processing state and uses the existing local feature-hash cosine search; do not describe it as neural embeddings or add AI providers implicitly.
+- Chat tool execution uses a separate read-only allowlist and bounded ReAct loop, never the privileged operational registry; stream execution records once and preserve them after synthesis failures to avoid replay and false completion claims.
+- Chat tool cards use AI Elements Tool primitives with concise public action summaries, not private model reasoning; persist terminal records and mark unconfirmed running records interrupted on restoration.
