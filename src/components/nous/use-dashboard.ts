@@ -1,6 +1,8 @@
 import { shouldIgnoreKeyboardShortcut, matchSectionShortcut } from "./command-menu-model";
 import { useDashboardRequests } from "./use-dashboard-requests";
 import { useChatSessions } from "./use-chat-sessions";
+import { requestChat } from "@/lib/nous-chat-stream";
+import { mergeToolCall, normalizeToolCalls, type ChatToolCall } from "./chat-tool-model";
 import { useEffect, useRef, useState } from "react";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { Activity, Sparkles, ScanLine, ShieldCheck, ShieldAlert } from "lucide-react";
@@ -109,6 +111,7 @@ export function useDashboard(sessionId?: string) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [activeToolCalls, setActiveToolCalls] = useState<ChatToolCall[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [voiceSupported, setVoiceSupported] = useState(false);
@@ -625,6 +628,8 @@ export function useDashboard(sessionId?: string) {
     }
     if (textOverride === undefined) setDraft("");
     setIsThinking(true);
+    setActiveToolCalls([]);
+    let observedCalls: ChatToolCall[] = [];
     const controller = new AbortController();
     chatAbortRef.current = controller;
 
@@ -634,7 +639,7 @@ export function useDashboard(sessionId?: string) {
           "Δεν έχει οριστεί NOUS token. Άνοιξε Settings και αποθήκευσ�� το token για να μιλήσεις με τον NOUS.",
         );
       }
-      const data = await nousFetch<{
+      const data = await requestChat<{
         answer?: string;
         human_answer?: string;
         response?: string;
@@ -644,9 +649,11 @@ export function useDashboard(sessionId?: string) {
         conversation_id?: string | number;
         sources?: unknown;
         citations?: Citation[];
-      }>("/api/chat", {
-        method: "POST",
-        body: JSON.stringify({
+        tool_calls?: unknown;
+      }>(
+        {
+          tool_execution: true,
+          stream: true,
           message: text,
           history,
           activeFocus,
@@ -654,10 +661,14 @@ export function useDashboard(sessionId?: string) {
           researchMode,
           research_mode: researchMode,
           conversation_id: conversationId ?? undefined,
-        }),
-        signal: controller.signal,
-        timeoutMs: 120_000,
-      });
+        },
+        controller.signal,
+        (call) => {
+          if (!mountedRef.current || chatAbortRef.current !== controller) return;
+          observedCalls = mergeToolCall(observedCalls, call);
+          setActiveToolCalls(observedCalls);
+        },
+      );
       if (!mountedRef.current || chatAbortRef.current !== controller) return;
       const answer = data.human_answer ?? data.answer ?? data.response ?? data.text;
       if (!answer) throw new Error(data.error ?? "Ο NOUS επέστρεψε κενή απάντηση.");
@@ -673,6 +684,7 @@ export function useDashboard(sessionId?: string) {
           role: "assistant",
           text: answer,
           citations: citations.length ? citations : undefined,
+          toolCalls: normalizeToolCalls(data.tool_calls ?? observedCalls),
         },
       ]);
       speak(answer);
@@ -687,6 +699,7 @@ export function useDashboard(sessionId?: string) {
             text: "Η απάντηση διακόπηκε.",
             error: true,
             retryText: text,
+            toolCalls: normalizeToolCalls(observedCalls, true),
           },
         ]);
         return;
@@ -701,12 +714,16 @@ export function useDashboard(sessionId?: string) {
           text: `Δεν πήρα απάντηση από τον NOUS: ${error instanceof Error ? error.message : "άγνωστο σφάλμα"}`,
           error: true,
           retryText: text,
+          toolCalls: normalizeToolCalls(observedCalls, true),
         },
       ]);
     } finally {
       if (chatAbortRef.current === controller) {
         chatAbortRef.current = null;
-        if (mountedRef.current) setIsThinking(false);
+        if (mountedRef.current) {
+          setIsThinking(false);
+          setActiveToolCalls([]);
+        }
       }
     }
   };
@@ -909,6 +926,7 @@ export function useDashboard(sessionId?: string) {
     draft,
     setDraft,
     isThinking,
+    activeToolCalls,
     setIsThinking,
     isListening,
     setIsListening,

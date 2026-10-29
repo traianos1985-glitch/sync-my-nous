@@ -391,6 +391,41 @@ def chat():
     if not check_token(request):
         return jsonify({"error": "unauthorized"}), 401
 
+    # Read-only action requests enter ReAct before legacy conversational returns.
+    from executor.chat_tools import initial_call
+    from executor.react_agent import run_chat_react
+    from executor.remote_llm import ask_with_turns
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "invalid_request_body"}), 400
+    message = str(data.get("message") or data.get("prompt") or data.get("text") or data.get("command") or "")
+    if len(message) > 12000:
+        return jsonify({"error": "message_too_long"}), 400
+    first_call = initial_call(message)
+    if first_call or data.get("tool_execution") is True:
+        from executor.chat_brain_v3 import build_llm_turns
+        turns = build_llm_turns(message, data.get("conversation_id"))
+        from executor.conversation_manager import append_turn
+
+        def execute(on_event=None, cancelled=lambda: False):
+            result = run_chat_react(
+                turns, ask_with_turns, first_call=first_call, on_event=on_event, cancelled=cancelled,
+                allow_web=(data.get("research_mode") or data.get("researchMode")) != "off",
+            )
+            # Persist once; never fall through and replay after an execution.
+            try:
+                conv = append_turn(user_message=message, assistant_answer=result["answer"],
+                                   mode="agent_loop", conversation_id=data.get("conversation_id"), title=message)
+                result["conversation_id"] = conv.get("conversation_id")
+            except (OSError, ValueError):
+                result["storage_warning"] = "conversation_storage_unavailable"
+            return result
+
+        if data.get("stream") is True:
+            from executor.chat_stream import stream_execution
+            return stream_execution(execute)
+        return jsonify(execute())
+
     # ── INTENT ROUTING (πριν από όλα τα early returns) ───────────────────────
     try:
         _raw = request.get_json(silent=True) or {}

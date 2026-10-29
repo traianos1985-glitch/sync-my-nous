@@ -1,3 +1,5 @@
+import { normalizeToolCalls, type ChatToolCall } from "./chat-tool-model";
+
 export type Citation = {
   title: string;
   url: string;
@@ -36,6 +38,7 @@ export type ChatMessage = {
   feedback?: "positive" | "negative";
   error?: boolean;
   retryText?: string;
+  toolCalls?: ChatToolCall[];
 };
 
 export const chatStorageKey = "nous-chat-v1";
@@ -85,6 +88,7 @@ export function normalizeStoredChatMessage(value: unknown): ChatMessage | null {
     id: candidate["id"],
     role: candidate["role"],
     text: candidate["text"].slice(0, maxStoredMessageCharacters),
+    toolCalls: normalizeToolCalls(candidate["toolCalls"], true),
     ...(citations?.length ? { citations } : {}),
     ...(candidate["feedback"] === "positive" || candidate["feedback"] === "negative"
       ? { feedback: candidate["feedback"] }
@@ -199,6 +203,7 @@ export function exportChatAsJson(messages: ChatMessage[], conversationId?: strin
         text: m.text,
         citations: m.citations,
         feedback: m.feedback,
+        toolCalls: m.toolCalls,
       })),
     },
     null,

@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] Connect chat to bounded, read-only ReAct tool execution with structured execution records and streamed status.
+- [x] Display expandable AI Elements tool calls and retain them in chat sessions; verified execution, normalization, transport and existing regression tests.
+- [ ] Verify hosted tool execution; requires Render redeploy and owner-entered NOUS token.
+
 - [x] Add browser-local multi-session chat history with rename, search and session URLs.
 - [x] Add document drop zone, ingestion status and knowledge search filters.
 - [x] Unify Python missions and task claims in SQLite with legacy migration and persistence tests.

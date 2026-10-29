@@ -695,6 +695,7 @@ def answer_chat(
     mode = "normal_chat"
     answer = None
     sources = []
+    tool_calls = []
 
     if has_document_intent(message):
         doc = document_chat_answer(message)
@@ -787,7 +788,8 @@ def answer_chat(
     if answer is None:
         try:
             from executor.agent_loop import run_agent
-            agent_result = run_agent(message, conversation_id=conversation_id)
+            agent_result = run_agent(message, conversation_id=conversation_id, extra_context="web_disabled" if not allow_web else "")
+            tool_calls = agent_result.get("tool_calls", [])
             if agent_result.get("ok") and agent_result.get("answer"):
                 answer = agent_result["answer"]
                 mode = agent_result.get("mode", "agent_loop")
@@ -839,7 +841,8 @@ def answer_chat(
         )
         return {
             "ok": False,
-            "executed": False,
+            "executed": any(call.get("executed") for call in tool_calls),
+            "tool_calls": tool_calls,
             "source": "chat_brain_v3",
             "mode": "degraded",
             "error": "conversation_storage_unavailable",
@@ -868,7 +871,8 @@ def answer_chat(
 
     return {
         "ok": True,
-        "executed": False,
+        "executed": any(call.get("executed") for call in tool_calls),
+        "tool_calls": tool_calls,
         "source": "chat_brain_v3",
         "mode": mode,
         "answer": answer,

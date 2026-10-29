@@ -114,52 +114,9 @@ def run_agent(message: str, conversation_id: str | None = None, extra_context: s
         system += f"\n\nΜνήμη μηχανικής:\n{eng_ctx}"
 
     turns = build_llm_turns(message, conversation_id)
-    tool_used = None
-    tool_result = None
-
-    # Γύρος 1 — LLM αποφασίζει
-    try:
-        r1 = ask_with_turns(turns, system=system)
-        if not isinstance(r1, dict) or not r1.get("success"):
-            error = r1.get("error", "llm_unavailable") if isinstance(r1, dict) else "llm_unavailable"
-            return {"ok": False, "error": error, "mode": "llm_unavailable"}
-        response1 = str(r1.get("response", "")).strip()
-    except Exception:
-        return {"ok": False, "error": "llm_unavailable", "mode": "llm_unavailable"}
-
-    if not response1:
-        return {"ok": False, "error": "llm_empty_response", "mode": "llm_unavailable"}
-
-    tool_call = _parse_tool_call(response1)
-
-    if tool_call:
-        tool_name, query = tool_call
-        tool_used = tool_name
-        tool_result = _run_tool(tool_name, query)
-
-        # Γύρος 2 — LLM παίρνει αποτέλεσμα και απαντά
-        turns2 = list(turns)
-        turns2.append({"role": "assistant", "content": f"TOOL:{tool_name}({query})"})
-        turns2.append({
-            "role": "user",
-            "content": (
-                f"Αποτέλεσμα tool:\n\n{tool_result}\n\n"
-                f"Τώρα απάντησε στην αρχική ερώτηση βασισμένος σε αυτό. "
-                f"Μην ξαναζητήσεις tool."
-            )
-        })
-        try:
-            r2 = ask_with_turns(turns2, system=system)
-            if not isinstance(r2, dict) or not r2.get("success"):
-                error = r2.get("error", "llm_unavailable") if isinstance(r2, dict) else "llm_unavailable"
-                return {"ok": False, "error": error, "mode": "llm_unavailable"}
-            final = str(r2.get("response", "")).strip()
-        except Exception:
-            return {"ok": False, "error": "llm_unavailable", "mode": "llm_unavailable"}
-        if not final:
-            return {"ok": False, "error": "llm_empty_response", "mode": "llm_unavailable"}
-    else:
-        final = response1
+    from executor.react_agent import run_chat_react
+    result = run_chat_react(turns, ask_with_turns, allow_web="web_disabled" not in extra_context)
+    final = result["answer"]
 
     if looks_corrupted_answer(final):
         final = safe_llm_fallback()
@@ -171,10 +128,9 @@ def run_agent(message: str, conversation_id: str | None = None, extra_context: s
         "text": final,
         "human_answer": final,
         "mode": "agent_loop",
-        "tool_used": tool_used,
-        "tool_query": tool_call[1] if tool_call else None,
-        "tool_result": tool_result,
+        "tool_used": result["tool_calls"][-1]["name"] if result["tool_calls"] else None,
+        "tool_calls": result["tool_calls"],
         "sources": [],
-        "executed": False,
+        "executed": result["executed"],
         "source": "agent_loop",
     }
