@@ -714,7 +714,9 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                 ) : (
                   <ChatMarkdown text={m.text} />
                 )}
-                {m.role === "assistant" && m.toolCalls?.length ? <ChatToolCalls calls={m.toolCalls} /> : null}
+                {m.role === "assistant" && m.toolCalls?.length ? (
+                  <ChatToolCalls calls={m.toolCalls} />
+                ) : null}
                 {m.error && m.retryText && (
                   <Button
                     variant="ghost"
@@ -796,18 +798,18 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
             ))}
             {isThinking && (
               <div aria-live="polite">
-              {activeToolCalls.length > 0 && <ChatToolCalls calls={activeToolCalls} />}
-              <div
-                role="status"
-                className="flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground"
-              >
-                <Loader2 className="size-4 animate-spin text-primary" />
-                {thinkingSlow
-                  ? "Ακόμη δουλεύω… Αν το Render ξυπνά από cold start, μπορεί να πάρει έως ένα λεπτό."
-                  : researchMode === "deep"
-                    ? "Αναζήτηση → σύνθεση…"
-                    : "Ο ΝΟΥΣ σκέφτεται…"}
-              </div>
+                {activeToolCalls.length > 0 && <ChatToolCalls calls={activeToolCalls} />}
+                <div
+                  role="status"
+                  className="flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground"
+                >
+                  <Loader2 className="size-4 animate-spin text-primary" />
+                  {thinkingSlow
+                    ? "Ακόμη δουλεύω… Αν το Render ξυπνά από cold start, μπορεί να πάρει έως ένα λεπτό."
+                    : researchMode === "deep"
+                      ? "Αναζήτηση → σύνθεση…"
+                      : "Ο ΝΟΥΣ σκέφτεται…"}
+                </div>
               </div>
             )}
             <div ref={chatEndRef} />

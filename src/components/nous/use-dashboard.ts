@@ -650,7 +650,8 @@ export function useDashboard(sessionId?: string) {
         sources?: unknown;
         citations?: Citation[];
         tool_calls?: unknown;
-      }>({
+      }>(
+        {
           tool_execution: true,
           stream: true,
           message: text,
@@ -660,11 +661,14 @@ export function useDashboard(sessionId?: string) {
           researchMode,
           research_mode: researchMode,
           conversation_id: conversationId ?? undefined,
-        }, controller.signal, (call) => {
+        },
+        controller.signal,
+        (call) => {
           if (!mountedRef.current || chatAbortRef.current !== controller) return;
           observedCalls = mergeToolCall(observedCalls, call);
           setActiveToolCalls(observedCalls);
-      });
+        },
+      );
       if (!mountedRef.current || chatAbortRef.current !== controller) return;
       const answer = data.human_answer ?? data.answer ?? data.response ?? data.text;
       if (!answer) throw new Error(data.error ?? "Ο NOUS επέστρεψε κενή απάντηση.");
@@ -716,7 +720,10 @@ export function useDashboard(sessionId?: string) {
     } finally {
       if (chatAbortRef.current === controller) {
         chatAbortRef.current = null;
-        if (mountedRef.current) { setIsThinking(false); setActiveToolCalls([]); }
+        if (mountedRef.current) {
+          setIsThinking(false);
+          setActiveToolCalls([]);
+        }
       }
     }
   };
