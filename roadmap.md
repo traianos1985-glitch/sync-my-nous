@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Connect chat to bounded, permission-aware ReAct tool execution with structured execution records.
+- [ ] Display expandable tool calls and retain them in chat sessions; add automated execution/normalization tests.
+- [ ] Verify hosted tool execution; requires Render redeploy and owner-entered NOUS token.
+
 - [x] Add browser-local multi-session chat history with rename, search and session URLs.
 - [x] Add document drop zone, ingestion status and knowledge search filters.
 - [x] Unify Python missions and task claims in SQLite with legacy migration and persistence tests.
