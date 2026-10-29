@@ -1,4 +1,5 @@
 import { ChatMarkdown } from "@/components/nous/chat-markdown";
+import { ChatToolCalls } from "./chat-tool-calls";
 
 import { ApprovalList } from "@/components/nous/approval-list";
 
@@ -35,6 +36,7 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
     draft,
     setDraft,
     isThinking,
+    activeToolCalls,
     isListening,
     voiceEnabled,
     setVoiceEnabled,
@@ -712,6 +714,7 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                 ) : (
                   <ChatMarkdown text={m.text} />
                 )}
+                {m.role === "assistant" && m.toolCalls?.length ? <ChatToolCalls calls={m.toolCalls} /> : null}
                 {m.error && m.retryText && (
                   <Button
                     variant="ghost"
@@ -792,6 +795,8 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
               </div>
             ))}
             {isThinking && (
+              <div aria-live="polite">
+              {activeToolCalls.length > 0 && <ChatToolCalls calls={activeToolCalls} />}
               <div
                 role="status"
                 className="flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground"
@@ -802,6 +807,7 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                   : researchMode === "deep"
                     ? "Αναζήτηση → σύνθεση…"
                     : "Ο ΝΟΥΣ σκέφτεται…"}
+              </div>
               </div>
             )}
             <div ref={chatEndRef} />
