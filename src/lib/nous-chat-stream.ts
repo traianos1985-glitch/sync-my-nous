@@ -20,7 +20,13 @@ export async function requestChat<T>(
   };
   signal.addEventListener("abort", abort, { once: true });
   let timedOut = false;
-  const timeout = setTimeout(() => { timedOut = true; abort(); }, Math.max(0, deadline - Date.now()));
+  const timeout = setTimeout(
+    () => {
+      timedOut = true;
+      abort();
+    },
+    Math.max(0, deadline - Date.now()),
+  );
   const streaming = response.headers.get("content-type")?.includes("text/event-stream");
   const decoder = new TextDecoder();
   let buffer = "";
