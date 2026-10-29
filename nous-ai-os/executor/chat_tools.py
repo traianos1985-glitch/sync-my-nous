@@ -40,7 +40,7 @@ def dispatch(name, arguments):
             raise ValueError("tool_not_available")
         return tool(**arguments)
     if name == "search_web":
-        from executor.browser_operator import browser_search
+        from executor.browser_automation import browser_search
         return browser_search(arguments["query"])
     if name == "search_memory":
         from executor.knowledge_memory_engine import search_knowledge
