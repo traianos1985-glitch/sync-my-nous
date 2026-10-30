@@ -136,8 +136,8 @@ for (const route of [
   }
 }
 for (const [route, handler] of [
-  ['@agent_ops_bp.route("/react/run", methods=["POST"])', "api_react_run"],
-  ['@agent_ops_bp.route("/research/read-url", methods=["POST"])', "api_research_read_url"],
+  ["@agent_ops_bp.route(\"/react/run\", methods=[\"POST\"])", "api_react_run"],
+  ["@agent_ops_bp.route(\"/research/read-url\", methods=[\"POST\"])", "api_research_read_url"],
 ]) {
   const start = opsBlueprint.indexOf(`def ${handler}(`);
   const next = start < 0 ? -1 : opsBlueprint.indexOf("\n@agent_ops_bp.route", start + 1);
