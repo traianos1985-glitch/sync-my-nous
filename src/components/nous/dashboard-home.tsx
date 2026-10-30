@@ -11,6 +11,7 @@ import type { useDashboard } from "./use-dashboard";
 import { ConnectionSettings } from "./dashboard-connection-settings";
 import { useEffect, useState } from "react";
 import { TelemetryPanel } from "./telemetry-panel";
+import { CognitiveMemoryPanel } from "./cognitive-memory-panel";
 import { appendResourcePoint, type ResourcePoint } from "./telemetry-model";
 
 const snapshotLabels = [
@@ -93,6 +94,8 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
           Agent chat + workspace + Android companion + deploy, σε μία οθόνη.
         </p>
       </div>
+
+      <CognitiveMemoryPanel />
 
       <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
