@@ -1,27 +1,21 @@
 import difflib
 import json
-import os
 import re
 import subprocess
 import time
 from pathlib import Path
 
+from executor.json_state_store import read_list, write_list
+
 PROPOSAL_FILE = "data/patch_proposals.json"
 
 
 def _load():
-    if not os.path.exists(PROPOSAL_FILE):
-        return []
-    try:
-        return json.load(open(PROPOSAL_FILE, "r", encoding="utf-8"))
-    except Exception:
-        return []
+    return read_list(PROPOSAL_FILE)
 
 
 def _save(items):
-    os.makedirs("data", exist_ok=True)
-    json.dump(items, open(PROPOSAL_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-
+    write_list(PROPOSAL_FILE, items)
 
 def _run(cmd):
     try:
@@ -182,13 +176,13 @@ def approve_patch_proposal(proposal_id):
         return {"ok": False, "error": "proposal_requires_manual_review", "proposal": p}
 
     applied = []
+    unsupported = []
 
     for patch in p.get("patches", []):
         path = patch.get("path")
         if not path or patch.get("apply_strategy") != "replace_file":
+            unsupported.append({"path": path, "reason": "unsupported_strategy"})
             continue
-
-        # Recreate currently supported safe patch.
         if path == "executor/nous_ui.py":
             safe = _dashboard_auth_patch()
             if not safe.get("ok"):
@@ -196,30 +190,37 @@ def approve_patch_proposal(proposal_id):
                 p["result"] = safe
                 _save(items)
                 return {"ok": False, "error": "safe_patch_failed", "result": safe}
-
             Path(path).write_text(safe["new"], encoding="utf-8")
             applied.append(path)
+        else:
+            unsupported.append({"path": path, "reason": "unsupported_target"})
 
     compile_results = {}
-    for f in sorted(set(applied)):
-        if f.endswith(".py"):
-            compile_results[f] = _run(["python", "-m", "py_compile", f])
+    for path in sorted(set(applied)):
+        if path.endswith(".py"):
+            compile_results[path] = _run(["python", "-m", "py_compile", path])
 
-    router_compile = _run(["python", "-m", "py_compile", "executor/router.py"])
-    compile_results["executor/router.py"] = router_compile
+    compile_ok = all(result.get("ok") for result in compile_results.values())
+    if not applied:
+        status = "unsupported_strategy" if unsupported else "no_changes"
+    else:
+        status = "applied" if compile_ok else "failed"
 
-    ok = all(v.get("ok") for v in compile_results.values())
-
-    p["status"] = "approved" if ok else "failed"
+    p["status"] = status
     p["approved"] = time.time()
     p["result"] = {
         "applied": applied,
+        "unsupported": unsupported,
         "compile": compile_results,
+        "verification": "syntax_only" if applied and compile_ok else "not_verified",
+        "persistence": "runtime_filesystem_only" if applied else "none",
+        "note": (
+            "Applied to this runtime filesystem only; this does not create or merge a GitHub commit."
+            if applied else "No supported file was changed."
+        ),
     }
     _save(items)
-
-    return {"ok": ok, "proposal": p}
-
+    return {"ok": status == "applied", "proposal": p}
 
 def reject_patch_proposal(proposal_id, reason="User rejected patch proposal"):
     items = _load()
