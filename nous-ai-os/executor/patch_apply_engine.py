@@ -67,7 +67,10 @@ def apply_patch_proposal(proposal_id):
 
     result = approve_patch_proposal(proposal_id)
     proposal_status = (result.get("proposal") or {}).get("status")
-    applied_paths = (\n        ((result.get("proposal") or {}).get("result") or {}).get("applied", [])\n        if result.get("ok") else []\n    )
+    applied_paths = (
+        ((result.get("proposal") or {}).get("result") or {}).get("applied", [])
+        if result.get("ok") else []
+    )
 
     validation = {}
     if result.get("ok") and applied_paths:
@@ -82,7 +85,11 @@ def apply_patch_proposal(proposal_id):
         "id": int(time.time_ns()),
         "created": time.time(),
         "proposal_id": proposal_id,
-        "status": (\n            "applied" if ok else\n            "not_applied" if result.get("error") == "proposal_not_pending" else\n            proposal_status or "failed"\n        ),
+        "status": (
+            "applied" if ok else
+            "not_applied" if result.get("error") == "proposal_not_pending" else
+            proposal_status or "failed"
+        ),
         "backups": backups,
         "apply_result": result,
         "validation": validation,
