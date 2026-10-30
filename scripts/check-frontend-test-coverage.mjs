@@ -17,7 +17,7 @@ while (pending.length) {
 
 const testFiles = readdirSync("scripts").filter((name) => /\\.test\\.(?:ts|js|mjs)$/.test(name));
 const missing = testFiles.filter((file) =>
-  ![...reachable].some((name) => scripts[name].includes(`scripts/${file}")),
+  ![...reachable].some((name) => scripts[name].includes(`scripts/${file}`)),
 );
 if (missing.length) {
   console.error("Frontend test files are not reachable from npm run check:");
