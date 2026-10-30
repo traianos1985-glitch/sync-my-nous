@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
-import { getExecutionReceipt, listExecutionReceipts, verifyExecutionReceipt } from "../lib/receipt-service";
+import {
+  getExecutionReceipt,
+  listExecutionReceipts,
+  verifyExecutionReceipt,
+} from "../lib/receipt-service";
 
 function isWorkerAuthorized(request: Request) {
   const token = process.env["NOUS_WORKER_TOKEN"];
@@ -16,7 +20,10 @@ export const Route = createFileRoute("/api/receipts")({
         if (!id) {
           const limit = Number(new URL(request.url).searchParams.get("limit") ?? 50);
           const receipts = await listExecutionReceipts(userId, limit);
-          return Response.json({ receipts }, { headers: { "Cache-Control": "private, no-store" } });
+          return Response.json(
+            { receipts },
+            { headers: { "Cache-Control": "private, no-store" } },
+          );
         }
         const receipt = await getExecutionReceipt(userId, id);
         return receipt
