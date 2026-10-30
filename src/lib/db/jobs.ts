@@ -16,7 +16,14 @@ export async function createJob(userId: string, kind: string, payload: unknown) 
   return job;
 }
 
-const JOB_STATUSES = new Set(["queued", "running", "completed", "failed", "cancelled"]);
+const JOB_STATUSES = new Set([
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "dead-letter",
+  "cancelled",
+]);
 
 export async function updateJob(id: string, userId: string, status: string, output?: unknown) {
   if (!JOB_STATUSES.has(status)) throw new Error("Invalid job status");
@@ -63,7 +70,7 @@ export async function retryJob(id: string, userId: string) {
   return job;
 }
 
-export async function claimNextJob(userId: string) {
+export async function claimNextJob(userId: string, kind?: string) {
   const candidates = await db
     .select({ id: nousJobs.id })
     .from(nousJobs)
@@ -71,7 +78,7 @@ export async function claimNextJob(userId: string) {
       and(
         eq(nousJobs.userId, userId),
         eq(nousJobs.status, "queued"),
-        sql`${nousJobs.retryCount} < ${NOUS_LIMITS.maxJobRetries}`,
+        ...(kind ? [eq(nousJobs.kind, kind)] : []),
       ),
     )
     .orderBy(nousJobs.createdAt)

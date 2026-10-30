@@ -15,6 +15,7 @@ export const JOB_KINDS = [
   "research.run",
   "document.ocr",
   "security.scan",
+  "mobile_notification",
 ] as const;
 
 export type NousJobKind = (typeof JOB_KINDS)[number];
