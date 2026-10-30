@@ -105,3 +105,46 @@ def test_drive_proposal_can_only_be_approved_once(tmp_path, monkeypatch):
     assert second["status"] == "executing"
     assert len(starts) == 1
     assert nous_drive.get_proposal("drive-1")["status"] == "executing"
+
+
+
+def test_reapplying_completed_patch_does_not_rollback_existing_change(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(patch_apply_engine, "FILE", "data/patch_apply_history.json")
+    Path("executor").mkdir()
+    Path("executor/nous_ui.py").write_text("# existing applied change", encoding="utf-8")
+    proposal = {
+        "id": "already-applied",
+        "status": "applied",
+        "can_apply": True,
+        "patches": [{"path": "executor/nous_ui.py", "apply_strategy": "replace_file"}],
+        "result": {"applied": ["executor/nous_ui.py"]},
+    }
+    monkeypatch.setattr(patch_generator, "list_patch_proposals", lambda limit: [proposal])
+    monkeypatch.setattr(
+        patch_generator,
+        "approve_patch_proposal",
+        lambda proposal_id: {
+            "ok": False,
+            "error": "proposal_not_pending",
+            "proposal": proposal,
+        },
+    )
+    rollback_calls = []
+    monkeypatch.setattr(
+        patch_apply_engine,
+        "backup_file",
+        lambda *args, **kwargs: {"ok": True, "backup": {"id": "backup-1"}},
+    )
+    monkeypatch.setattr(
+        patch_apply_engine,
+        "rollback_backup",
+        lambda backup_id: rollback_calls.append(backup_id) or {"ok": True},
+    )
+
+    result = patch_apply_engine.apply_patch_proposal("already-applied")
+
+    assert result["ok"] is False
+    assert result["event"]["status"] == "not_applied"
+    assert rollback_calls == []
+    assert Path("executor/nous_ui.py").read_text(encoding="utf-8") == "# existing applied change"
