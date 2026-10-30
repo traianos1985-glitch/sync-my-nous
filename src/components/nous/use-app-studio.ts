@@ -35,7 +35,9 @@ export function useAppStudio(connected: boolean) {
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; };
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
   const refresh = useCallback(async () => {
@@ -59,24 +61,26 @@ export function useAppStudio(connected: boolean) {
     }
   }, [connected, request]);
   useEffect(() => {
-    queueMicrotask(() => { if (mounted.current) void refresh(); });
+    queueMicrotask(() => {
+      if (mounted.current) void refresh();
+    });
   }, [refresh]);
   useEffect(() => {
     const controller = new AbortController();
     scope.current = controller;
     queueMicrotask(() => {
-    if (controller.signal.aborted) return;
-    setFile("");
-    setCode("");
-    setRepair(null);
-    setRepairs([]);
-    setResult(null);
-    setConsoleText("");
-    setApproval(null);
-    setRunning(false);
-    setLogs("");
-    setBusy(null);
-    setError("");
+      if (controller.signal.aborted) return;
+      setFile("");
+      setCode("");
+      setRepair(null);
+      setRepairs([]);
+      setResult(null);
+      setConsoleText("");
+      setApproval(null);
+      setRunning(false);
+      setLogs("");
+      setBusy(null);
+      setError("");
     });
     fileGeneration.current += 1;
     if (selected && connected) {
