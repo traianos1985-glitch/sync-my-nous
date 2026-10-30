@@ -1,7 +1,7 @@
 # Roadmap
 
-- [ ] Add App Builder Studio file explorer, code viewer, validation console and lifecycle controls.
-- [ ] Add Self-Healing diagnosis and diff review with explicit approve/reject; test existing endpoint integration.
+- [x] Add App Builder Studio file explorer, code viewer, streaming validation console and approved run/logs/stop/download controls.
+- [x] Add Self-Healing diagnosis and diff review with explicit approve/reject, stale-baseline checks and no launch-time rewriting; verify frontend and Python regression suites.
 - [ ] Verify hosted Studio lifecycle; requires owner-entered NOUS token and any needed Render redeploy.
 
 - [x] Connect chat to bounded, read-only ReAct tool execution with structured execution records and streamed status.

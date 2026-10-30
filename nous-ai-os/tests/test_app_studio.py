@@ -1,5 +1,4 @@
 import hashlib
-import json
 import threading
 from executor import app_builder, app_studio, app_validation_runner, router
 from executor.app_repair_review import save_repair_proposal, resolve_repair_proposal
@@ -25,6 +24,24 @@ def test_explicit_approval_applies_reviewed_patch_once(tmp_path):
     assert result["proposal_applied"] is True
     assert result["tests_executed"] is False
     assert target.read_text() == "answer = 42\n"
+
+
+def test_launch_does_not_apply_unreviewed_repairs(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    app = tmp_path / "sample_app"
+    app.mkdir()
+    source = '{"files": []}\n'
+    (app / "main.py").write_text(source)
+    monkeypatch.setattr(router, "check_admin_token", lambda _: True)
+    monkeypatch.setattr(router, "_find_builder_app_dir", lambda _: app)
+    monkeypatch.setattr(router, "claim_approved_approval", lambda *_: True)
+    monkeypatch.setattr(router, "finish_approval", lambda *_: None)
+    monkeypatch.setattr(router, "_launch_app_proc", lambda *_: {"proc": SimpleNamespace(pid=1, poll=lambda: 1), "lines": ["SyntaxError\n"]})
+    monkeypatch.setattr(router, "_try_autorepair_app", lambda *_: (_ for _ in ()).throw(AssertionError("unreviewed repair")))
+    result = router.app.test_client().post("/remote/app-builder/run-app", json={"app": "sample_app", "approval_id": "approved"}).get_json()
+    assert result["repaired"] is False
+    assert result["running"] is False
+    assert (app / "main.py").read_text() == source
     assert resolve_repair_proposal(repair_id, root, approve=True, store_path=store)["error"] == "repair_not_pending"
 
 
