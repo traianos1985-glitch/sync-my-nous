@@ -11,7 +11,7 @@ import ipaddress
 import socket
 import ssl
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 _ALLOWED_PORTS = {80, 443}
 _DEFAULT_MAX_BYTES = 1_500_000
