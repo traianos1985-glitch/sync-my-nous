@@ -67,7 +67,7 @@ def apply_patch_proposal(proposal_id):
 
     result = approve_patch_proposal(proposal_id)
     proposal_status = (result.get("proposal") or {}).get("status")
-    applied_paths = ((result.get("proposal") or {}).get("result") or {}).get("applied", [])
+    applied_paths = (\n        ((result.get("proposal") or {}).get("result") or {}).get("applied", [])\n        if result.get("ok") else []\n    )
 
     validation = {}
     if result.get("ok") and applied_paths:
