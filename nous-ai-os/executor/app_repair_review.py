@@ -132,6 +132,8 @@ def review_repair_proposal(
     proposal = next((x for x in _read_store(store_path) if x.get("repair_id") == repair_id), None)
     if proposal is None:
         return {"ok": False, "error": "repair_not_found"}
+    if proposal.get("status") != "pending_review":
+        return {"ok": False, "error": "repair_not_pending"}
     app_name = proposal.get("app_name")
     if not isinstance(app_name, str) or not _SLUG.fullmatch(app_name):
         return {"ok": False, "error": "invalid_stored_app_name"}
@@ -238,3 +240,37 @@ def review_repair_proposal(
             "A clean report is not a security guarantee or proof that the repair is correct.",
         ],
     }
+
+
+def resolve_repair_proposal(repair_id, apps_root, approve=False,
+                            store_path="data/app_builder_repairs.json"):
+    """Revalidate the baseline at approval time; reject never writes application files."""
+    report = review_repair_proposal(repair_id, apps_root, store_path)
+    if not report.get("ok"):
+        return report
+    items = _read_store(store_path)
+    proposal = next((p for p in items if p.get("repair_id") == repair_id), None)
+    if proposal is None:
+        return {"ok": False, "error": "repair_not_found"}
+    if approve and not report.get("ready_for_human_review"):
+        return {"ok": False, "error": "repair_blocked", "review": report}
+    originals = []
+    try:
+        if approve:
+            for change in proposal["changes"]:
+                target = Path(apps_root).resolve() / change["path"]
+                originals.append((target, target.read_bytes() if target.exists() else None))
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(change["content"], encoding="utf-8")
+        proposal["status"] = "applied" if approve else "rejected"
+        proposal["resolved_at"] = datetime.now(timezone.utc).isoformat()
+        _write_store(store_path, items)
+    except OSError:
+        for target, original in reversed(originals):
+            if original is None:
+                target.unlink(missing_ok=True)
+            else:
+                target.write_bytes(original)
+        return {"ok": False, "error": "repair_write_failed"}
+    return {"ok": True, "repair_id": repair_id, "status": proposal["status"],
+            "proposal_applied": approve, "tests_executed": False}
