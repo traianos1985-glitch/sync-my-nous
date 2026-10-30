@@ -1,4 +1,4 @@
-import fcntl
+from executor import portable_fcntl as fcntl
 import json
 import os
 import tempfile
