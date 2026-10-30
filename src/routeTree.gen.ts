@@ -24,6 +24,7 @@ import { Route as ApiKnowledgeRouteImport } from './routes/api.knowledge'
 import { Route as ApiMissionsRouteImport } from './routes/api.missions'
 import { Route as ApiObservabilityRouteImport } from './routes/api.observability'
 import { Route as ApiOpenapiRouteImport } from './routes/api.openapi'
+import { Route as ApiReceiptsRouteImport } from './routes/api.receipts'
 import { Route as ApiSecurityAuditRouteImport } from './routes/api.security-audit'
 import { Route as ApiSecurityLessonsRouteImport } from './routes/api.security-lessons'
 import { Route as ApiStatusRouteImport } from './routes/api.status'
@@ -114,6 +115,11 @@ const ApiObservabilityRoute = ApiObservabilityRouteImport.update({
 const ApiOpenapiRoute = ApiOpenapiRouteImport.update({
   id: '/api/openapi',
   path: '/api/openapi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReceiptsRoute = ApiReceiptsRouteImport.update({
+  id: '/api/receipts',
+  path: '/api/receipts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSecurityAuditRoute = ApiSecurityAuditRouteImport.update({
@@ -213,6 +219,7 @@ export interface FileRoutesByFullPath {
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
   '/api/openapi': typeof ApiOpenapiRoute
+  '/api/receipts': typeof ApiReceiptsRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
@@ -246,6 +253,7 @@ export interface FileRoutesByTo {
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
   '/api/openapi': typeof ApiOpenapiRoute
+  '/api/receipts': typeof ApiReceiptsRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
@@ -280,6 +288,7 @@ export interface FileRoutesById {
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
   '/api/openapi': typeof ApiOpenapiRoute
+  '/api/receipts': typeof ApiReceiptsRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
@@ -315,6 +324,7 @@ export interface FileRouteTypes {
     | '/api/missions'
     | '/api/observability'
     | '/api/openapi'
+    | '/api/receipts'
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
@@ -348,6 +358,7 @@ export interface FileRouteTypes {
     | '/api/missions'
     | '/api/observability'
     | '/api/openapi'
+    | '/api/receipts'
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
@@ -381,6 +392,7 @@ export interface FileRouteTypes {
     | '/api/missions'
     | '/api/observability'
     | '/api/openapi'
+    | '/api/receipts'
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
@@ -415,6 +427,7 @@ export interface RootRouteChildren {
   ApiMissionsRoute: typeof ApiMissionsRouteWithChildren
   ApiObservabilityRoute: typeof ApiObservabilityRoute
   ApiOpenapiRoute: typeof ApiOpenapiRoute
+  ApiReceiptsRoute: typeof ApiReceiptsRoute
   ApiSecurityAuditRoute: typeof ApiSecurityAuditRoute
   ApiSecurityLessonsRoute: typeof ApiSecurityLessonsRoute
   ApiStatusRoute: typeof ApiStatusRoute
@@ -533,6 +546,13 @@ declare module '@tanstack/react-router' {
       path: '/api/openapi'
       fullPath: '/api/openapi'
       preLoaderRoute: typeof ApiOpenapiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/receipts': {
+      id: '/api/receipts'
+      path: '/api/receipts'
+      fullPath: '/api/receipts'
+      preLoaderRoute: typeof ApiReceiptsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/security-audit': {
@@ -705,6 +725,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMissionsRoute: ApiMissionsRouteWithChildren,
   ApiObservabilityRoute: ApiObservabilityRoute,
   ApiOpenapiRoute: ApiOpenapiRoute,
+  ApiReceiptsRoute: ApiReceiptsRoute,
   ApiSecurityAuditRoute: ApiSecurityAuditRoute,
   ApiSecurityLessonsRoute: ApiSecurityLessonsRoute,
   ApiStatusRoute: ApiStatusRoute,

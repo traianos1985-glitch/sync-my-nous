@@ -1,10 +1,10 @@
 export type ExecutionReceipt = {
   id: string;
-  operation: "chat" | "tool" | "sandbox" | "mission";
+  operation: "chat" | "tool" | "sandbox" | "mission" | "fcm";
   status: "completed" | "failed";
   startedAt: string;
   completedAt: string;
-  verified: false;
+  verified: boolean;
   evidence: {
     provider: string;
     model: string;

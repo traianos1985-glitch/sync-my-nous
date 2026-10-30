@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousMissions } from "../lib/db/schema";
 import { createExecutionReceipt } from "../lib/execution-receipt";
+import { persistExecutionReceipt } from "../lib/receipt-service";
 
 const NOUS_API_FALLBACK = "https://nous-ai-os-api.onrender.com";
 
@@ -96,23 +97,25 @@ export const Route = createFileRoute("/api/missions")({
             .where(eq(nousMissions.id, mission.id));
           mission.status = dispatch.status;
         }
+        const receipt = createExecutionReceipt({
+          id: mission.id,
+          operation: "mission",
+          startedAt,
+          status: dispatch.status === "failed" ? "failed" : "completed",
+          evidence: {
+            provider: "nous-dispatch",
+            model: dispatch.status,
+            researchUsed: false,
+            persisted: true,
+          },
+        });
+        await persistExecutionReceipt(mission.userId, receipt);
         return Response.json(
           {
             ok: true,
             mission,
             dispatch: { error: dispatch.error },
-            receipt: createExecutionReceipt({
-              id: mission.id,
-              operation: "mission",
-              startedAt,
-              status: dispatch.status === "failed" ? "failed" : "completed",
-              evidence: {
-                provider: "nous-dispatch",
-                model: dispatch.status,
-                researchUsed: false,
-                persisted: true,
-              },
-            }),
+            receipt,
           },
           { status: 201 },
         );
