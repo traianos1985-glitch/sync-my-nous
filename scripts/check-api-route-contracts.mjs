@@ -135,8 +135,6 @@ for (const route of [
     errors.push(`Control UI is missing fleet endpoint ${route}.`);
   }
 }
-
-
 for (const [route, handler] of [
   ['@agent_ops_bp.route("/react/run", methods=["POST"])', "api_react_run"],
   ['@agent_ops_bp.route("/research/read-url", methods=["POST"])', "api_research_read_url"],
