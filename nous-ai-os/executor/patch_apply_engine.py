@@ -82,7 +82,7 @@ def apply_patch_proposal(proposal_id):
         "id": int(time.time_ns()),
         "created": time.time(),
         "proposal_id": proposal_id,
-        "status": "applied" if ok else proposal_status or "failed",
+        "status": (\n            "applied" if ok else\n            "not_applied" if result.get("error") == "proposal_not_pending" else\n            proposal_status or "failed"\n        ),
         "backups": backups,
         "apply_result": result,
         "validation": validation,
