@@ -36,6 +36,8 @@ class SubAgent:
                 "status": "planned",
                 "plan": subtasks,
                 "summary": f"Architecture plan formulated with {len(subtasks)} delegated subtasks.",
+                "simulated": True,
+                "executed": False,
                 "timestamp": timestamp
             }
             
@@ -43,10 +45,10 @@ class SubAgent:
             return {
                 "role": self.role,
                 "status": "done",
-                "findings": [
-                    f"Validated environment and dependency availability for: {instruction}",
-                    "Semantic memory and tool registry accessible."
-                ],
+                "findings": [],
+                "summary": "No research was performed: this swarm role is a planning simulation.",
+                "simulated": True,
+                "executed": False,
                 "timestamp": timestamp
             }
             
@@ -54,20 +56,21 @@ class SubAgent:
             return {
                 "role": self.role,
                 "status": "done",
-                "diff_summary": f"Code operations executed for: {instruction}",
+                "diff_summary": "No code was modified: this swarm role is a planning simulation.",
+                "simulated": True,
+                "executed": False,
                 "timestamp": timestamp
             }
             
         elif self.role == AgentRole.REVIEWER:
             return {
                 "role": self.role,
-                "status": "passed",
-                "verifications": [
-                    "Syntax checks passed.",
-                    "Safety filters confirmed.",
-                    "Unit tests operational."
-                ],
-                "score": 1.0,
+                "status": "not_run",
+                "verifications": [],
+                "score": None,
+                "summary": "No syntax, safety or test checks were run: this swarm role is a planning simulation.",
+                "simulated": True,
+                "executed": False,
                 "timestamp": timestamp
             }
             
@@ -102,6 +105,10 @@ class SwarmCoordinator:
         return {
             "mission": mission,
             "status": "completed",
+            "simulated": True,
+            "executed": False,
+            "notice": ("Delegation plan only. Sub-agents are simulated: no research, code change or "
+                       "verification was performed. Use missions with approvals for real work."),
             "agent_count": len(self.agents),
             "trace": trace,
             "duration_s": round(time.time() - start_time, 3)
