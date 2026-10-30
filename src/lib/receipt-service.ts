@@ -35,7 +35,7 @@ export async function listExecutionReceipts(userId: string, limit = 50) {
     .from(nousExecutionReceipts)
     .where(eq(nousExecutionReceipts.userId, userId))
     .orderBy(desc(nousExecutionReceipts.createdAt))
-    .limit(Math.min(Math.max(limit, 1), 100));
+    .limit(Number.isFinite(limit) ? Math.min(Math.max(Math.trunc(limit), 1), 100) : 50);
 }
 
 export async function verifyExecutionReceipt(
