@@ -1,5 +1,5 @@
 """Bounded autonomy service with durable state and cross-worker cycle exclusion."""
-import fcntl
+from executor import portable_fcntl as fcntl
 import json
 import os
 import tempfile
