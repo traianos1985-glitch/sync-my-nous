@@ -10,6 +10,11 @@ def daily_brief():
     device = sense()
     return {
         "summary": "Ημερήσια εικόνα ΝΟΥΣ",
+        "memory": {
+            "episodic": mem,
+            "semantic": db.get("projects", []) + db.get("preferences", []),
+            "procedural": learning_status().get("lessons", []) if isinstance(learning_status(), dict) else [],
+        },
         "goals": db.get("goals", []),
         "projects": db.get("projects", []),
         "recent_memory": mem,
