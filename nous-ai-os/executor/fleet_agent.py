@@ -57,7 +57,8 @@ def send_heartbeat(force: bool = False, status: str = "healthy") -> dict[str, An
         status = "unknown"
     global _LAST_SENT, _LAST_STATUS
     coordinator = os.environ.get("NOUS_FLEET_COORDINATOR_URL", "").strip().rstrip("/")
-    token = os.environ.get("NOUS_FLEET_TOKEN", "").strip()
+    token = (os.environ.get("NOUS_FLEET_INSTANCE_TOKEN", "").strip() or
+             os.environ.get("NOUS_FLEET_TOKEN", "").strip())
     instance_id = os.environ.get("NOUS_FLEET_INSTANCE_ID", "").strip()
     if not coordinator or not token or not _INSTANCE_ID.fullmatch(instance_id):
         return {"ok": False, "skipped": True, "reason": "fleet_client_not_configured"}
