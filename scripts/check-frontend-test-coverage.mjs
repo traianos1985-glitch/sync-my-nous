@@ -34,4 +34,6 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log(`Frontend test coverage contract passed: all ${testFiles.length} scripts/*.test.* files are included in npm run check.`);
+console.log(
+  `Frontend test coverage contract passed: all ${testFiles.length} scripts/*.test.* files are included in npm run check.`,
+);
