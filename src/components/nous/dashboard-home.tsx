@@ -12,6 +12,7 @@ import { ConnectionSettings } from "./dashboard-connection-settings";
 import { useEffect, useState } from "react";
 import { TelemetryPanel } from "./telemetry-panel";
 import { CognitiveMemoryPanel } from "./cognitive-memory-panel";
+import { MobileBridgePanel } from "./mobile-bridge-panel";
 import { appendResourcePoint, type ResourcePoint } from "./telemetry-model";
 
 const snapshotLabels = [
@@ -96,6 +97,7 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
       </div>
 
       <CognitiveMemoryPanel />
+      <MobileBridgePanel />
 
       <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
