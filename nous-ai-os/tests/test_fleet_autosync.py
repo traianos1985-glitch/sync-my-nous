@@ -465,6 +465,63 @@ def test_deployment_status_is_truthful_and_requires_explicit_render_mapping(monk
     assert unmapped["update_mode"] == "report_only"
 
 
+
+def test_vercel_deployment_readiness_matches_explicit_rollout_mapping(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_AUTO_DEPLOY", "true")
+    monkeypatch.delenv("RENDER_API_KEY", raising=False)
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-vercel-04": {
+            "provider": " Vercel ",
+            "deploy_hook_url": "https://api.vercel.com/v1/integrations/deploy/project/hook",
+            "enabled": True,
+        }
+    }))
+    result = fleet.record_heartbeat({
+        "instance_id": "nous-vercel-04", "provider": "vercel",
+        "version": "release-1", "status": "healthy",
+    })
+    assert result["automatic_deployment_enabled"] is True
+    assert result["update_mode"] == "provider_triggered"
+
+    status = fleet.fleet_status()
+    instance = next(item for item in status["instances"] if item["instance_id"] == "nous-vercel-04")
+    assert instance["automatic_deployment_enabled"] is True
+    assert instance["update_mode"] == "provider_triggered"
+    assert status["automatic_deployment_enabled"] is True
+    assert status["update_mode"] == "provider_triggered"
+
+
+def test_vercel_readiness_rejects_invalid_or_disabled_mapping(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_AUTO_DEPLOY", "true")
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-vercel-05": {
+            "provider": "vercel",
+            "deploy_hook_url": "https://evil.example/v1/integrations/deploy/project/hook",
+            "enabled": True,
+        }
+    }))
+    result = fleet.record_heartbeat({
+        "instance_id": "nous-vercel-05", "provider": "vercel",
+        "version": "release-1", "status": "healthy",
+    })
+    assert result["automatic_deployment_enabled"] is False
+    assert result["update_mode"] == "report_only"
+
+    monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
+        "nous-vercel-05": {
+            "provider": "vercel",
+            "deploy_hook_url": "https://api.vercel.com/v1/integrations/deploy/project/hook",
+            "enabled": False,
+        }
+    }))
+    disabled = fleet.record_heartbeat({
+        "instance_id": "nous-vercel-05", "provider": "vercel",
+        "version": "release-1", "status": "healthy",
+    })
+    assert disabled["automatic_deployment_enabled"] is False
+    assert disabled["update_mode"] == "report_only"
+
+
 def test_fleet_integrations_endpoint_is_admin_only_and_secret_safe(monkeypatch):
     app = Flask(__name__)
     app.register_blueprint(agent_environments_bp)

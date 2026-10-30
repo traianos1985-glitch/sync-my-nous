@@ -10,6 +10,7 @@ import os
 import re
 import sqlite3
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -77,11 +78,9 @@ def _auto_deploy_enabled() -> bool:
     return os.environ.get("NOUS_FLEET_AUTO_DEPLOY", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _render_target_enabled(instance_id: str, provider: str) -> bool:
-    """Check whether this exact instance has a valid, explicit Render mapping."""
-    if provider != "render" or not _auto_deploy_enabled():
-        return False
-    if not os.environ.get("RENDER_API_KEY", "").strip():
+def _provider_target_enabled(instance_id: str, provider: str) -> bool:
+    """Report deployment readiness only for a valid, explicitly enabled provider mapping."""
+    if provider not in {"render", "vercel"} or not _auto_deploy_enabled():
         return False
     try:
         targets = json.loads(os.environ.get("NOUS_FLEET_DEPLOY_TARGETS", "{}"))
@@ -90,16 +89,33 @@ def _render_target_enabled(instance_id: str, provider: str) -> bool:
     if not isinstance(targets, dict):
         return False
     target = targets.get(instance_id)
+    if (not isinstance(target, dict)
+            or str(target.get("provider") or "").strip().lower() != provider
+            or target.get("enabled") is not True):
+        return False
+    if provider == "render":
+        return bool(
+            os.environ.get("RENDER_API_KEY", "").strip()
+            and re.fullmatch(r"[A-Za-z0-9_-]{3,128}", str(target.get("service_id") or ""))
+        )
+    hook = str(target.get("deploy_hook_url") or "").strip()
+    try:
+        parsed = urllib.parse.urlsplit(hook)
+    except ValueError:
+        return False
     return bool(
-        isinstance(target, dict)
-        and target.get("provider") == "render"
-        and target.get("enabled") is True
-        and re.fullmatch(r"[A-Za-z0-9_-]{3,128}", str(target.get("service_id") or ""))
+        parsed.scheme == "https"
+        and parsed.hostname == "api.vercel.com"
+        and not parsed.username
+        and not parsed.password
+        and not parsed.query
+        and not parsed.fragment
+        and parsed.path.startswith("/v1/integrations/deploy/")
     )
 
 
 def _update_mode(instance_id: str, provider: str) -> str:
-    if _render_target_enabled(instance_id, provider):
+    if _provider_target_enabled(instance_id, provider):
         return "provider_triggered"
     return "report_only"
 
@@ -157,7 +173,7 @@ def record_heartbeat(payload: Any) -> dict[str, Any]:
         "desired_version": desired or None,
         "update_available": bool(desired and version != desired),
         "update_mode": _update_mode(instance_id, provider),
-        "automatic_deployment_enabled": _render_target_enabled(instance_id, provider),
+        "automatic_deployment_enabled": _provider_target_enabled(instance_id, provider),
     }
 
 
@@ -180,7 +196,7 @@ def fleet_status(now: float | None = None) -> dict[str, Any]:
             "last_seen": seen, "stale": stale,
             "update_available": bool(desired and row["version"] != desired),
             "update_mode": _update_mode(row["instance_id"], row["provider"]),
-            "automatic_deployment_enabled": _render_target_enabled(row["instance_id"], row["provider"]),
+            "automatic_deployment_enabled": _provider_target_enabled(row["instance_id"], row["provider"]),
         })
     return {
         "ok": True, "desired_version": desired or None,
