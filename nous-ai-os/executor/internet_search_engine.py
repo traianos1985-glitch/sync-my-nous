@@ -33,7 +33,7 @@ DOMAIN_BOOSTS: tuple[tuple[str, float], ...] = (
 
 
 def _detect_product_sites(query: str) -> list[str]:
-    tokens = set(re.findall(r"[a-z0-9]+(?:\\.[a-z0-9]+)?", (query or "").lower()))
+    tokens = set(re.findall(r"[a-z0-9]+(?:\.[a-z0-9]+)?", (query or "").lower()))
     hosts: list[str] = []
     for key, domains in PRODUCT_SITES.items():
         if key in tokens:
