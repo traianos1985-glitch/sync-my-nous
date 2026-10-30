@@ -51,7 +51,7 @@ For each installation that should report status, set these **server-side** varia
 - `NOUS_FLEET_INSTANCE_ID`: unique stable ID, such as `nous-render-01`, `nous-vercel-01`, or `nous-lovable-01`.
 - `NOUS_VERSION`: optional fallback version if the platform does not expose its deployed commit. If available, the client prefers host-provided commit metadata.
 
-When per-instance authentication is enabled, the credential is bound to the submitted `instance_id`; instance A cannot report as instance B. The token map is server-side only and never returned by status or preflight endpoints. The heartbeat contains only `instance_id`, `provider`, `version`, `commit_sha`, and `status. The status is a coarse response-based liveness signal: HTTP 5xx marks the instance degraded, while other completed responses mark it healthy. It is not a dependency check or synthetic transaction and can miss failures that do not produce a 5xx response. It never sends prompts, missions, user data, environment variables, or API keys. If the coordinator is unavailable, the local NOUS request continues; the client uses a bounded network timeout and retries on later traffic.
+When per-instance authentication is enabled, the credential is bound to the submitted `instance_id`; instance A cannot report as instance B. The token map is server-side only and never returned by status or preflight endpoints. The heartbeat contains only `instance_id`, `provider`, `version`, `commit_sha`, and `status`. The status is a coarse response-based liveness signal: HTTP 5xx marks the instance degraded, while other completed responses mark it healthy. It is not a dependency check or synthetic transaction and can miss failures that do not produce a 5xx response. It never sends prompts, missions, user data, environment variables, or API keys. If the coordinator is unavailable, the local NOUS request continues; the client uses a bounded network timeout and retries on later traffic.
 
 A dormant instance cannot report until its host runs it again. This design does not keep sleeping/free-tier instances awake and does not promise heartbeats from a suspended service.
 
@@ -114,7 +114,6 @@ only boolean readiness and safe diagnostic text; it never returns secret values 
 API key presence is checked only when an enabled Render target exists. The endpoint does not prove that
 GitHub Actions secrets exist, that storage survives a restart, or that a provider deployment will succeed.
 A `ready` result is a configuration checklist, not a production end-to-end verification.
-
 
 ## Migrating to per-instance heartbeat credentials
 
