@@ -87,7 +87,9 @@ export function ExecutionReceiptsPanel() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal);
+    // Defer the request kickoff so the effect itself does not synchronously
+    // enter a state-updating callback during React's effect flush.
+    void Promise.resolve().then(() => load(controller.signal));
     return () => controller.abort();
   }, [load]);
 
