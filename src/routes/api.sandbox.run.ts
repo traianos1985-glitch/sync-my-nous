@@ -83,7 +83,8 @@ export const Route = createFileRoute("/api/sandbox/run")({
           return Response.json({ result: body, receipt }, { status: response.status });
         } catch (error) {
           const aborted = error instanceof Error && error.name === "AbortError";
-          const outputTooLarge = error instanceof Error && error.message === "sandbox_output_too_large";
+          const outputTooLarge =
+            error instanceof Error && error.message === "sandbox_output_too_large";
           const receipt = createExecutionReceipt({
             id: receiptId,
             operation: "sandbox",
@@ -98,7 +99,14 @@ export const Route = createFileRoute("/api/sandbox/run")({
           });
           await persistExecutionReceipt(userId, receipt);
           return Response.json(
-            { error: aborted ? "sandbox_runner_timeout" : outputTooLarge ? "sandbox_output_too_large" : "sandbox_runner_unavailable", receipt },
+            {
+              error: aborted
+                ? "sandbox_runner_timeout"
+                : outputTooLarge
+                  ? "sandbox_output_too_large"
+                  : "sandbox_runner_unavailable",
+              receipt,
+            },
             { status: 502 },
           );
         } finally {
