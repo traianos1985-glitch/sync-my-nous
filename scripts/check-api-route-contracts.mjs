@@ -167,9 +167,7 @@ const frontendTestFiles = readdirSync("scripts").filter((name) =>
   /\.test\.(?:ts|js|mjs)$/.test(name),
 );
 const missingFrontendTests = frontendTestFiles.filter((file) =>
-  [...reachableScripts].every(
-    (name) => !npmScripts[name].includes(`scripts/${file}`),
-  ),
+  [...reachableScripts].every((name) => !npmScripts[name].includes(`scripts/${file}`)),
 );
 for (const file of missingFrontendTests) {
   errors.push(`Frontend test file is not reachable from npm run check: scripts/${file}`);
