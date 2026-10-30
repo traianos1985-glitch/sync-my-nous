@@ -18,6 +18,27 @@ _PROVIDER_ID = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
 _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+/-]{0,119}$")
 _MAX_INSTANCES = 500
 _STALE_AFTER_SECONDS = 15 * 60
+_MIN_INSTANCE_TOKEN_LENGTH = 32
+
+
+def fleet_auth_configuration() -> dict[str, Any]:
+    """Validate per-instance heartbeat credentials without exposing secret values."""
+    raw = os.environ.get("NOUS_FLEET_INSTANCE_TOKENS")
+    if raw is None or not raw.strip():
+        ready = bool(os.environ.get("NOUS_FLEET_TOKEN", "").strip())
+        return {"mode": "legacy_shared" if ready else "misconfigured", "ready": ready, "instance_count": 0}
+    try:
+        mapping = json.loads(raw)
+    except (TypeError, ValueError):
+        return {"mode": "misconfigured", "ready": False, "instance_count": 0}
+    if not isinstance(mapping, dict) or not mapping or len(mapping) > _MAX_INSTANCES:
+        return {"mode": "misconfigured", "ready": False, "instance_count": 0}
+    for instance_id, token in mapping.items():
+        if (not isinstance(instance_id, str) or not _INSTANCE_ID.fullmatch(instance_id)
+                or not isinstance(token, str) or not (_MIN_INSTANCE_TOKEN_LENGTH <= len(token) <= 512)
+                or token.strip() != token):
+            return {"mode": "misconfigured", "ready": False, "instance_count": 0}
+    return {"mode": "per_instance", "ready": True, "instance_count": len(mapping)}
 
 
 def _database_path() -> Path:

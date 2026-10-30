@@ -485,3 +485,63 @@ def test_fleet_integrations_endpoint_is_admin_only_and_secret_safe(monkeypatch):
     serialized = json.dumps(payload)
     assert "never-return-this-fleet-secret" not in serialized
     assert "never-return-this-rollout-secret" not in serialized
+
+
+def test_per_instance_tokens_bind_heartbeat_to_instance_identity(monkeypatch):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environments_bp)
+    tokens = {"nous-vercel-01": "a" * 40, "nous-render-01": "b" * 40}
+    monkeypatch.setenv("NOUS_FLEET_INSTANCE_TOKENS", json.dumps(tokens))
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "legacy-shared-secret")
+    client = app.test_client()
+    payload = {"instance_id": "nous-vercel-01", "provider": "vercel", "version": "release-1"}
+    assert client.post("/api/agent-environments/fleet/heartbeat", json=payload,
+        headers={"X-NOUS-FLEET-TOKEN": tokens["nous-vercel-01"]}).status_code == 200
+    assert client.post("/api/agent-environments/fleet/heartbeat", json=payload,
+        headers={"X-NOUS-FLEET-TOKEN": tokens["nous-render-01"]}).status_code == 403
+    assert client.post("/api/agent-environments/fleet/heartbeat", json=payload,
+        headers={"X-NOUS-FLEET-TOKEN": "legacy-shared-secret"}).status_code == 403
+    spoofed = {**payload, "instance_id": "nous-render-01"}
+    assert client.post("/api/agent-environments/fleet/heartbeat", json=spoofed,
+        headers={"X-NOUS-FLEET-TOKEN": tokens["nous-vercel-01"]}).status_code == 403
+
+
+def test_malformed_instance_token_registry_fails_closed(monkeypatch):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environments_bp)
+    monkeypatch.setenv("NOUS_FLEET_INSTANCE_TOKENS", "{invalid-json")
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "legacy-shared-secret")
+    response = app.test_client().post("/api/agent-environments/fleet/heartbeat",
+        json={"instance_id": "nous-vercel-01", "provider": "vercel", "version": "release-1"},
+        headers={"X-NOUS-FLEET-TOKEN": "legacy-shared-secret"})
+    assert response.status_code == 403
+
+
+def test_client_prefers_instance_token(monkeypatch):
+    monkeypatch.setenv("NOUS_FLEET_COORDINATOR_URL", "https://coordinator.example")
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "legacy-secret")
+    monkeypatch.setenv("NOUS_FLEET_INSTANCE_TOKEN", "instance-specific-secret")
+    monkeypatch.setenv("NOUS_FLEET_INSTANCE_ID", "nous-test-01")
+    seen = {}
+    class Response:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def read(self, _limit): return b'{"ok":true}'
+    def fake_urlopen(req, timeout):
+        seen.update(dict(req.header_items()))
+        return Response()
+    monkeypatch.setattr(fleet_agent.urllib.request, "urlopen", fake_urlopen)
+    assert fleet_agent.send_heartbeat(force=True)["ok"] is True
+    assert seen["X-nous-fleet-token"] == "instance-specific-secret"
+
+
+def test_legacy_shared_token_still_works_without_instance_registry(monkeypatch):
+    app = Flask(__name__)
+    app.register_blueprint(agent_environments_bp)
+    monkeypatch.delenv("NOUS_FLEET_INSTANCE_TOKENS", raising=False)
+    monkeypatch.setenv("NOUS_FLEET_TOKEN", "legacy-shared-secret")
+    response = app.test_client().post("/api/agent-environments/fleet/heartbeat",
+        json={"instance_id": "nous-vercel-03", "provider": "vercel", "version": "release-1"},
+        headers={"X-NOUS-FLEET-TOKEN": "legacy-shared-secret"})
+    assert response.status_code == 200

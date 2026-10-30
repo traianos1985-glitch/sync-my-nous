@@ -441,7 +441,9 @@ def fleet_integration_status() -> dict[str, Any]:
     ]
     render_key_ready = bool(os.environ.get("RENDER_API_KEY", "").strip())
     render_auto_ready = _enabled() and bool(render_targets) and render_key_ready
-    coordinator_token_ready = bool(os.environ.get("NOUS_FLEET_TOKEN", "").strip())
+    from executor.fleet_coordinator import fleet_auth_configuration
+    fleet_auth = fleet_auth_configuration()
+    coordinator_token_ready = bool(fleet_auth["ready"])
     rollout_token_ready = bool(os.environ.get("NOUS_FLEET_ROLLOUT_TOKEN", "").strip())
     desired_ready = bool(desired)
     configured_db = os.environ.get("NOUS_FLEET_DB_PATH", "").strip()
@@ -505,6 +507,7 @@ def fleet_integration_status() -> dict[str, Any]:
     ]
     checks = [
         {"id": "fleet_token", "ready": coordinator_token_ready},
+        {"id": "instance_token_registry", "ready": fleet_auth["ready"], "detail": "Per-instance tokens active." if fleet_auth["mode"] == "per_instance" else "Legacy shared-token mode; migrate to per-instance tokens." if fleet_auth["mode"] == "legacy_shared" else "Token registry invalid or missing; authentication fails closed."},
         {"id": "rollout_token", "ready": rollout_token_ready},
         {"id": "desired_version", "ready": desired_ready},
         {"id": "database_storage", "ready": storage_ready},
@@ -519,6 +522,7 @@ def fleet_integration_status() -> dict[str, Any]:
         "checks": checks,
         "blocking_checks": blocking,
         "automatic_deployment_enabled": render_auto_ready,
+        "fleet_auth_mode": fleet_auth["mode"],
         "target_version": desired or None,
         "fleet": fleet_counts,
         "platforms": platforms,
@@ -547,9 +551,13 @@ def rollout_preflight() -> dict[str, Any]:
     parent = db_path.parent
     storage_ready = parent.exists() and parent.is_dir() and os.access(parent, os.W_OK)
 
+    from executor.fleet_coordinator import fleet_auth_configuration
+    fleet_auth = fleet_auth_configuration()
     required = [
-        {"id": "heartbeat_token", "ready": bool(os.environ.get("NOUS_FLEET_TOKEN", "").strip()),
-         "detail": "Central heartbeat authentication secret is configured."},
+        {"id": "heartbeat_token", "ready": bool(fleet_auth["ready"]),
+         "detail": "Per-instance credentials configured." if fleet_auth["mode"] == "per_instance" else "Legacy shared secret configured; migrate to per-instance tokens." if fleet_auth["mode"] == "legacy_shared" else "Token registry invalid or missing; authentication fails closed."},
+        {"id": "instance_token_registry", "ready": bool(fleet_auth["ready"]),
+         "detail": "Authentication mode: " + fleet_auth["mode"] + "; registered credentials: " + str(fleet_auth["instance_count"]) + "."},
         {"id": "rollout_token", "ready": bool(os.environ.get("NOUS_FLEET_ROLLOUT_TOKEN", "").strip()),
          "detail": "Dedicated scheduled-controller token is configured."},
         {"id": "desired_version", "ready": bool(desired),
@@ -597,6 +605,7 @@ def rollout_preflight() -> dict[str, Any]:
         "ok": True,
         "ready": all(item["ready"] for item in required),
         "automatic_deployment_enabled": _enabled(),
+        "fleet_auth_mode": fleet_auth["mode"],
         "desired_version": desired or None,
         "mapped_target_count": len(targets),
         "canary_count": len(canaries),

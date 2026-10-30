@@ -30,7 +30,8 @@ Heartbeat retries use a short outage cooldown and start the five-minute success 
 
 On the stable coordinator (for example, the existing Render backend):
 
-- `NOUS_FLEET_TOKEN`: high-entropy shared secret for heartbeat requests.
+- `NOUS_FLEET_INSTANCE_TOKENS`: recommended JSON map from stable instance IDs to unique high-entropy tokens (at least 32 characters). When present, unknown IDs and wrong tokens are rejected; malformed maps fail closed.
+- `NOUS_FLEET_TOKEN`: legacy shared heartbeat secret, used only when the per-instance registry is absent or blank.
 - `NOUS_FLEET_ROLLOUT_TOKEN`: separate high-entropy secret used only by the scheduled rollout controller.
 - `NOUS_FLEET_DB_PATH`: point to the SQLite file on the coordinator's persistent disk, e.g. `/var/data/nous_fleet.sqlite3`.
 - `NOUS_FLEET_TARGET_VERSION`: exact Git commit SHA intended for all installations. Use the same release identifier convention on every instance; commit SHAs are recommended when the host exposes them.
@@ -45,11 +46,12 @@ Do not use browser-visible `VITE_*` variables for these secrets. Do not commit a
 For each installation that should report status, set these **server-side** variables:
 
 - `NOUS_FLEET_COORDINATOR_URL`: base HTTPS URL of the central backend, without a trailing path.
-- `NOUS_FLEET_TOKEN`: same fleet-only secret as the coordinator expects.
+- `NOUS_FLEET_INSTANCE_TOKEN`: unique high-entropy token assigned to this installation in the coordinator registry.
+- `NOUS_FLEET_TOKEN`: legacy shared-secret fallback only while the coordinator has not enabled the per-instance registry.
 - `NOUS_FLEET_INSTANCE_ID`: unique stable ID, such as `nous-render-01`, `nous-vercel-01`, or `nous-lovable-01`.
 - `NOUS_VERSION`: optional fallback version if the platform does not expose its deployed commit. If available, the client prefers host-provided commit metadata.
 
-The heartbeat contains only `instance_id`, `provider`, `version`, `commit_sha`, and `status`. The status is a coarse response-based liveness signal: HTTP 5xx marks the instance degraded, while other completed responses mark it healthy. It is not a dependency check or synthetic transaction and can miss failures that do not produce a 5xx response. It never sends prompts, missions, user data, environment variables, or API keys. If the coordinator is unavailable, the local NOUS request continues; the client uses a bounded network timeout and retries on later traffic.
+When per-instance authentication is enabled, the credential is bound to the submitted `instance_id`; instance A cannot report as instance B. The token map is server-side only and never returned by status or preflight endpoints. The heartbeat contains only `instance_id`, `provider`, `version`, `commit_sha`, and `status`. The status is a coarse response-based liveness signal: HTTP 5xx marks the instance degraded, while other completed responses mark it healthy. It is not a dependency check or synthetic transaction and can miss failures that do not produce a 5xx response. It never sends prompts, missions, user data, environment variables, or API keys. If the coordinator is unavailable, the local NOUS request continues; the client uses a bounded network timeout and retries on later traffic.
 
 A dormant instance cannot report until its host runs it again. This design does not keep sleeping/free-tier instances awake and does not promise heartbeats from a suspended service.
 
@@ -112,3 +114,13 @@ only boolean readiness and safe diagnostic text; it never returns secret values 
 API key presence is checked only when an enabled Render target exists. The endpoint does not prove that
 GitHub Actions secrets exist, that storage survives a restart, or that a provider deployment will succeed.
 A `ready` result is a configuration checklist, not a production end-to-end verification.
+
+## Migrating to per-instance heartbeat credentials
+
+1. Generate a different random token (at least 32 characters) for every stable installation ID.
+2. Store the complete JSON map in the central coordinator's secret environment as `NOUS_FLEET_INSTANCE_TOKENS`. Never commit it.
+3. Set the matching `NOUS_FLEET_INSTANCE_TOKEN` on each installation.
+4. Confirm Fleet integration/preflight reports `per_instance` and each installation can heartbeat.
+5. After all clients migrate, remove the legacy `NOUS_FLEET_TOKEN` setting.
+
+A present but malformed per-instance registry fails closed; it never silently falls back to the shared token. If the registry is absent, legacy shared-token operation remains available during migration.

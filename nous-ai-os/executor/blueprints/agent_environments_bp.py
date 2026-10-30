@@ -1,5 +1,6 @@
 """Authenticated API for environment inventory, provider probes, and confirmed deployments."""
 import hmac
+import json
 import os
 
 from flask import Blueprint, jsonify, request
@@ -9,7 +10,7 @@ from executor.security import check_admin_token
 from executor.preview_preflight import inspect_preview_compatibility
 from executor.provider_runtime import deploy_provider, probe_provider, provider_inventory, preview_catalog
 from executor.runtime_lifecycle import build_runtime_lifecycle_plan
-from executor.fleet_coordinator import fleet_status, record_heartbeat
+from executor.fleet_coordinator import fleet_auth_configuration, fleet_status, record_heartbeat
 from executor.fleet_agent import send_heartbeat
 from executor.fleet_rollout import (
     fleet_integration_status, reconcile_and_dispatch, rollout_preflight, rollout_status,
@@ -117,22 +118,37 @@ def _fleet_heartbeat_after_response(response):
 
 
 
-def _fleet_token_matches():
-    expected = os.environ.get("NOUS_FLEET_TOKEN", "").strip()
+def _fleet_token_matches(payload):
     supplied = request.headers.get("X-NOUS-FLEET-TOKEN", "").strip()
     if not supplied:
         authorization = request.headers.get("Authorization", "")
         if authorization.lower().startswith("bearer "):
             supplied = authorization[7:].strip()
-    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+    if not supplied or not isinstance(payload, dict):
+        return False
+    auth = fleet_auth_configuration()
+    if auth["mode"] == "per_instance":
+        try:
+            mapping = json.loads(os.environ["NOUS_FLEET_INSTANCE_TOKENS"])
+        except (KeyError, TypeError, ValueError):
+            return False
+        expected = mapping.get(str(payload.get("instance_id") or "").strip())
+        return bool(isinstance(expected, str) and hmac.compare_digest(expected, supplied))
+    if auth["mode"] != "legacy_shared":
+        return False
+    expected = os.environ.get("NOUS_FLEET_TOKEN", "").strip()
+    return bool(expected and hmac.compare_digest(expected, supplied))
 
 
 @agent_environments_bp.post("/fleet/heartbeat")
 def fleet_heartbeat():
     """Record minimal instance metadata using a server-side fleet-only secret."""
-    if not _fleet_token_matches():
+    payload = _json_object()
+    if payload is None:
+        return jsonify({"ok": False, "error": "json_object_required"}), 400
+    if not _fleet_token_matches(payload):
         return jsonify({"ok": False, "error": "fleet_authentication_required"}), 403
-    result = record_heartbeat(_json_object())
+    result = record_heartbeat(payload)
     return jsonify(result), (200 if result.get("ok") else 400)
 
 
