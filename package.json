@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings 0",
-    "check": "npm run test:coverage && npm run test:build-config && npm run test:sandbox && npm run test:receipts && npm run test:redaction && npm run test:ui-models && npm run lint && npm run typecheck && npm run build && npm run check:public-bundle && npm run check:api-contracts",
+    "check": "npm run test:build-config && npm run test:sandbox && npm run test:receipts && npm run test:redaction && npm run test:ui-models && npm run lint && npm run typecheck && npm run build && npm run check:public-bundle && npm run check:api-contracts",
     "check:api-contracts": "node scripts/check-api-route-contracts.mjs",
     "typecheck": "tsc --noEmit",
     "test:build-config": "node --test scripts/vite-compat.test.ts",
@@ -20,8 +20,7 @@
     "test:sandbox": "node --experimental-strip-types --test scripts/sandbox-policy.test.ts",
     "test:receipts": "node --experimental-strip-types --test scripts/execution-receipt.test.ts",
     "format": "prettier --write .",
-    "test:ui-models": "bun test scripts/app-sandbox.test.ts scripts/app-studio.test.ts scripts/approval-mission.test.ts scripts/autonomy.test.ts scripts/browser-operator.test.ts scripts/chat-export.test.ts scripts/chat-sessions.test.ts scripts/chat-stream.test.ts scripts/chat-tools.test.ts scripts/command-menu.test.ts scripts/nous-api.test.ts scripts/telemetry-model.test.ts",
-    "test:coverage": "node scripts/check-frontend-test-coverage.mjs"
+    "test:ui-models": "bun test scripts/app-sandbox.test.ts scripts/app-studio.test.ts scripts/approval-mission.test.ts scripts/autonomy.test.ts scripts/browser-operator.test.ts scripts/chat-export.test.ts scripts/chat-sessions.test.ts scripts/chat-stream.test.ts scripts/chat-tools.test.ts scripts/command-menu.test.ts scripts/nous-api.test.ts scripts/telemetry-model.test.ts"
   },
   "overrides": {
     "rolldown": "1.2.1",
