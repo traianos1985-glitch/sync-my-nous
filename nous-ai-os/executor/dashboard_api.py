@@ -38,6 +38,7 @@ from executor.intent import detect_intent
 from executor.tools import run_tool
 from executor.security import check_admin_token
 from executor.knowledge_panel import statuses, search_documents
+from executor.chat_capabilities import chat_capabilities
 
 dashboard_api_bp = Blueprint("dashboard_api", __name__, url_prefix="/api")
 
@@ -186,6 +187,12 @@ def api_status():
             "status": "online",
             "counts": {"missions": len(list_missions()), "toolRuns": len(finished)},
             "recentEvents": _journal_events(limit=10),
+            # This is an inventory of local capability checks, not proof of
+            # end-to-end readiness. The UI must keep that distinction visible.
+            "capabilities": {
+                "inventory": chat_capabilities(),
+                "verification": "local_inventory_only",
+            },
         }
     )
 
@@ -281,7 +288,7 @@ def api_knowledge_search():
 
 @dashboard_api_bp.get("/evaluation")
 def api_evaluation():
-    """Metrics από τα πραγματικά ratings που στέλνει το UI (αρχικά μηδενικά)."""
+    """Metrics από τα πραγματικά ratings που στέλνει το UI (αρχ��κά μηδενικά)."""
     metrics = {"total": 0, "positive": 0, "negative": 0, "satisfactionRate": None, "trend": []}
     buckets: dict[str, dict] = {}
     positive = negative = 0

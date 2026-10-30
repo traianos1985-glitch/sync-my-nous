@@ -45,6 +45,10 @@ type SystemStatus = {
     uptime_s?: number;
   };
   overview?: { metrics?: unknown; local_llm?: unknown };
+  capabilities?: {
+    verification?: "local_inventory_only" | string;
+    inventory?: Record<string, unknown>;
+  };
 };
 
 export function useDashboard(sessionId?: string) {

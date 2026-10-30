@@ -265,6 +265,7 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
             canTestGemini={hasToken}
             onRefresh={() => void loadSystemStatus()}
             onTestGemini={() => void testGeminiConnection()}
+            capabilityVerification={systemStatus?.capabilities?.verification}
           />
         </Card>
 
