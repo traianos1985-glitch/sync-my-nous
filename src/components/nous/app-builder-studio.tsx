@@ -11,6 +11,7 @@ import {
   FileCode2,
   Check,
   X,
+  Box,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,13 @@ import { useAppStudio } from "./use-app-studio";
 import { StudioFiles } from "./app-studio-files";
 import { StudioRepair } from "./app-studio-repair";
 
-export function AppBuilderStudio({ connected }: { connected: boolean }) {
+export function AppBuilderStudio({
+  connected,
+  onOpenSandbox,
+}: {
+  connected: boolean;
+  onOpenSandbox?: () => void;
+}) {
   const studio = useAppStudio(connected);
   const [description, setDescription] = useState("");
   const [filter, setFilter] = useState("");
@@ -34,16 +41,31 @@ export function AppBuilderStudio({ connected }: { connected: boolean }) {
             <p className="font-mono text-xs text-primary">NOUS / ENGINEERING</p>
             <h1 className="mt-1 text-2xl font-semibold">App Builder Studio</h1>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Ανανέωση εφαρμογών"
-            title="Ανανέωση"
-            disabled={studio.loading || disabled}
-            onClick={() => void studio.refresh()}
-          >
-            <RefreshCw className={studio.loading ? "size-4 animate-spin" : "size-4"} />
-          </Button>
+          <div className="flex items-center gap-2">
+            {onOpenSandbox && (
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={onOpenSandbox}
+                className="gap-1.5 text-xs font-semibold"
+                title="Μετάβαση στο Sandbox εκτέλεσης"
+              >
+                <Box className="size-3.5 text-primary" />
+                App Sandbox
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Ανανέωση εφαρμογών"
+              title="Ανανέωση"
+              disabled={studio.loading || disabled}
+              onClick={() => void studio.refresh()}
+            >
+              <RefreshCw className={studio.loading ? "size-4 animate-spin" : "size-4"} />
+            </Button>
+          </div>
         </header>
         {!connected && (
           <p role="status" className="border-l-2 border-warn pl-3 text-sm text-warn">

@@ -156,6 +156,29 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Stop tunnel", path: "/remote/tunnel/stop" },
     ],
   },
+  sandbox: {
+    endpoints: [
+      { label: "Εφαρμογές & Αρχεία", path: "/remote/app-builder/files" },
+      { label: "Κατάσταση Builder", path: "/remote/app-builder/status" },
+    ],
+    actions: [
+      {
+        label: "Εκκίνηση εφαρμογής",
+        path: "/remote/app-builder/run-app",
+        input: { key: "app", placeholder: "Όνομα εφαρμογής" },
+      },
+      {
+        label: "Διακοπή εφαρμογής",
+        path: "/remote/app-builder/stop-app",
+        input: { key: "app", placeholder: "Όνομα εφαρμογής" },
+      },
+      {
+        label: "Εκτέλεση Tests",
+        path: "/remote/app-builder/test",
+        input: { key: "app_name", placeholder: "Όνομα εφαρμογής" },
+      },
+    ],
+  },
   autonomy: {
     endpoints: [
       { label: "Κατάσταση service", path: "/remote/service/status" },

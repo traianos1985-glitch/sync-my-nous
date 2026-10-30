@@ -1,3 +1,4 @@
+import { AppSandboxPanel } from "./app-sandbox-panel";
 import { ApprovalList } from "@/components/nous/approval-list";
 import { sectionConfigs } from "@/components/nous/section-configs";
 import { SectionPanel } from "@/components/nous/section-panel";
@@ -18,6 +19,7 @@ import { AutonomyPanel } from "./autonomy-panel";
 export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
   const {
     section,
+    setSection,
     githubStatus,
     systemStatus,
     hasToken,
@@ -36,7 +38,17 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
     resolveApproval,
     loadApprovals,
   } = dashboard;
-  if (section === "appbuilder") return <AppBuilderStudio connected={hasToken} />;
+  if (section === "appbuilder")
+    return <AppBuilderStudio connected={hasToken} onOpenSandbox={() => setSection("sandbox")} />;
+  if (section === "sandbox") {
+    return (
+      <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+        <div className="mx-auto min-w-0 max-w-6xl">
+          <AppSandboxPanel connected={hasToken} />
+        </div>
+      </div>
+    );
+  }
   if (section === "autonomy") {
     return (
       <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
