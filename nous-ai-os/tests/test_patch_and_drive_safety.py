@@ -82,7 +82,7 @@ def test_drive_proposal_can_only_be_approved_once(tmp_path, monkeypatch):
         "think_count": 0,
         "drive_log": [],
     }
-    nous_drive._save(state)
+    Path("data").mkdir()\n    nous_drive._save(state)
 
     starts = []
 
