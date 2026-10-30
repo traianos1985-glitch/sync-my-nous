@@ -5,15 +5,17 @@ pytest.importorskip("flask")
 
 
 def test_react_endpoint_requires_admin_before_dispatch(monkeypatch):
-    from executor import router
+    from flask import Flask
     from executor.blueprints import agent_ops_bp
 
+    app = Flask(__name__)
+    app.register_blueprint(agent_ops_bp.agent_ops_bp)
     monkeypatch.setattr(agent_ops_bp, "check_admin_token", lambda _request: False)
     monkeypatch.setattr(
         agent_ops_bp, "run_react_task",
         lambda *_args, **_kwargs: pytest.fail("ReAct must not run without admin scope"),
     )
-    response = router.app.test_client().post(
+    response = app.test_client().post(
         "/api/ops/react/run",
         headers={"Authorization": "Bearer test-user-token"},
         json={"task": "inspect status", "max_steps": 2},
@@ -23,16 +25,18 @@ def test_react_endpoint_requires_admin_before_dispatch(monkeypatch):
 
 
 def test_react_endpoint_validates_payload_and_dispatches_bounded_request(monkeypatch):
-    from executor import router
+    from flask import Flask
     from executor.blueprints import agent_ops_bp
 
+    app = Flask(__name__)
+    app.register_blueprint(agent_ops_bp.agent_ops_bp)
     monkeypatch.setattr(agent_ops_bp, "check_admin_token", lambda _request: True)
     calls = []
     monkeypatch.setattr(
         agent_ops_bp, "run_react_task",
         lambda task, max_steps: calls.append((task, max_steps)) or {"status": "completed"},
     )
-    client = router.app.test_client()
+    client = app.test_client()
     invalid = client.post("/api/ops/react/run", json={"task": "status", "max_steps": True})
     assert invalid.status_code == 400
     assert calls == []
