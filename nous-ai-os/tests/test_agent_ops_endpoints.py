@@ -47,15 +47,17 @@ def test_react_endpoint_validates_payload_and_dispatches_bounded_request(monkeyp
 
 
 def test_url_reader_endpoint_requires_admin_and_uses_bounded_reader(monkeypatch):
-    from executor import router
+    from flask import Flask
     from executor.blueprints import agent_ops_bp
 
+    app = Flask(__name__)
+    app.register_blueprint(agent_ops_bp.agent_ops_bp)
     monkeypatch.setattr(agent_ops_bp, "check_admin_token", lambda _request: False)
     monkeypatch.setattr(
         agent_ops_bp, "summarize_url",
         lambda *_args, **_kwargs: pytest.fail("URL reader must not run without admin scope"),
     )
-    client = router.app.test_client()
+    client = app.test_client()
     denied = client.post("/api/ops/research/read-url", json={"url": "https://example.com"})
     assert denied.status_code == 401
 
