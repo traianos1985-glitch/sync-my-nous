@@ -8,6 +8,7 @@ import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { nousMessages } from "../lib/db/schema";
 import { randomUUID } from "node:crypto";
 import { createChatReceipt } from "../lib/execution-receipt";
+import { persistExecutionReceipt } from "../lib/receipt-service";
 
 const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικρινής και πρακτικός προσωπικός agent.
 Απάντα φυσικά και ανθρώπινα στα ελληνικά όταν ο χρήστης γράφει ελληνικά, χωρίς canned απαντήσεις ή άσχετες επαναλήψεις.
@@ -148,7 +149,10 @@ export const Route = createFileRoute("/api/chat")({
 
           const researchResult = await research(message, body.researchMode ?? "auto");
           const modelMessage = researchResult.context
-            ? `${message}\n\n[READ-ONLY RESEARCH CONTEXT — cite only these sources]\n${researchResult.context}`
+            ? `${message}
+
+[READ-ONLY RESEARCH CONTEXT — cite only these sources]
+${researchResult.context}`
             : message;
           const startedAt = new Date().toISOString();
           const started = performance.now();
@@ -179,6 +183,14 @@ export const Route = createFileRoute("/api/chat")({
             content: gemini.answer,
             citations,
           });
+          const receipt = createChatReceipt({
+            id: requestId,
+            startedAt,
+            model: gemini.model,
+            researchUsed: researchResult.used,
+            persisted: true,
+          });
+          await persistExecutionReceipt(userId, receipt);
           return Response.json({
             ok: true,
             answer: gemini.answer,
@@ -187,13 +199,7 @@ export const Route = createFileRoute("/api/chat")({
             citations,
             researchUsed: researchResult.used,
             mode: "connected",
-            receipt: createChatReceipt({
-              id: requestId,
-              startedAt,
-              model: gemini.model,
-              researchUsed: researchResult.used,
-              persisted: true,
-            }),
+            receipt,
           });
         } catch (error) {
           if (userId) {

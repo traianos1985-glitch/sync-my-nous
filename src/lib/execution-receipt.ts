@@ -1,9 +1,9 @@
 export type ExecutionReceipt = {
   id: string;
   operation: "chat" | "tool" | "sandbox" | "mission" | "fcm";
-  status: "completed" | "failed";
+  status: "queued" | "awaiting_approval" | "completed" | "failed";
   startedAt: string;
-  completedAt: string;
+  completedAt: string | null;
   verified: boolean;
   evidence: {
     provider: string;
@@ -25,7 +25,9 @@ export function createExecutionReceipt(input: {
     operation: input.operation,
     status: input.status ?? "completed",
     startedAt: input.startedAt,
-    completedAt: new Date().toISOString(),
+    completedAt: ["queued", "awaiting_approval"].includes(input.status ?? "completed")
+      ? null
+      : new Date().toISOString(),
     verified: false,
     evidence: input.evidence,
   };

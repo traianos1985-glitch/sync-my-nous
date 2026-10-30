@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "./index";
 import { nousJobs } from "./schema";
 import { isAllowedJobKind, NOUS_LIMITS, serializedBytes } from "../platform-policy";
@@ -34,7 +34,9 @@ export async function updateJob(id: string, userId: string, status: string, outp
       status,
       output: output ?? {},
       startedAt: status === "running" ? now : undefined,
-      completedAt: ["completed", "failed", "cancelled"].includes(status) ? now : undefined,
+      completedAt: ["completed", "failed", "dead-letter", "cancelled"].includes(status)
+        ? now
+        : undefined,
       lastError:
         status === "failed"
           ? String((output as { error?: unknown } | undefined)?.error ?? "Job failed").slice(0, 500)
@@ -65,12 +67,35 @@ export async function retryJob(id: string, userId: string) {
       completedAt: null,
       updatedAt: new Date(),
     })
-    .where(and(eq(nousJobs.id, id), eq(nousJobs.userId, userId), eq(nousJobs.status, "failed")))
+    .where(
+      and(
+        eq(nousJobs.id, id),
+        eq(nousJobs.userId, userId),
+        eq(nousJobs.status, "failed"),
+        lt(nousJobs.retryCount, NOUS_LIMITS.maxJobRetries),
+      ),
+    )
     .returning();
   return job;
 }
 
 export async function claimNextJob(userId: string, kind?: string) {
+  await db
+    .update(nousJobs)
+    .set({
+      status: "dead-letter",
+      completedAt: new Date(),
+      lastError: "Retry limit reached",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(nousJobs.userId, userId),
+        eq(nousJobs.status, "queued"),
+        gte(nousJobs.retryCount, NOUS_LIMITS.maxJobRetries),
+      ),
+    );
+
   const candidates = await db
     .select({ id: nousJobs.id })
     .from(nousJobs)
@@ -78,6 +103,7 @@ export async function claimNextJob(userId: string, kind?: string) {
       and(
         eq(nousJobs.userId, userId),
         eq(nousJobs.status, "queued"),
+        lt(nousJobs.retryCount, NOUS_LIMITS.maxJobRetries),
         ...(kind ? [eq(nousJobs.kind, kind)] : []),
       ),
     )

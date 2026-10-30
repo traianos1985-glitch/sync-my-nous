@@ -110,7 +110,7 @@ export const nousExecutionReceipts = pgTable("nous_execution_receipts", {
   status: text("status").notNull(),
   verified: boolean("verified").notNull().default(false),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
-  completedAt: timestamp("completed_at", { withTimezone: true }).notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
   evidence: jsonb("evidence").notNull().default({}),
   verification: jsonb("verification").notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
