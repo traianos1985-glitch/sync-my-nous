@@ -136,3 +136,48 @@ def test_session_context_roundtrip(tmp_path, monkeypatch):
     sc.remember_classification({"intent": "capabilities", "confidence": 0.9, "slots": {}}, "τι μπορείς")
     last = sc.get_last()
     assert last and last.get("intent") == "capabilities"
+
+
+def test_external_call_policy_fails_closed_when_policy_raises(monkeypatch):
+    from executor import capability_awareness
+    from executor.intent_chat_integration import _external_call_allowed
+
+    def broken_policy(_action):
+        raise RuntimeError("policy store unavailable")
+
+    monkeypatch.setattr(capability_awareness, "allow_external_call", broken_policy)
+    allowed, message = _external_call_allowed("search")
+    assert allowed is False
+    assert "μπλοκαρίστηκε" in message
+
+
+def test_deep_research_is_blocked_when_external_policy_denies(monkeypatch):
+    from executor import intent_chat_integration as ici
+
+    monkeypatch.setattr(
+        ici,
+        "_external_call_allowed",
+        lambda _action: (False, "blocked by policy"),
+    )
+    out = ici._handle_classified_intent(
+        {"intent": "deep_research", "confidence": 0.95, "slots": {"query": "test query"}},
+        "κάνε βαθιά έρευνα για test query",
+    )
+    assert out is not None
+    assert out.get("ok") is False
+    assert out.get("executed") is False
+    assert out.get("answer") == "blocked by policy"
+
+
+def test_external_call_policy_preserves_explicit_rate_limit_denial(monkeypatch):
+    from executor import capability_awareness
+    from executor.intent_chat_integration import _external_call_allowed
+
+    monkeypatch.setattr(
+        capability_awareness,
+        "allow_external_call",
+        lambda _action: (False, "rate limited"),
+    )
+    allowed, message = _external_call_allowed("url")
+    assert allowed is False
+    assert message == "rate limited"
