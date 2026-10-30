@@ -120,3 +120,47 @@ def test_filter_relevant_detects_low_score_for_product_query():
     assert low2 is False
     assert top2 >= 1.5
     assert ranked2[0].get("relevance_score", 0) >= 1.5
+
+def test_detect_product_sites_uses_explicit_product_tokens():
+    from executor.internet_search_engine import _detect_product_sites, _product_site_queries
+
+    assert "render.com" in _detect_product_sites("Render free tier")
+    assert "docs.render.com" in _detect_product_sites("Render free tier")
+    assert "vercel.com" in _detect_product_sites("Vercel pricing")
+    assert "fly.io" in _detect_product_sites("Fly.io deployment")
+    assert _detect_product_sites("random weather athens") == []
+    assert _detect_product_sites("awsome weather athens") == []
+    assert _product_site_queries("random weather athens") == []
+
+
+def test_site_aware_search_merges_and_ranks_official_hits(monkeypatch, tmp_path):
+    from executor import internet_search_engine
+
+    monkeypatch.setattr(internet_search_engine, "_ddg_instant", lambda query: [])
+    monkeypatch.setattr(internet_search_engine, "_wikipedia_search", lambda query: [])
+    monkeypatch.setattr(internet_search_engine, "CACHE", tmp_path / "cache.json")
+
+    def fake_html(query, limit=5):
+        if "site:render.com" in query:
+            return [{
+                "title": "Render Free Instance Types",
+                "url": "https://render.com/docs/free",
+                "snippet": "Render free tier for web services",
+                "source": "ddg_html",
+            }]
+        return [{
+            "title": "Unrelated result",
+            "url": "https://example.org/unrelated",
+            "snippet": "Unrelated content",
+            "source": "ddg_html",
+        }]
+
+    monkeypatch.setattr(internet_search_engine, "_ddg_html", fake_html)
+    result = internet_search_engine.search_web("Render free tier", limit=5)
+
+    assert result["ok"] is True
+    assert result["site_aware"] is True
+    assert "render.com" in result["product_sites"]
+    assert result["low_relevance"] is False
+    assert result["results"][0]["url"] == "https://render.com/docs/free"
+
