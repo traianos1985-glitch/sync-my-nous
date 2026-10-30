@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { and, eq, gt } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousApprovals, nousMissions, nousToolRuns } from "../lib/db/schema";
 import { getToolDefinition } from "../lib/tool-registry";
@@ -74,6 +74,23 @@ export const Route = createFileRoute("/api/tools/execute")({
         const parsed = definition.input.safeParse(candidate.input);
         if (!parsed.success) {
           return Response.json({ error: "Invalid approved tool input" }, { status: 422 });
+        }
+
+        const expectedPayloadHash = createHash("sha256")
+          .update(
+            JSON.stringify({
+              tool: candidate.tool,
+              input: parsed.data,
+              missionId: candidate.missionId,
+              nonce: candidate.nonce,
+            }),
+          )
+          .digest("hex");
+        if (candidate.payloadHash !== expectedPayloadHash) {
+          return Response.json(
+            { error: "Approval payload integrity check failed" },
+            { status: 409 },
+          );
         }
 
         // Conditional update is the single-winner claim: simultaneous requests

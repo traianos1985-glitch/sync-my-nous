@@ -36,6 +36,8 @@ import { Route as ApiKnowledgeProcessRouteImport } from './routes/api.knowledge.
 import { Route as ApiKnowledgeSearchRouteImport } from './routes/api.knowledge.search'
 import { Route as ApiMissionsStreamRouteImport } from './routes/api.missions.stream'
 import { Route as ApiMobileNotifyRouteImport } from './routes/api.mobile.notify'
+import { Route as ApiMobileWorkerRouteImport } from './routes/api.mobile.worker'
+import { Route as ApiSandboxPolicyRouteImport } from './routes/api.sandbox.policy'
 import { Route as ApiToolsExecuteRouteImport } from './routes/api.tools.execute'
 
 const IndexRoute = IndexRouteImport.update({
@@ -173,6 +175,16 @@ const ApiMobileNotifyRoute = ApiMobileNotifyRouteImport.update({
   path: '/api/mobile/notify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMobileWorkerRoute = ApiMobileWorkerRouteImport.update({
+  id: '/api/mobile/worker',
+  path: '/api/mobile/worker',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSandboxPolicyRoute = ApiSandboxPolicyRouteImport.update({
+  id: '/api/sandbox/policy',
+  path: '/api/sandbox/policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiToolsExecuteRoute = ApiToolsExecuteRouteImport.update({
   id: '/api/tools/execute',
   path: '/api/tools/execute',
@@ -207,6 +219,8 @@ export interface FileRoutesByFullPath {
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/mobile/notify': typeof ApiMobileNotifyRoute
+  '/api/mobile/worker': typeof ApiMobileWorkerRoute
+  '/api/sandbox/policy': typeof ApiSandboxPolicyRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesByTo {
@@ -237,6 +251,8 @@ export interface FileRoutesByTo {
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/mobile/notify': typeof ApiMobileNotifyRoute
+  '/api/mobile/worker': typeof ApiMobileWorkerRoute
+  '/api/sandbox/policy': typeof ApiSandboxPolicyRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesById {
@@ -268,6 +284,8 @@ export interface FileRoutesById {
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
   '/api/mobile/notify': typeof ApiMobileNotifyRoute
+  '/api/mobile/worker': typeof ApiMobileWorkerRoute
+  '/api/sandbox/policy': typeof ApiSandboxPolicyRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRouteTypes {
@@ -300,6 +318,8 @@ export interface FileRouteTypes {
     | '/api/knowledge/search'
     | '/api/missions/stream'
     | '/api/mobile/notify'
+    | '/api/mobile/worker'
+    | '/api/sandbox/policy'
     | '/api/tools/execute'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -330,6 +350,8 @@ export interface FileRouteTypes {
     | '/api/knowledge/search'
     | '/api/missions/stream'
     | '/api/mobile/notify'
+    | '/api/mobile/worker'
+    | '/api/sandbox/policy'
     | '/api/tools/execute'
   id:
     | '__root__'
@@ -360,6 +382,8 @@ export interface FileRouteTypes {
     | '/api/knowledge/search'
     | '/api/missions/stream'
     | '/api/mobile/notify'
+    | '/api/mobile/worker'
+    | '/api/sandbox/policy'
     | '/api/tools/execute'
   fileRoutesById: FileRoutesById
 }
@@ -386,6 +410,8 @@ export interface RootRouteChildren {
   ChatSessionIdRoute: typeof ChatSessionIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiMobileNotifyRoute: typeof ApiMobileNotifyRoute
+  ApiMobileWorkerRoute: typeof ApiMobileWorkerRoute
+  ApiSandboxPolicyRoute: typeof ApiSandboxPolicyRoute
   ApiToolsExecuteRoute: typeof ApiToolsExecuteRoute
 }
 
@@ -580,6 +606,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMobileNotifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mobile/worker': {
+      id: '/api/mobile/worker'
+      path: '/api/mobile/worker'
+      fullPath: '/api/mobile/worker'
+      preLoaderRoute: typeof ApiMobileWorkerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/sandbox/policy': {
+      id: '/api/sandbox/policy'
+      path: '/api/sandbox/policy'
+      fullPath: '/api/sandbox/policy'
+      preLoaderRoute: typeof ApiSandboxPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tools/execute': {
       id: '/api/tools/execute'
       path: '/api/tools/execute'
@@ -652,6 +692,8 @@ const rootRouteChildren: RootRouteChildren = {
   ChatSessionIdRoute: ChatSessionIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiMobileNotifyRoute: ApiMobileNotifyRoute,
+  ApiMobileWorkerRoute: ApiMobileWorkerRoute,
+  ApiSandboxPolicyRoute: ApiSandboxPolicyRoute,
   ApiToolsExecuteRoute: ApiToolsExecuteRoute,
 }
 export const routeTree = rootRouteImport

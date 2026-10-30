@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "test:python": "cd nous-ai-os && python -m pytest -q",
     "test:redaction": "node --experimental-strip-types --test scripts/redaction.test.ts",
+    "test:sandbox": "node --experimental-strip-types --test scripts/sandbox-policy.test.ts",
     "format": "prettier --write ."
   },
   "overrides": {
