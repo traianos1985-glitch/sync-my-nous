@@ -15,7 +15,9 @@ while (pending.length) {
   for (const match of scripts[name].matchAll(/npm run ([a-zA-Z0-9:_-]+)/g)) pending.push(match[1]);
 }
 
-const testFiles = readdirSync("scripts").filter((name) => /\\.test\\.(?:ts|js|mjs)$/.test(name));
+const testFiles = readdirSync("scripts").filter((name) =>
+  name.endsWith(".test.ts") || name.endsWith(".test.js") || name.endsWith(".test.mjs"),
+);
 const missing = testFiles.filter((file) =>
   ![...reachable].some((name) => scripts[name].includes(`scripts/${file}`)),
 );
