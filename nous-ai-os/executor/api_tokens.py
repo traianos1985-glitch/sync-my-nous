@@ -1,6 +1,7 @@
 """Concurrent-safe API token store with fail-closed corruption handling."""
 from __future__ import annotations
-import fcntl, hashlib, json, os, secrets, tempfile, threading, time
+from executor import portable_fcntl as fcntl
+import hashlib, json, os, secrets, tempfile, threading, time
 from contextlib import contextmanager
 
 FILE = "data/api_tokens.json"
