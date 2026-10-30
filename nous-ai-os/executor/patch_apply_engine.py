@@ -1,21 +1,17 @@
-import json, os, time, subprocess
+import time, subprocess
 from pathlib import Path
 
 from executor.rollback_engine import backup_file, rollback_backup
+from executor.json_state_store import read_list, write_list
 
 FILE = "data/patch_apply_history.json"
 
 def _load():
-    if not os.path.exists(FILE):
-        return []
-    try:
-        return json.load(open(FILE, "r", encoding="utf-8"))
-    except Exception:
-        return []
+    return read_list(FILE)
+
 
 def _save(items):
-    os.makedirs("data", exist_ok=True)
-    json.dump(items, open(FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    write_list(FILE, items)
 
 def _run(cmd):
     try:
@@ -59,35 +55,42 @@ def apply_patch_proposal(proposal_id):
     for patch in proposal.get("patches", []):
         path = patch.get("path")
         if path and Path(path).exists():
-            b = backup_file(path, reason="patch_apply_proposal_%s" % proposal_id)
-            if b.get("ok"):
-                backups.append(b["backup"])
+            backup = backup_file(path, reason="patch_apply_proposal_%s" % proposal_id)
+            if backup.get("ok"):
+                backups.append(backup["backup"])
 
     result = approve_patch_proposal(proposal_id)
+    proposal_status = (result.get("proposal") or {}).get("status")
+    applied_paths = ((result.get("proposal") or {}).get("result") or {}).get("applied", [])
 
-    validation = {
-        "router": _run(["python", "-m", "py_compile", "executor/router.py"]),
-        "nous_ui": _run(["python", "-m", "py_compile", "executor/nous_ui.py"]),
-    }
+    validation = {}
+    if result.get("ok") and applied_paths:
+        for path in sorted(set(applied_paths)):
+            if path.endswith(".py"):
+                validation[path] = _run(["python", "-m", "py_compile", path])
 
-    ok = bool(result.get("ok")) and all(x.get("ok") for x in validation.values())
-
+    ok = bool(result.get("ok")) and bool(applied_paths) and all(
+        check.get("ok") for check in validation.values()
+    )
     event = {
         "id": int(time.time_ns()),
         "created": time.time(),
         "proposal_id": proposal_id,
-        "status": "applied" if ok else "failed",
+        "status": "applied" if ok else proposal_status or "failed",
         "backups": backups,
         "apply_result": result,
         "validation": validation,
+        "verification": "syntax_only" if ok else "not_verified",
+        "persistence": "runtime_filesystem_only" if ok else "none",
     }
 
-    if not ok:
-        rolled = []
-        for b in backups:
-            rb = rollback_backup(b.get("id"))
-            rolled.append(rb)
-        event["rollback_after_failure"] = rolled
+    # Roll back only when a real write occurred and subsequent validation failed.
+    if applied_paths and not ok:
+        rolled_back = []
+        for backup in backups:
+            rollback_result = rollback_backup(backup.get("id"))
+            rolled_back.append(rollback_result)
+        event["rollback_after_failure"] = rolled_back
         event["status"] = "rolled_back"
 
     items = _load()
