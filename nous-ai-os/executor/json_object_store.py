@@ -1,7 +1,7 @@
 """Fail-closed, atomic storage for object-shaped JSON runtime state."""
 from __future__ import annotations
 
-import fcntl
+from executor import portable_fcntl as fcntl
 import json
 import os
 import tempfile
