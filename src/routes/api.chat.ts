@@ -7,6 +7,7 @@ import { db } from "../lib/db";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { nousMessages } from "../lib/db/schema";
 import { randomUUID } from "node:crypto";
+import { createChatReceipt } from "../lib/execution-receipt";
 
 const SYSTEM_PROMPT = `Είσαι ο NOUS, ένας χρήσιμος, ειλικρινής και πρακτικός προσωπικός agent.
 Απάντα φυσικά και ανθρώπινα στα ελληνικά όταν ο χρήστης γράφει ελληνικά, χωρίς canned απαντήσεις ή άσχετες επαναλήψεις.
@@ -120,6 +121,7 @@ export const Route = createFileRoute("/api/chat")({
             missionId?: string;
           };
           message = body.message?.trim() ?? "";
+          const requestId = randomUUID();
           userId = await requireAuthenticatedUserId(request);
           if (!allowChatRequest(userId))
             return Response.json({ ok: false, error: "Too many requests" }, { status: 429 });
@@ -185,6 +187,13 @@ export const Route = createFileRoute("/api/chat")({
             citations,
             researchUsed: researchResult.used,
             mode: "connected",
+            receipt: createChatReceipt({
+              id: requestId,
+              startedAt,
+              model: gemini.model,
+              researchUsed: researchResult.used,
+              persisted: true,
+            }),
           });
         } catch (error) {
           if (userId) {

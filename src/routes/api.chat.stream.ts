@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { research, type ResearchMode } from "../lib/research-broker";
 import { getPersistentDailyBudget, recordPersistentModelCall } from "../lib/model-observability";
 import { allowChatRequest } from "../lib/chat-guardrails";
+import { createChatReceipt } from "../lib/execution-receipt";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/api/chat/stream")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const requestId = randomUUID();
         const userId = await requireAuthenticatedUserId(request);
         if (!allowChatRequest(userId))
           return Response.json({ ok: false, error: "Too many requests" }, { status: 429 });
@@ -195,7 +197,15 @@ export const Route = createFileRoute("/api/chat/stream")({
                 ok: true,
                 researchUsed: researchResult.used,
                 citations: researchResult.citations,
+                receipt: createChatReceipt({
+                  id: requestId,
+                  startedAt,
+                  model: selectedModel,
+                  researchUsed: researchResult.used,
+                  persisted: persistTranscript,
+                }),
               });
+
               controller.close();
             } catch {
               send("error", { ok: false, error: "AI service unavailable" });
