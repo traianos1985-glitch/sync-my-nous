@@ -32,6 +32,11 @@ export function useAppStudio(connected: boolean) {
   const actionLock = useRef(false);
   const fileGeneration = useRef(0);
   const validation = useRef<AbortController | null>(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!connected) return;
@@ -41,23 +46,26 @@ export function useAppStudio(connected: boolean) {
         request<{ apps: StudioApp[] }>("/remote/app-builder/files"),
         request<{ builds: StudioBuild[] }>("/remote/app-builder/list"),
       ]);
+      if (!mounted.current) return;
       setApps(files.apps ?? []);
       setBuilds(plans.builds ?? []);
       setSelected((current) =>
         files.apps.some((app) => app.name === current) ? current : (files.apps[0]?.name ?? ""),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Αποτυχία φόρτωσης");
+      if (mounted.current) setError(e instanceof Error ? e.message : "Αποτυχία φόρτωσης");
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
   }, [connected, request]);
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => { if (mounted.current) void refresh(); });
   }, [refresh]);
   useEffect(() => {
     const controller = new AbortController();
     scope.current = controller;
+    queueMicrotask(() => {
+    if (controller.signal.aborted) return;
     setFile("");
     setCode("");
     setRepair(null);
@@ -69,6 +77,7 @@ export function useAppStudio(connected: boolean) {
     setLogs("");
     setBusy(null);
     setError("");
+    });
     fileGeneration.current += 1;
     if (selected && connected) {
       void request<{ repairs: RepairProposal[] }>(

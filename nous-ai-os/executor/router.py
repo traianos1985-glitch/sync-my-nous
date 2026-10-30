@@ -3923,11 +3923,10 @@ def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
     def _reader():
         for line in proc.stdout:
             lines.append(line)
-            _running_apps.get(app_name, {})["log"] = (
-                _running_apps.get(app_name, {}).get("log", "") + line
-            )
             if len(lines) > 200:
-                break
+                del lines[:-200]
+            # Keep consuming output; never block the child or write into a replacement instance.
+            info["log"] = (info["log"] + line)[-12000:]
     t = threading.Thread(target=_reader, daemon=True)
     t.start()
     time.sleep(1.5)
@@ -3936,7 +3935,7 @@ def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
 
 @app.route("/remote/app-builder/run-app", methods=["POST"])
 def app_builder_run_app_route():
-    """Start an app from apps/<app_name>/ with autonomous self-repair on failure."""
+    """Start reviewed files only; repairs require a separate explicit review."""
     if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     from pathlib import Path as _P
