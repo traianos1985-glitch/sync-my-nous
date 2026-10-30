@@ -76,6 +76,15 @@ def execute_call(name, arguments, summary="", *, allow_web=True, on_event=None):
     except Exception:
         record.update(status="failed", error="tool_execution_failed")
     record["finished_at"] = time.time()
+    try:
+        from executor import tool_telemetry
+        tool_telemetry.record_outcome(
+            record["name"], record["status"],
+            (record["finished_at"] - record["started_at"]) * 1000.0,
+            record.get("error"), known_names=SCHEMAS,
+        )
+    except Exception:
+        pass  # telemetry is best-effort and must never alter tool execution
     if on_event:
         on_event("tool", dict(record))
     return record
