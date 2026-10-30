@@ -82,6 +82,20 @@ def _run_tool(tool: str, query: str) -> str:
     return "Άγνωστο tool."
 
 
+def _knowledge_context(extra_context: str, doc_ctx: str, code_ctx: str, eng_ctx: str) -> str:
+    """Join retrieved context so it actually reaches the planner."""
+    parts = []
+    if extra_context and extra_context.strip() != "web_disabled":
+        parts.append(f"Πρόσθετο πλαίσιο:\n{extra_context.strip()}")
+    if doc_ctx:
+        parts.append(str(doc_ctx).strip())
+    if code_ctx:
+        parts.append(f"Κώδικας στη μνήμη:\n{str(code_ctx).strip()}")
+    if eng_ctx:
+        parts.append(f"Μνήμη μηχανικής:\n{str(eng_ctx).strip()}")
+    return "\n\n".join(parts)[:6000]
+
+
 def run_agent(message: str, conversation_id: str | None = None, extra_context: str = "") -> dict[str, Any]:
     """
     ReAct agent:
@@ -103,19 +117,12 @@ def run_agent(message: str, conversation_id: str | None = None, extra_context: s
     code_ctx = coding_context(message)
     eng_ctx = engineering_memory_context(message)
 
-    system = AGENT_SYSTEM
-    if extra_context:
-        system += f"\n\nΠρόσθετο πλαίσιο:\n{extra_context}"
-    if doc_ctx:
-        system += f"\n\n{doc_ctx}"
-    if code_ctx:
-        system += f"\n\nΚώδικας στη μνήμη:\n{code_ctx}"
-    if eng_ctx:
-        system += f"\n\nΜνήμη μηχανικής:\n{eng_ctx}"
-
     turns = build_llm_turns(message, conversation_id)
     from executor.react_agent import run_chat_react
-    result = run_chat_react(turns, ask_with_turns, allow_web="web_disabled" not in extra_context)
+    result = run_chat_react(
+        turns, ask_with_turns, allow_web="web_disabled" not in extra_context,
+        system_context=_knowledge_context(extra_context, doc_ctx, code_ctx, eng_ctx),
+    )
     final = result["answer"]
 
     if looks_corrupted_answer(final):

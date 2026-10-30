@@ -59,6 +59,7 @@ export const sectionConfigs: Record<string, SectionConfig> = {
     endpoints: [
       { label: "Brain", path: "/remote/brain/status" },
       { label: "Knowledge", path: "/remote/knowledge/status" },
+      { label: "Tool effectiveness", path: "/api/ops/tool-stats" },
     ],
     actions: [{ label: "Αποθήκευση brain state", path: "/remote/brain/save" }],
   },

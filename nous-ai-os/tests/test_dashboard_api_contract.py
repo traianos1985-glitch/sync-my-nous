@@ -43,6 +43,21 @@ def _flask_route_methods():
     for match in environments_pattern.finditer(environments_bp):
         method, route = match.groups()
         methods.setdefault("/api/agent-environments" + route, set()).add(method.upper())
+    # Agent operations blueprint (url_prefix="/api/ops").
+    ops_bp = (
+        ROOT / "nous-ai-os" / "executor" / "blueprints" / "agent_ops_bp.py"
+    ).read_text(encoding="utf-8")
+    ops_pattern = re.compile(
+        r"""@agent_ops_bp\.route\(\s*["']([^"']+)["'](?:,\s*methods=\[([^\]]+)\])?\)"""
+    )
+    for match in ops_pattern.finditer(ops_bp):
+        route, declared = match.groups()
+        supported = (
+            set(re.findall(r"""["'](GET|POST|PUT|PATCH|DELETE)["']""", declared))
+            if declared
+            else {"GET", "HEAD", "OPTIONS"}
+        )
+        methods.setdefault("/api/ops" + route, set()).update(supported)
     return methods
 
 

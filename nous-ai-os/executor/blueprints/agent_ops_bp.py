@@ -40,6 +40,13 @@ def api_tools_list():
     return jsonify({"success": True, "tools": tools})
 
 
+@agent_ops_bp.route("/tool-stats", methods=["GET"])
+def api_tool_stats():
+    """Read-only effectiveness statistics for the chat tool allowlist."""
+    from executor.tool_telemetry import tool_stats
+    return jsonify({"success": True, **tool_stats()})
+
+
 @agent_ops_bp.route("/swarm/run", methods=["POST"])
 def api_swarm_run():
     denied = _admin_required()
