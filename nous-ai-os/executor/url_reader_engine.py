@@ -1,7 +1,9 @@
 """Safe, bounded HTTP page reader used by NOUS web research."""
 from __future__ import annotations
 
+import ipaddress
 import json
+import socket
 import re
 from datetime import datetime, timezone
 from pathlib import Path
