@@ -1,10 +1,12 @@
-import time, subprocess
+import subprocess
+import time
 from pathlib import Path
 
 from executor.rollback_engine import backup_file, rollback_backup
 from executor.json_state_store import read_list, write_list
 
 FILE = "data/patch_apply_history.json"
+
 
 def _load():
     return read_list(FILE)
@@ -13,12 +15,14 @@ def _load():
 def _save(items):
     write_list(FILE, items)
 
+
 def _run(cmd):
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         return {"ok": p.returncode == 0, "code": p.returncode, "stdout": p.stdout, "stderr": p.stderr}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
 
 def patch_apply_status():
     items = _load()
@@ -31,8 +35,10 @@ def patch_apply_status():
         "recent": items[-20:],
     }
 
+
 def list_patch_apply_history(limit=50):
     return _load()[-int(limit):]
+
 
 def apply_patch_proposal(proposal_id):
     from executor.patch_generator import list_patch_proposals, approve_patch_proposal
