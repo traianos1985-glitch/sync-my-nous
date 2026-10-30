@@ -23,9 +23,8 @@ const testFiles = readdirSync("scripts").filter(
     name.endsWith(".test.js") ||
     name.endsWith(".test.mjs"),
 );
-const missing = testFiles.filter(
-  (file) =>
-    ![...reachable].some((name) => scripts[name].includes(`scripts/${file}`)),
+const missing = testFiles.filter((file) =>
+  ![...reachable].some((name) => scripts[name].includes(`scripts/${file}`)),
 );
 
 if (missing.length) {
