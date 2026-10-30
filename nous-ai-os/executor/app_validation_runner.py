@@ -13,7 +13,8 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+import threading
 
 _MAX_TIMEOUT_SECONDS = 300
 _MAX_OUTPUT_CHARS = 12_000
@@ -39,6 +40,8 @@ def run_project_tests(
     app_name: str,
     apps_root: str | Path,
     timeout_seconds: int = 120,
+    on_output: Callable[[str], None] | None = None,
+    cancelled: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Run an existing project's tests without shell expansion or dependency install."""
     if not isinstance(app_name, str) or not _APP_SLUG.fullmatch(app_name):
@@ -97,6 +100,8 @@ def run_project_tests(
             env["HOME"] = home
             env["TMPDIR"] = home
             env["TEMP"] = home
+            if on_output is not None:
+                return _run_live(project, env, timeout, started, on_output, cancelled)
             completed = subprocess.run(
                 [sys.executable, "-m", "pytest", "-q", "tests"],
                 cwd=str(project),
@@ -148,3 +153,56 @@ def run_project_tests(
             "error": "test_runner_unavailable",
             "details": str(exc)[:500],
         }
+
+
+def _run_live(project, env, timeout, started, on_output, cancelled):
+    """Read unbuffered pytest output while enforcing a deadline and cancellation."""
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "pytest", "-q", "-s", "tests"],
+        cwd=str(project), env=env, stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        shell=False, close_fds=True, start_new_session=(os.name == "posix"),
+        preexec_fn=_limit_child_resources if os.name == "posix" else None,
+    )
+    output = [""]
+    truncated = [False]
+
+    def read():
+        if proc.stdout is None:
+            return
+        for line in proc.stdout:
+            truncated[0] = truncated[0] or len(output[0]) + len(line) > _MAX_OUTPUT_CHARS
+            output[0] = (output[0] + line)[-_MAX_OUTPUT_CHARS:]
+            on_output(line[-_MAX_OUTPUT_CHARS:])
+
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
+    status = None
+    try:
+        while proc.poll() is None:
+            if cancelled is not None and cancelled.is_set():
+                status = "cancelled"
+                break
+            if time.monotonic() - started >= timeout:
+                status = "timeout"
+                break
+            time.sleep(0.05)
+    finally:
+        if proc.poll() is None:
+            if os.name == "posix":
+                import signal
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            else:
+                proc.kill()
+        proc.wait()
+        reader.join(timeout=1)
+        if proc.stdout is not None:
+            proc.stdout.close()
+    status = status or ("passed" if proc.returncode == 0 else "failed")
+    return {"ok": status == "passed", "status": status, "return_code": proc.returncode,
+            "stdout": output[0], "stderr": "", "output_truncated": truncated[0],
+            "duration_seconds": round(time.monotonic() - started, 3),
+            "isolation": {"environment_allowlisted": True, "security_sandbox": False, "network_blocked": False}}

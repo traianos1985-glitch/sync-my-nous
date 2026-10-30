@@ -223,6 +223,9 @@ app.register_blueprint(dashboard_api_bp)
 from executor.blueprints.agent_environments_bp import agent_environments_bp
 app.register_blueprint(agent_environments_bp)
 
+from executor.app_studio import studio_bp
+app.register_blueprint(studio_bp)
+
 
 # Fail-closed auth για ΟΛΑ τα endpoints (δες executor/auth_guard.py)
 install_auth_guard(app)
@@ -3764,7 +3767,7 @@ def app_builder_files_route():
                 "path": str(entry),
                 "source": "persistent" if root == roots[0] else "legacy",
                 "file_count": len(files),
-                "files": files[:30],
+                "files": files,
                 "run_command": _detect_run_command(entry),
             })
     return jsonify({
@@ -3920,11 +3923,10 @@ def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
     def _reader():
         for line in proc.stdout:
             lines.append(line)
-            _running_apps.get(app_name, {})["log"] = (
-                _running_apps.get(app_name, {}).get("log", "") + line
-            )
             if len(lines) > 200:
-                break
+                del lines[:-200]
+            # Keep consuming output; never block the child or write into a replacement instance.
+            info["log"] = (info["log"] + line)[-12000:]
     t = threading.Thread(target=_reader, daemon=True)
     t.start()
     time.sleep(1.5)
@@ -3933,7 +3935,7 @@ def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
 
 @app.route("/remote/app-builder/run-app", methods=["POST"])
 def app_builder_run_app_route():
-    """Start an app from apps/<app_name>/ with autonomous self-repair on failure."""
+    """Start reviewed files only; repairs require a separate explicit review."""
     if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
     from pathlib import Path as _P
@@ -3976,43 +3978,11 @@ def app_builder_run_app_route():
             pass
         del _running_apps[app_name]
 
-    repair_msg = ""
-
-    # ── STEP 1: Pre-flight — scan for JSON blob files before running ──────────
-    repair = _try_autorepair_app(app_dir)
-    if repair["repaired"]:
-        repair_msg = repair["message"]
-
-    # ── STEP 2: First launch attempt ──────────────────────────────────────────
+    # Launch only reviewed files; repair proposals require a separate decision.
     try:
         r1 = _launch_app_proc(run_cmd, app_name, app_dir)
         proc, lines = r1["proc"], r1["lines"]
         output_text = "".join(lines[-40:])
-
-        # ── STEP 3: Detect failure + auto-repair ──────────────────────────────
-        failed = proc.poll() is not None
-        has_syntax_error = "SyntaxError" in output_text or "invalid syntax" in output_text
-        has_json_blob_error = "```json" in output_text or ("line 1" in output_text and "SyntaxError" in output_text)
-
-        if failed and (has_syntax_error or has_json_blob_error):
-            # Try repair even if pre-flight didn't catch it
-            repair2 = _try_autorepair_app(app_dir)
-            if repair2["repaired"]:
-                repair_msg += ("\n" if repair_msg else "") + repair2["message"]
-                # Re-launch after repair
-                del _running_apps[app_name]
-                r2 = _launch_app_proc(run_cmd, app_name, app_dir)
-                proc, lines = r2["proc"], r2["lines"]
-                output_text = "".join(lines[-40:])
-                failed = proc.poll() is not None
-                if not failed:
-                    output_text = (repair_msg + "\n✅ Επανεκκίνηση μετά από επιδιόρθωση!\n\n") + output_text
-                else:
-                    output_text = (repair_msg + "\n⚠️ Επιδιορθώθηκε αλλά εξακολουθεί να αποτυγχάνει:\n\n") + output_text
-            else:
-                output_text = "❌ SyntaxError — δεν ήταν δυνατή η αυτόματη επιδιόρθωση.\n" + output_text
-        elif repair_msg:
-            output_text = repair_msg + "\n\n" + output_text
 
         result = {
             "ok": True,
@@ -4021,8 +3991,8 @@ def app_builder_run_app_route():
             "cmd": run_cmd,
             "running": proc.poll() is None,
             "output": output_text,
-            "repaired": bool(repair_msg),
-            "repair_msg": repair_msg,
+            "repaired": False,
+            "repair_msg": "",
         }
         finish_approval(approval_id, "completed", result)
         return jsonify(result)

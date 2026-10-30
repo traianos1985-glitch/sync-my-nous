@@ -256,3 +256,8 @@ export function nousFetch<T>(path: string, options: NousApiOptions = {}): Promis
     async (response) => response.json() as Promise<T>,
   );
 }
+
+// Downloads use the same authenticated, cancelling Render lifecycle as JSON reads.
+export function nousBlob(path: string, options: NousApiOptions = {}): Promise<Blob> {
+  return executeRequest(path, options, "application/zip", (response) => response.blob());
+}

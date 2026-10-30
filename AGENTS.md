@@ -54,3 +54,5 @@
 - Knowledge ingestion exposes persisted processing state and uses the existing local feature-hash cosine search; do not describe it as neural embeddings or add AI providers implicitly.
 - Chat tool execution uses a separate read-only allowlist and bounded ReAct loop, never the privileged operational registry; stream execution records once and preserve them after synthesis failures to avoid replay and false completion claims.
 - Chat tool cards use AI Elements Tool primitives with concise public action summaries, not private model reasoning; persist terminal records and mark unconfirmed running records interrupted on restoration.
+- App Builder Studio owns cancellable per-application requests and a single mutation lock; stream validation output without replay and use authenticated blob downloads.
+- Generated-app repairs are review-first: rerun baseline/static checks before explicit application, retain decision status, and never rewrite files during app launch.
