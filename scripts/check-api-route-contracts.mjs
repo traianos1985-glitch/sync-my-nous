@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const apiClient = readFileSync("src/lib/nous-api.ts", "utf8");
 const dashboard = readFileSync("src/components/nous/use-dashboard.ts", "utf8");
@@ -145,6 +145,37 @@ for (const [route, handler] of [
   if (!opsBlueprint.includes(route) || !body.includes("_admin_required()")) {
     errors.push(`Operational endpoint ${handler} must be registered and require admin scope.`);
   }
+}
+
+
+const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+const npmScripts = packageJson.scripts ?? {};
+const reachableScripts = new Set();
+const pendingScripts = ["check"];
+while (pendingScripts.length) {
+  const name = pendingScripts.pop();
+  if (reachableScripts.has(name)) continue;
+  if (typeof npmScripts[name] !== "string") {
+    errors.push(`Frontend check references missing npm script: ${name}`);
+    continue;
+  }
+  reachableScripts.add(name);
+  const dependencies = npmScripts[name].matchAll(/npm run ([a-zA-Z0-9:_-]+)/g);
+  for (const match of dependencies) pendingScripts.push(match[1]);
+}
+
+const frontendTestFiles = readdirSync("scripts").filter(
+  (name) =>
+    name.endsWith(".test.ts") ||
+    name.endsWith(".test.js") ||
+    name.endsWith(".test.mjs"),
+);
+const missingFrontendTests = frontendTestFiles.filter(
+  (file) =>
+    ![...reachableScripts].some((name) => npmScripts[name].includes(`scripts/${file}`)),
+);
+for (const file of missingFrontendTests) {
+  errors.push(`Frontend test file is not reachable from npm run check: scripts/${file}`);
 }
 
 if (errors.length) {
