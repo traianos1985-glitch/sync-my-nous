@@ -108,7 +108,9 @@ export function ExecutionReceiptsPanel() {
   const counts = useMemo(
     () => ({
       all: receipts.length,
-      pending: receipts.filter((item) => item.status === "queued" || item.status === "awaiting_approval").length,
+      pending: receipts.filter(
+        (item) => item.status === "queued" || item.status === "awaiting_approval",
+      ).length,
       completed: receipts.filter((item) => item.status === "completed").length,
       failed: receipts.filter((item) => item.status === "failed").length,
       verified: receipts.filter((item) => item.verified).length,
