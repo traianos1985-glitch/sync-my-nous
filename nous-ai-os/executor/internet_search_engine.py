@@ -6,9 +6,62 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 CACHE = Path("data/internet_search_cache.json")
+
+PRODUCT_SITES: dict[str, tuple[str, ...]] = {
+    "render": ("render.com", "docs.render.com"), "vercel": ("vercel.com",),
+    "netlify": ("netlify.com", "docs.netlify.com"), "fly.io": ("fly.io",),
+    "flyio": ("fly.io",), "railway": ("railway.app", "docs.railway.app"),
+    "supabase": ("supabase.com",), "firebase": ("firebase.google.com",),
+    "aws": ("aws.amazon.com", "docs.aws.amazon.com"), "gcp": ("cloud.google.com",),
+    "azure": ("azure.microsoft.com", "learn.microsoft.com"),
+    "digitalocean": ("digitalocean.com", "docs.digitalocean.com"),
+    "heroku": ("heroku.com", "devcenter.heroku.com"),
+    "cloudflare": ("cloudflare.com", "developers.cloudflare.com"),
+    "github": ("github.com", "docs.github.com"), "gitlab": ("gitlab.com", "docs.gitlab.com"),
+    "openai": ("openai.com", "platform.openai.com"), "anthropic": ("anthropic.com", "docs.anthropic.com"),
+    "gemini": ("ai.google.dev",), "stripe": ("stripe.com",),
+}
+DOMAIN_BOOSTS: tuple[tuple[str, float], ...] = (
+    ("docs.render.com", 2.5), ("render.com", 2.0), ("vercel.com", 2.0),
+    ("docs.netlify.com", 2.0), ("netlify.com", 1.5), ("fly.io", 1.5),
+    ("docs.railway.app", 2.0), ("railway.app", 1.5), ("supabase.com", 1.5),
+    ("docs.github.com", 2.0), ("github.com", 0.8), ("stackoverflow.com", 0.5),
+)
+
+
+def _detect_product_sites(query: str) -> list[str]:
+    tokens = set(re.findall(r"[a-z0-9]+(?:\.[a-z0-9]+)?", (query or "").lower()))
+    hosts: list[str] = []
+    for key, domains in PRODUCT_SITES.items():
+        if key in tokens:
+            for domain in domains:
+                if domain not in hosts:
+                    hosts.append(domain)
+    return hosts
+
+
+def _product_site_queries(query: str) -> list[str]:
+    hosts = _detect_product_sites(query)
+    if not hosts:
+        return []
+    clause = " OR ".join(f"site:{host}" for host in hosts[:3])
+    return [f"{clean(query)} {clause}"]
+
+
+def _merge_unique(base: list[dict], extra: list[dict]) -> list[dict]:
+    merged = list(base)
+    seen = {(item.get("url") or "").strip().rstrip("/").lower() for item in base}
+    for item in extra:
+        url = (item.get("url") or "").strip().rstrip("/").lower()
+        if not url or url not in seen:
+            merged.append(item)
+            if url:
+                seen.add(url)
+    return merged
+
 
 
 def now_iso():
@@ -42,23 +95,19 @@ def _tokenise_query(query: str) -> set[str]:
 
 
 def _score_item(tokens: set[str], item: dict) -> float:
-    """Token overlap + light domain boost for known product docs."""
+    """Token overlap with a modest boost for official documentation hosts."""
     if not tokens:
         return 0.0
     blob = f"{item.get('title', '')} {item.get('snippet', '')} {item.get('url', '')}".lower()
-    hits = sum(1 for t in tokens if t in blob)
-    score = float(hits)
-    url = (item.get("url") or "").lower()
-    # Prefer official / documentation hosts for product-style queries.
-    for domain, boost in (
-        ("render.com", 1.5),
-        ("docs.render.com", 2.0),
-        ("github.com", 0.5),
-        ("stackoverflow.com", 0.4),
-        ("official", 0.3),
-    ):
-        if domain in url:
+    score = float(sum(1 for token in tokens if token in blob))
+    try:
+        hostname = (urlparse(item.get("url") or "").hostname or "").lower()
+    except ValueError:
+        hostname = ""
+    for domain, boost in DOMAIN_BOOSTS:
+        if hostname == domain or hostname.endswith("." + domain):
             score += boost
+            break
     return score
 
 
@@ -224,21 +273,31 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
     if not q:
         return {"ok": False, "error": "empty_query"}
 
+    site_queries = _product_site_queries(q)
+    used_site_aware = False
     results = _ddg_instant(q)
     wiki = _wikipedia_search(q)
     if wiki:
-        results = (results or []) + [w for w in wiki if w not in (results or [])]
+        results = _merge_unique(results or [], wiki)
+    for site_query in site_queries:
+        site_hits = _ddg_html(site_query, limit)
+        if site_hits:
+            results = _merge_unique(results or [], site_hits)
+            used_site_aware = True
     if len(results or []) < 2:
         html = _ddg_html(q, limit)
         if html:
-            results = (results or []) + html
-
+            results = _merge_unique(results or [], html)
     results, top_score, low_relevance = _filter_relevant(q, results or [])
-
+    if (not results or low_relevance) and site_queries and not used_site_aware:
+        for site_query in site_queries:
+            site_hits = _ddg_html(site_query, limit)
+            if site_hits:
+                results = _merge_unique(results or [], site_hits)
+                used_site_aware = True
+        results, top_score, low_relevance = _filter_relevant(q, results or [], min_keep=1)
     if not results:
-        results, top_score, low_relevance = _filter_relevant(
-            q, _ddg_html(q, limit) or [], min_keep=1
-        )
+        results, top_score, low_relevance = _filter_relevant(q, _ddg_html(q, limit) or [], min_keep=1)
 
     payload: dict[str, Any] = {
         "ok": bool(results),
@@ -248,7 +307,10 @@ def search_web(query: str, limit: int = 5) -> dict[str, Any]:
         "results": results[:limit],
         "top_relevance_score": round(top_score, 2),
         "low_relevance": low_relevance,
+        "site_aware": used_site_aware,
     }
+    if site_queries:
+        payload["product_sites"] = _detect_product_sites(q)
     if not results:
         payload["error"] = "no_results"
     elif low_relevance:
@@ -325,6 +387,7 @@ def answer_from_web(query: str) -> dict[str, Any]:
         "mode": mode,
         "low_relevance": low_relevance,
         "top_relevance_score": res.get("top_relevance_score", 0),
+        "site_aware": bool(res.get("site_aware")),
         "answer": answer,
         "results": results[:4],
         "raw": {
@@ -332,6 +395,8 @@ def answer_from_web(query: str) -> dict[str, Any]:
             "query": res.get("query"),
             "results_count": len(results),
             "low_relevance": low_relevance,
+            "site_aware": bool(res.get("site_aware")),
+            **({"product_sites": res.get("product_sites")} if res.get("product_sites") else {}),
             **({"error": res.get("error")} if res.get("error") else {}),
             **({"warning": res.get("warning")} if res.get("warning") else {}),
         },

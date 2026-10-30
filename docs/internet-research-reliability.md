@@ -46,3 +46,9 @@ Specialised product queries (e.g. "Render free tier") often return mediocre Duck
 The ~2 s external-call rate limit (`capability_awareness.allow_external_call`) remains intentional and surfaces the Greek "Περίμενε ~Xs…" message; it is not a crash.
 
 This keeps the existing search path stable while improving answer quality for product-pricing style queries without inventing citations.
+
+## Site-aware product search
+
+For recognized platform and product names (including Render, Vercel, Netlify, Fly.io, Railway, Supabase, AWS, GitHub, OpenAI and Gemini), the existing Internet Search Engine also issues a DuckDuckGo HTML query restricted to a small set of official hosts. These results are merged by URL with the existing provider results and ranked using token relevance plus a modest official-host boost.
+
+The feature keeps the existing search providers and response contract. Responses expose `site_aware` and, when applicable, `product_sites` so callers can distinguish an official-host-assisted search. Host boosts are applied to parsed hostnames and exact/subdomain matches only. External search results remain untrusted data, and no citation or source is fabricated.
