@@ -162,8 +162,21 @@ class ReActAgent:
             "timestamp": time.time()
         }
 
+    @staticmethod
+    def _coerce_steps(value: Any, default: int = 5) -> int:
+        try:
+            return min(max(int(value), 1), 5)
+        except (TypeError, ValueError):
+            return default
+
     def run(self, task: str, max_steps: int = 5) -> Dict[str, Any]:
-        """Runs an autonomous task through the ReAct loop."""
+        """Keyword-routed, single-step, read-only inspection.
+
+        This is not an LLM reasoning loop: it performs exactly one inspection chosen by
+        keywords. The model-driven multi-step tool loop is run_chat_react.
+        max_steps is reported back but cannot extend this single step.
+        """
+        requested_steps = self._coerce_steps(max_steps)
         steps = []
         task_lower = task.lower()
         if any(w in task_lower for w in ["status", "git", "branch"]):
@@ -191,6 +204,9 @@ class ReActAgent:
             "status": status,
             "steps": steps,
             "reflection": reflection,
+            "mode": "single_step_inspection",
+            "max_steps_requested": requested_steps,
+            "steps_executed": len(steps),
             "finished_at": time.time()
         }
 
