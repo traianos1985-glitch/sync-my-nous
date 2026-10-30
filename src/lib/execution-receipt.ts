@@ -25,7 +25,9 @@ export function createExecutionReceipt(input: {
     operation: input.operation,
     status: input.status ?? "completed",
     startedAt: input.startedAt,
-    completedAt: ["queued", "awaiting_approval"].includes(input.status ?? "completed") ? null : new Date().toISOString(),
+    completedAt: ["queued", "awaiting_approval"].includes(input.status ?? "completed")
+      ? null
+      : new Date().toISOString(),
     verified: false,
     evidence: input.evidence,
   };
