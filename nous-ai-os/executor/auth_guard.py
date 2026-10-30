@@ -1,8 +1,11 @@
 """Global fail-closed authentication and baseline HTTP hardening."""
+import os
 import threading
 import time
 
 from flask import jsonify, request
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 from executor.security import check_token, check_admin_token
 
 PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/robots.txt"}
@@ -23,8 +26,28 @@ MAX_REQUEST_BYTES = 16 * 1024 * 1024
 AUTH_FAILURE_LIMIT = 10
 AUTH_FAILURE_WINDOW_SECONDS = 300
 AUTH_LOCKOUT_SECONDS = 600
+MAX_TRUSTED_PROXY_HOPS = 5
 _AUTH_LOCK = threading.Lock()
 _AUTH_FAILURES = {}
+
+
+def _trusted_proxy_hops(app) -> int:
+    """Resolve an explicit proxy trust count; Render defaults to its ingress proxy."""
+    configured = app.config.get("NOUS_TRUSTED_PROXY_HOPS")
+    if configured is None:
+        configured = os.environ.get("NOUS_TRUSTED_PROXY_HOPS")
+    if configured is None:
+        configured = 1 if (
+            os.environ.get("RENDER", "").strip().lower() in {"1", "true", "yes", "on"}
+            or os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
+        ) else 0
+    try:
+        hops = int(configured)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("NOUS_TRUSTED_PROXY_HOPS must be an integer from 0 to 5") from exc
+    if not 0 <= hops <= MAX_TRUSTED_PROXY_HOPS:
+        raise RuntimeError("NOUS_TRUSTED_PROXY_HOPS must be an integer from 0 to 5")
+    return hops
 
 
 def is_public(path: str) -> bool:
@@ -77,9 +100,18 @@ def _clear_auth_failures(client_ip: str):
 
 
 def install_auth_guard(app):
-    """Install auth, request-size bounds, lockout, and conservative response headers."""
+    """Install trusted-proxy-aware auth, request bounds, lockout, and headers."""
     if app.config.get("MAX_CONTENT_LENGTH") is None:
         app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
+
+    # request.remote_addr is the reverse proxy address on hosted deployments unless
+    # ProxyFix is configured. Trust only the explicitly configured number of hops;
+    # never consume X-Forwarded-For directly in the lockout code.
+    if not app.config.get("_NOUS_PROXY_FIX_INSTALLED"):
+        trusted_hops = _trusted_proxy_hops(app)
+        if trusted_hops:
+            app.wsgi_app = ProxyFix(app.wsgi_app, x_for=trusted_hops)
+        app.config["_NOUS_PROXY_FIX_INSTALLED"] = True
 
     @app.before_request
     def _nous_auth_guard():
@@ -88,9 +120,10 @@ def install_auth_guard(app):
         if request.method == "OPTIONS" or is_public(request.path):
             return None
 
+        # After ProxyFix, remote_addr is the client address supplied through the
+        # configured trusted proxy chain. In direct mode, untrusted forwarding
+        # headers are ignored and the socket peer remains the rate-limit key.
         client_ip = request.remote_addr or "unknown"
-        # Validate credentials before applying an IP lockout. A valid operator token
-        # must never be denied solely because another request from the same IP failed.
         try:
             authenticated = check_token(request)
         except Exception:
