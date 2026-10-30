@@ -1,7 +1,7 @@
 """Durable, fail-closed JSON list storage for small runtime state files."""
 from __future__ import annotations
 
-import fcntl
+from executor import portable_fcntl as fcntl
 import json
 import os
 import tempfile
