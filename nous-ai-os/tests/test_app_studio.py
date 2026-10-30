@@ -24,6 +24,7 @@ def test_explicit_approval_applies_reviewed_patch_once(tmp_path):
     assert result["proposal_applied"] is True
     assert result["tests_executed"] is False
     assert target.read_text() == "answer = 42\n"
+    assert resolve_repair_proposal(repair_id, root, approve=True, store_path=store)["error"] == "repair_not_pending"
 
 
 def test_launch_does_not_apply_unreviewed_repairs(monkeypatch, tmp_path):
@@ -42,7 +43,6 @@ def test_launch_does_not_apply_unreviewed_repairs(monkeypatch, tmp_path):
     assert result["repaired"] is False
     assert result["running"] is False
     assert (app / "main.py").read_text() == source
-    assert resolve_repair_proposal(repair_id, root, approve=True, store_path=store)["error"] == "repair_not_pending"
 
 
 def test_rejection_never_writes_application_files(tmp_path):
