@@ -22,7 +22,7 @@ _ALLOWED_ARGUMENTS = {
 def run_command(cmd, approval_id=None):
     if not isinstance(cmd, str) or not cmd.strip():
         return {"error": "empty_command"}
-    if len(cmd) > 512 or any(ord(char) < 32 and char != "\\t" for char in cmd):
+    if len(cmd) > 512 or any(ord(char) < 32 or ord(char) == 127 for char in cmd):
         return {"error": "invalid_command"}
     normalized = cmd.strip()
     parts = normalized.split()
