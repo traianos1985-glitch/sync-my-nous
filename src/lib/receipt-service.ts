@@ -21,7 +21,7 @@ export async function persistExecutionReceipt(userId: string, receipt: Execution
       target: nousExecutionReceipts.id,
       set: {
         status: receipt.status,
-        completedAt: new Date(receipt.completedAt),
+        completedAt: receipt.completedAt ? new Date(receipt.completedAt) : null,
         evidence: receipt.evidence,
       },
     })
