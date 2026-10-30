@@ -18,10 +18,13 @@ while (pending.length) {
 }
 
 const testFiles = readdirSync("scripts").filter(
-  (name) => name.endsWith(".test.ts") || name.endsWith(".test.js") || name.endsWith(".test.mjs"),
+  (name) =>
+    name.endsWith(".test.ts") || name.endsWith(".test.js") ||
+    name.endsWith(".test.mjs"),
 );
 const missing = testFiles.filter(
-  (file) => ![...reachable].some((name) => scripts[name].includes(`scripts/${file}`)),
+  (file) =>
+    ![...reachable].some((name) => scripts[name].includes(`scripts/${file}`)),
 );
 
 if (missing.length) {
