@@ -78,6 +78,10 @@ export const nousApprovals = pgTable("nous_approvals", {
   userId: text("user_id").notNull(),
   tool: text("tool").notNull(),
   input: jsonb("input").notNull().default({}),
+  payloadHash: text("payload_hash").notNull().default(""),
+  nonce: text("nonce").notNull().default(""),
+  actor: text("actor").notNull().default("user"),
+  idempotencyKey: text("idempotency_key"),
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
@@ -129,6 +133,36 @@ export const nousRateLimits = pgTable("nous_rate_limits", {
   userId: text("user_id").primaryKey(),
   windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
   requestCount: integer("request_count").notNull().default(0),
+});
+
+export const nousDevices = pgTable(
+  "nous_devices",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    deviceId: text("device_id").notNull(),
+    platform: text("platform").notNull().default("android"),
+    appVersion: text("app_version"),
+    pushTokenHash: text("push_token_hash"),
+    status: text("status").notNull().default("offline"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    lastCommandId: text("last_command_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userDeviceUnique: unique("nous_devices_user_device").on(table.userId, table.deviceId),
+  }),
+);
+
+export const nousRuntimeCapabilities = pgTable("nous_runtime_capabilities", {
+  id: text("id").primaryKey(),
+  userId: text("user_id"),
+  name: text("name").notNull(),
+  version: text("version"),
+  enabled: boolean("enabled").notNull().default(true),
+  metadata: jsonb("metadata").notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const nousKnowledgeDocuments = pgTable("nous_knowledge_documents", {
