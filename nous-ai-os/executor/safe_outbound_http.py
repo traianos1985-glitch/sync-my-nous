@@ -100,7 +100,7 @@ def fetch_public_http(
     if parsed.query:
         path += "?" + parsed.query
     host_header = f"[{hostname}]" if ":" in hostname else hostname
-    if port not in {80, 443}:
+    if (scheme == "https" and port != 443) or (scheme == "http" and port != 80):
         host_header += f":{port}"
     request_headers = {
         "Host": host_header,
