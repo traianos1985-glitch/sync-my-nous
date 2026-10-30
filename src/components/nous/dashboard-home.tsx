@@ -26,7 +26,6 @@ const snapshotLabels = [
   "Overview",
 ];
 
-
 export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
   const [resourceHistory, setResourceHistory] = useState<ResourcePoint[]>([]);
   const capabilityInventory = dashboard.systemStatus?.capabilities?.inventory;
