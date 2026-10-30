@@ -89,7 +89,9 @@ def _provider_target_enabled(instance_id: str, provider: str) -> bool:
     if not isinstance(targets, dict):
         return False
     target = targets.get(instance_id)
-    if not isinstance(target, dict) or target.get("provider") != provider or target.get("enabled") is not True:
+    if (not isinstance(target, dict)
+            or str(target.get("provider") or "").strip().lower() != provider
+            or target.get("enabled") is not True):
         return False
     if provider == "render":
         return bool(
@@ -97,7 +99,10 @@ def _provider_target_enabled(instance_id: str, provider: str) -> bool:
             and re.fullmatch(r"[A-Za-z0-9_-]{3,128}", str(target.get("service_id") or ""))
         )
     hook = str(target.get("deploy_hook_url") or "").strip()
-    parsed = urllib.parse.urlsplit(hook)
+    try:
+        parsed = urllib.parse.urlsplit(hook)
+    except ValueError:
+        return False
     return bool(
         parsed.scheme == "https"
         and parsed.hostname == "api.vercel.com"
