@@ -156,6 +156,18 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Stop tunnel", path: "/remote/tunnel/stop" },
     ],
   },
+  browser: {
+    endpoints: [
+      { label: "Browser Driver Status", path: "/remote/browser-driver/status" },
+      { label: "Bridge Jobs", path: "/remote/browser-bridge/jobs" },
+      { label: "Operator Capabilities", path: "/remote/operator/capabilities" },
+      { label: "Learned Topics", path: "/remote/research/learned" },
+    ],
+    actions: [
+      { label: "Research Cycle", path: "/remote/research/cycle" },
+      { label: "Next Topic", path: "/remote/research/next" },
+    ],
+  },
   sandbox: {
     endpoints: [
       { label: "Εφαρμογές & Αρχεία", path: "/remote/app-builder/files" },

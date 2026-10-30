@@ -20,6 +20,7 @@ export const navGroups: NavGroup[] = [
       { id: "brain", icon: "brain", label: "Brain & Memory" },
       { id: "appbuilder", icon: "🏗", label: "App Builder" },
       { id: "sandbox", icon: "📦", label: "App Sandbox" },
+      { id: "browser", icon: "🌐", label: "Web Operator" },
     ],
   },
   {

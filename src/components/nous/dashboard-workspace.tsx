@@ -1,4 +1,5 @@
 import { AppSandboxPanel } from "./app-sandbox-panel";
+import { BrowserOperatorStudio } from "./browser-operator-studio";
 import { ApprovalList } from "@/components/nous/approval-list";
 import { sectionConfigs } from "@/components/nous/section-configs";
 import { SectionPanel } from "@/components/nous/section-panel";
@@ -45,6 +46,15 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
       <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
         <div className="mx-auto min-w-0 max-w-6xl">
           <AppSandboxPanel connected={hasToken} />
+        </div>
+      </div>
+    );
+  }
+  if (section === "browser") {
+    return (
+      <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+        <div className="mx-auto min-w-0 max-w-6xl">
+          <BrowserOperatorStudio connected={hasToken} />
         </div>
       </div>
     );
