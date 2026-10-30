@@ -3,6 +3,8 @@ from executor.research_agent import web_search
 from executor.code_forge import forge_plugin
 from executor.git_agent import git_checkpoint
 from executor.memory import save
+from executor.agent_goal_policy import requires_code_generation
+
 
 def solve_goal(goal):
     steps = make_steps(goal)
@@ -13,7 +15,7 @@ def solve_goal(goal):
         "status": "running"
     }
 
-    if any(w in goal.lower() for w in ["plugin", "calculator", "κώδικ", "code"]):
+    if requires_code_generation(goal):
         forged = forge_plugin(goal)
         result["actions"].append({"code_forge": forged})
 
@@ -29,6 +31,7 @@ def solve_goal(goal):
 
     result["status"] = "completed"
     return result
+
 
 def solve_and_checkpoint(goal):
     result = solve_goal(goal)
