@@ -132,6 +132,14 @@ def approve_proposal(proposal_id: str) -> dict:
         s = _load()
         for p in s["proposals"]:
             if str(p["id"]) == str(proposal_id):
+                if p.get("status") != "pending":
+                    return {
+                        "ok": False,
+                        "error": "proposal_not_pending",
+                        "status": p.get("status", "unknown"),
+                        "proposal_id": proposal_id,
+                    }
+
                 action = p.get("action", "")
                 fp     = p.get("fingerprint", "")
 
