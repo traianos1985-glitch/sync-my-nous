@@ -40,6 +40,7 @@ export const navGroups: NavGroup[] = [
     title: "Αυτοματισμός",
     advanced: true,
     items: [
+      { id: "autonomy", icon: "⚡", label: "Autonomy & Feed" },
       { id: "autoexec", icon: "🤖", label: "Auto Exec" },
       { id: "loopv3", icon: "♾", label: "Agent Loop" },
       { id: "autoscheduler", icon: "🔁", label: "AutoSched" },

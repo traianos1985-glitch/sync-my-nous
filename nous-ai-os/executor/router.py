@@ -23,7 +23,7 @@ from executor.security import check_token, check_admin_token, validate_startup_s
 from executor.auth_guard import install_auth_guard
 from executor.api_tokens import create_token, list_tokens, revoke_token, token_stats
 from executor import autonomy as autonomy_state
-from executor.autonomy_service import enable as service_enable, disable as service_disable, status as service_status, run_cycle as service_run_cycle, watchdog_check
+from executor.autonomy_service import enable as service_enable, disable as service_disable, status as service_status, run_cycle as service_run_cycle, watchdog_check, emergency_stop as service_emergency_stop, recent_events as service_recent_events
 from executor.goal_executor import goal_executor_cycle
 from executor.project_progress import list_progress, project_summary, sync_projects, mark_step
 from executor.self_healing_runtime import self_heal_check
@@ -3377,13 +3377,22 @@ def remote_service_status_route():
     return jsonify(service_status())
 
 
+@app.route("/remote/service/events")
+def remote_service_events_route():
+    limit = request.args.get("limit", 50)
+    return jsonify({"events": service_recent_events(limit)})
+
+
 @app.route("/remote/service/enable", methods=["POST"])
 def remote_service_enable_route():
     if not check_admin_token(request):
         return jsonify({"error": "unauthorized"}), 401
 
     data = request.get_json(silent=True) or {}
-    interval = int(data.get("interval", 300))
+    try:
+        interval = int(data.get("interval", 300))
+    except (TypeError, ValueError):
+        interval = 300
     return jsonify(service_enable(interval))
 
 
@@ -3393,6 +3402,16 @@ def remote_service_disable_route():
         return jsonify({"error": "unauthorized"}), 401
 
     return jsonify(service_disable())
+
+
+@app.route("/remote/service/emergency-stop", methods=["POST"])
+def remote_service_emergency_stop_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    reason = str(data.get("reason", "dashboard_emergency_stop"))
+    return jsonify(service_emergency_stop(reason))
 
 
 @app.route("/remote/service/run-once", methods=["POST"])

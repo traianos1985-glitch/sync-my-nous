@@ -20,7 +20,7 @@ const patterns = [
   ["frontend token environment variable", /VITE_NOUS_API_TOKEN/],
   ["NOUS API token", /nous_[A-Za-z0-9_-]{32,}/],
   ["Google API key", /AIza[0-9A-Za-z_-]{30,}/],
-  ["OpenAI-style secret key", /sk-(?:proj-)?[A-Za-z0-9_-]{24,}/],
+  ["OpenAI-style secret key", /(?<![A-Za-z0-9_-])sk-(?:proj-[A-Za-z0-9_-]{32,}|[A-Za-z0-9]{32,})/],
   ["OpenRouter-style secret key", /sk-or-v1-[A-Za-z0-9_-]{20,}/],
 ];
 

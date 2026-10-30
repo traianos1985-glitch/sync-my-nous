@@ -156,6 +156,24 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Stop tunnel", path: "/remote/tunnel/stop" },
     ],
   },
+  autonomy: {
+    endpoints: [
+      { label: "Κατάσταση service", path: "/remote/service/status" },
+      { label: "Watchdog", path: "/remote/service/watchdog" },
+      { label: "Activity feed", path: "/remote/service/events" },
+    ],
+    actions: [
+      { label: "Start cycle", path: "/remote/service/enable", body: { interval: 300 } },
+      { label: "Pause cycle", path: "/remote/service/disable" },
+      { label: "Run once", path: "/remote/service/run-once" },
+      {
+        label: "Emergency Stop",
+        path: "/remote/service/emergency-stop",
+        body: { reason: "dashboard_kill_switch" },
+        confirm: "ΠΡΟΣΟΧΗ: Θέλετε να ενεργοποιήσετε το Emergency Stop;",
+      },
+    ],
+  },
   autoexec: {
     endpoints: [{ label: "Auto Exec", path: "/remote/auto-mission-executor/status" }],
     actions: [

@@ -26,6 +26,7 @@ def _default_state():
         "last_run": None,
         "last_error": None,
         "cycles": 0,
+        "emergency_stop": False,
     }
 
 
@@ -71,6 +72,9 @@ def _load_unlocked():
         raise RuntimeError("autonomy_state_integrity_failure")
     cycles = state.get("cycles", 0)
     if isinstance(cycles, bool) or not isinstance(cycles, int) or cycles < 0:
+        raise RuntimeError("autonomy_state_integrity_failure")
+    emergency_stop = state.get("emergency_stop", False)
+    if not isinstance(emergency_stop, bool):
         raise RuntimeError("autonomy_state_integrity_failure")
     return {**_default_state(), **state}
 
@@ -140,11 +144,49 @@ def enable(interval=DEFAULT_INTERVAL):
     interval = _bounded_interval(interval)
     state = _load()
     state["enabled"] = True
+    state["emergency_stop"] = False
     state["interval"] = interval
     state["last_heartbeat"] = time.time()
     _save(state)
     log_event("service_enabled", {"interval": interval})
     return state
+
+def emergency_stop(reason="emergency_stop_triggered"):
+    state = _load()
+    state["enabled"] = False
+    state["emergency_stop"] = True
+    state["last_heartbeat"] = time.time()
+    _save(state)
+    log_event("emergency_stop", {"reason": str(reason)})
+    try:
+        from executor.autonomy import autonomy_state
+        autonomy_state.stop()
+    except Exception:
+        pass
+    return state
+
+def recent_events(limit=50):
+    try:
+        limit = max(1, min(int(limit), 200))
+    except (TypeError, ValueError):
+        limit = 50
+    if not os.path.exists(LOG_FILE):
+        return []
+    events = []
+    try:
+        with open(LOG_FILE, "r", encoding="utf-8") as handle:
+            lines = handle.readlines()
+        for line in reversed(lines[-limit:]):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    except OSError:
+        return []
+    return events
 
 
 def disable():
@@ -184,6 +226,10 @@ def _run_cycle_locked():
         state = _load()
     except RuntimeError:
         return {"ok": False, "error": "autonomy_state_integrity_failure", "state": status()}
+
+    if state.get("emergency_stop"):
+        log_event("service_skip", {"reason": "emergency_stop"})
+        return {"skipped": True, "reason": "emergency_stop", "state": state}
 
     if not state.get("enabled"):
         log_event("service_skip", {"reason": "disabled"})
@@ -263,6 +309,8 @@ def watchdog_check(max_silence_seconds=900):
     now = time.time()
     last = state.get("last_heartbeat")
 
+    if state.get("emergency_stop"):
+        return {"ok": True, "enabled": False, "action": "none", "reason": "emergency_stopped"}
     if not state.get("enabled"):
         return {"ok": True, "enabled": False, "action": "none", "reason": "service_disabled"}
     if not last:

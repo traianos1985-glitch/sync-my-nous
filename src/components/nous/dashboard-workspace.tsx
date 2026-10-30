@@ -13,6 +13,7 @@ import type { useDashboard } from "./use-dashboard";
 import { KnowledgeIngestionPanel } from "./knowledge-ingestion-panel";
 import { ConnectionSettings } from "./dashboard-connection-settings";
 import { AppBuilderStudio } from "./app-builder-studio";
+import { AutonomyPanel } from "./autonomy-panel";
 
 export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
   const {
@@ -36,6 +37,15 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
     loadApprovals,
   } = dashboard;
   if (section === "appbuilder") return <AppBuilderStudio connected={hasToken} />;
+  if (section === "autonomy") {
+    return (
+      <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+        <div className="mx-auto min-w-0 max-w-5xl">
+          <AutonomyPanel connected={hasToken} />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
       <div className="mx-auto grid min-w-0 max-w-5xl gap-4 lg:grid-cols-[1.3fr_0.7fr]">
