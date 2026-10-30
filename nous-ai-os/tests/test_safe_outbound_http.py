@@ -59,7 +59,7 @@ def test_rejects_private_and_mixed_dns_answers(monkeypatch):
 def test_rejects_localhost_credentials_and_unusual_ports():
     assert safe.fetch_public_http("http://127.0.0.1/")["error"] == "invalid_or_non_public_url"
     assert safe.fetch_public_http("http://localhost/")["error"] == "non_public_host"
-    assert safe.fetch_public_http("https://user:pass@example.com/")["error"] == "invalid_or_non_public_url"
+    assert safe.fetch_public_http("https://user:pass@example.com/")["error"] == "url_credentials_not_allowed"
     assert safe.fetch_public_http("https://example.com:8443/")["error"] == "invalid_or_non_public_url"
 
 
