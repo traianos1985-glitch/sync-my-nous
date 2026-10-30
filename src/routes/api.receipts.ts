@@ -20,10 +20,7 @@ export const Route = createFileRoute("/api/receipts")({
         if (!id) {
           const limit = Number(new URL(request.url).searchParams.get("limit") ?? 50);
           const receipts = await listExecutionReceipts(userId, limit);
-          return Response.json(
-            { receipts },
-            { headers: { "Cache-Control": "private, no-store" } },
-          );
+          return Response.json({ receipts }, { headers: { "Cache-Control": "private, no-store" } });
         }
         const receipt = await getExecutionReceipt(userId, id);
         return receipt
