@@ -26,19 +26,24 @@ const snapshotLabels = [
   "Overview",
 ];
 
-const capabilities = [
-  "chat brain",
-  "missions",
-  "self-healing",
-  "app builder",
-  "browser operator",
-  "android operator",
-  "documents",
-  "scheduler",
-];
-
 export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
   const [resourceHistory, setResourceHistory] = useState<ResourcePoint[]>([]);
+  const capabilityInventory = dashboard.systemStatus?.capabilities?.inventory;
+  const capabilityGroups = Object.entries(capabilityInventory ?? {}).flatMap(([group, value]) => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
+    const checks = Object.entries(value as Record<string, unknown>).filter(
+      ([, enabled]) => typeof enabled === "boolean",
+    );
+    return checks.length > 0 ? [{ group, checks }] : [];
+  });
+  const availableCapabilityCount = capabilityGroups.reduce(
+    (count, group) => count + group.checks.filter(([, enabled]) => enabled === true).length,
+    0,
+  );
+  const totalCapabilityCount = capabilityGroups.reduce(
+    (count, group) => count + group.checks.length,
+    0,
+  );
   const {
     initiativePending,
     section,
@@ -210,17 +215,39 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
           })}
         </Card>
 
-        <Card title="Capabilities">
-          <div className="flex flex-wrap gap-2">
-            {capabilities.map((c) => (
-              <span
-                key={c}
-                className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-muted-foreground"
-              >
-                {c}
-              </span>
-            ))}
-          </div>
+        <Card title="Runtime capability inventory">
+          {capabilityGroups.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Το backend δεν έχει επιστρέψει ακόμη inventory δυνατοτήτων.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Διαθέσιμα checks: {availableCapabilityCount}/{totalCapabilityCount}
+              </p>
+              {capabilityGroups.map(({ group, checks }) => (
+                <div key={group}>
+                  <p className="mb-1.5 text-xs font-semibold capitalize">{group}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {checks.map(([name, enabled]) => (
+                      <span
+                        key={name}
+                        className={`rounded-full border px-2.5 py-1 font-mono text-[11px] ${enabled ? "border-ok/30 bg-ok/5 text-ok" : "border-warn/30 bg-warn/5 text-warn"}`}
+                      >
+                        {name.replaceAll("_", " ")}: {enabled ? "available" : "unavailable"}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {dashboard.systemStatus?.capabilities?.verification === "local_inventory_only" && (
+                <p className="border-t border-border pt-2 text-[11px] text-muted-foreground">
+                  Το inventory επιβεβαιώνει τοπικούς ελέγχους/αρχεία και εξαρτήσεις· δεν αποτελεί
+                  απόδειξη end-to-end λειτουργίας ή σύνδεσης με κάθε εξωτερικό σύστημα.
+                </p>
+              )}
+            </div>
+          )}
         </Card>
 
         <Card title="Missions — ζωντανά">
