@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "./index";
 import { nousJobs } from "./schema";
 import { isAllowedJobKind, NOUS_LIMITS, serializedBytes } from "../platform-policy";
@@ -78,6 +78,22 @@ export async function retryJob(id: string, userId: string) {
 }
 
 export async function claimNextJob(userId: string, kind?: string) {
+  await db
+    .update(nousJobs)
+    .set({
+      status: "dead-letter",
+      completedAt: new Date(),
+      lastError: "Retry limit reached",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(nousJobs.userId, userId),
+        eq(nousJobs.status, "queued"),
+        gte(nousJobs.retryCount, NOUS_LIMITS.maxJobRetries),
+      ),
+    );
+
   const candidates = await db
     .select({ id: nousJobs.id })
     .from(nousJobs)
