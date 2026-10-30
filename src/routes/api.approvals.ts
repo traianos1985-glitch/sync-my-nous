@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { and, desc, eq, gt } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousApprovals, nousObservabilityEvents } from "../lib/db/schema";
 import { getToolDefinition } from "../lib/tool-registry";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
 import { NOUS_LIMITS } from "../lib/platform-policy";
+import { redactForAudit } from "../lib/redaction";
 
 async function userId(request: Request) {
   return requireAuthenticatedUserId(request);
@@ -37,18 +38,30 @@ export const Route = createFileRoute("/api/approvals")({
           tool?: string;
           input?: unknown;
           missionId?: string;
+          idempotencyKey?: string;
         };
         const tool = body.tool?.trim().slice(0, 128) ?? "";
         const definition = getToolDefinition(tool);
         if (!definition) return Response.json({ error: "Unknown tool" }, { status: 400 });
         const parsed = definition.input.safeParse(body.input ?? {});
         if (!parsed.success) return Response.json({ error: "Invalid tool input" }, { status: 400 });
+        const approvalUserId = await userId(request);
+        const nonce = randomUUID();
+        const payloadHash = createHash("sha256")
+          .update(
+            JSON.stringify({ tool, input: parsed.data, missionId: body.missionId ?? null, nonce }),
+          )
+          .digest("hex");
         const approval = {
           id: randomUUID(),
           missionId: body.missionId?.slice(0, 128) ?? null,
-          userId: await userId(request),
+          userId: approvalUserId,
           tool,
           input: parsed.data,
+          payloadHash,
+          nonce,
+          actor: "user",
+          idempotencyKey: body.idempotencyKey?.trim().slice(0, 128) || null,
           status: "pending",
           expiresAt: new Date(Date.now() + NOUS_LIMITS.approvalTtlMinutes * 60_000),
         };
@@ -87,6 +100,9 @@ export const Route = createFileRoute("/api/approvals")({
             approvalId: approval.id,
             tool: approval.tool,
             missionId: approval.missionId,
+            payloadHash: approval.payloadHash,
+            actor: approval.actor,
+            input: redactForAudit(approval.input),
           },
         });
         return Response.json(

@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ApiApprovalsRouteImport } from './routes/api.approvals'
 import { Route as ApiAuditRouteImport } from './routes/api.audit'
+import { Route as ApiCapabilitiesRouteImport } from './routes/api.capabilities'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
+import { Route as ApiDevicesRouteImport } from './routes/api.devices'
 import { Route as ApiEvaluationRouteImport } from './routes/api.evaluation'
 import { Route as ApiFeedbackRouteImport } from './routes/api.feedback'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
@@ -53,9 +55,19 @@ const ApiAuditRoute = ApiAuditRouteImport.update({
   path: '/api/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCapabilitiesRoute = ApiCapabilitiesRouteImport.update({
+  id: '/api/capabilities',
+  path: '/api/capabilities',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevicesRoute = ApiDevicesRouteImport.update({
+  id: '/api/devices',
+  path: '/api/devices',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiEvaluationRoute = ApiEvaluationRouteImport.update({
@@ -154,7 +166,9 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/audit': typeof ApiAuditRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
   '/api/chat': typeof ApiChatRouteWithChildren
+  '/api/devices': typeof ApiDevicesRoute
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/health': typeof ApiHealthRoute
@@ -179,7 +193,9 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/audit': typeof ApiAuditRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
   '/api/chat': typeof ApiChatRouteWithChildren
+  '/api/devices': typeof ApiDevicesRoute
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/health': typeof ApiHealthRoute
@@ -205,7 +221,9 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/api/approvals': typeof ApiApprovalsRoute
   '/api/audit': typeof ApiAuditRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
   '/api/chat': typeof ApiChatRouteWithChildren
+  '/api/devices': typeof ApiDevicesRoute
   '/api/evaluation': typeof ApiEvaluationRoute
   '/api/feedback': typeof ApiFeedbackRoute
   '/api/health': typeof ApiHealthRoute
@@ -232,7 +250,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/approvals'
     | '/api/audit'
+    | '/api/capabilities'
     | '/api/chat'
+    | '/api/devices'
     | '/api/evaluation'
     | '/api/feedback'
     | '/api/health'
@@ -257,7 +277,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/approvals'
     | '/api/audit'
+    | '/api/capabilities'
     | '/api/chat'
+    | '/api/devices'
     | '/api/evaluation'
     | '/api/feedback'
     | '/api/health'
@@ -282,7 +304,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/approvals'
     | '/api/audit'
+    | '/api/capabilities'
     | '/api/chat'
+    | '/api/devices'
     | '/api/evaluation'
     | '/api/feedback'
     | '/api/health'
@@ -308,7 +332,9 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ApiApprovalsRoute: typeof ApiApprovalsRoute
   ApiAuditRoute: typeof ApiAuditRoute
+  ApiCapabilitiesRoute: typeof ApiCapabilitiesRoute
   ApiChatRoute: typeof ApiChatRouteWithChildren
+  ApiDevicesRoute: typeof ApiDevicesRoute
   ApiEvaluationRoute: typeof ApiEvaluationRoute
   ApiFeedbackRoute: typeof ApiFeedbackRoute
   ApiHealthRoute: typeof ApiHealthRoute
@@ -354,11 +380,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/capabilities': {
+      id: '/api/capabilities'
+      path: '/api/capabilities'
+      fullPath: '/api/capabilities'
+      preLoaderRoute: typeof ApiCapabilitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devices': {
+      id: '/api/devices'
+      path: '/api/devices'
+      fullPath: '/api/devices'
+      preLoaderRoute: typeof ApiDevicesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/evaluation': {
@@ -534,7 +574,9 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ApiApprovalsRoute: ApiApprovalsRoute,
   ApiAuditRoute: ApiAuditRoute,
+  ApiCapabilitiesRoute: ApiCapabilitiesRoute,
   ApiChatRoute: ApiChatRouteWithChildren,
+  ApiDevicesRoute: ApiDevicesRoute,
   ApiEvaluationRoute: ApiEvaluationRoute,
   ApiFeedbackRoute: ApiFeedbackRoute,
   ApiHealthRoute: ApiHealthRoute,
