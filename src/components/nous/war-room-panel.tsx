@@ -1,5 +1,15 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Bot, CheckCircle2, Loader2, ShieldCheck, Users } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  Play,
+  ShieldCheck,
+  Users,
+  Wrench,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { nousFetch } from "@/lib/nous-api";
 
@@ -24,6 +34,7 @@ export function WarRoomPanel() {
   const [goal, setGoal] = useState("");
   const [plan, setPlan] = useState<DelegationResponse | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [maintenanceState, setMaintenanceState] = useState<"idle" | "running" | "done">("idle");
 
   async function delegate(event: FormEvent) {
     event.preventDefault();
@@ -41,6 +52,20 @@ export function WarRoomPanel() {
       setStatus("idle");
     } catch {
       setStatus("error");
+    }
+  }
+
+  async function runMaintenance() {
+    setMaintenanceState("running");
+    try {
+      await nousFetch("/remote/self-maintenance/run", {
+        method: "POST",
+        body: "{}",
+        timeoutMs: 90_000,
+      });
+      setMaintenanceState("done");
+    } catch {
+      setMaintenanceState("idle");
     }
   }
 
@@ -133,8 +158,64 @@ export function WarRoomPanel() {
             Το πλάνο είναι έτοιμο για εκτέλεση. Ενέργειες με side effects παραμένουν σε approval
             queue.
           </p>
+          <div className="mt-4 grid gap-2 border-t border-border/60 pt-4 md:grid-cols-4">
+            {["Goal received", "Plan decomposed", "Agents assigned", "Awaiting your OK"].map(
+              (step, index) => (
+                <div key={step} className="flex items-center gap-2 text-xs">
+                  {index < 3 ? (
+                    <CheckCircle2 className="size-3.5 text-ok" />
+                  ) : (
+                    <Clock3 className="size-3.5 text-warn" />
+                  )}
+                  <span className={index < 3 ? "text-foreground" : "text-muted-foreground"}>
+                    {step}
+                  </span>
+                </div>
+              ),
+            )}
+          </div>
         </div>
       )}
+
+      <div className="border-t border-border/60 bg-background/20 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <Wrench className="size-4 text-primary" />
+              Autonomous self-evolution
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Error logs → patch proposal → tests → diff review. Καμία αλλαγή χωρίς έγκριση.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={runMaintenance}
+            disabled={maintenanceState === "running"}
+          >
+            {maintenanceState === "running" ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : maintenanceState === "done" ? (
+              <CheckCircle2 className="size-3.5 text-ok" />
+            ) : (
+              <Play className="size-3.5" />
+            )}
+            {maintenanceState === "done" ? "Maintenance complete" : "Run self-check"}
+          </Button>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {["Analyze error logs", "Generate patch proposal", "Validate in sandbox"].map((step) => (
+            <div
+              key={step}
+              className="rounded-lg border border-border/60 px-3 py-2 text-[11px] text-muted-foreground"
+            >
+              {step}
+            </div>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
