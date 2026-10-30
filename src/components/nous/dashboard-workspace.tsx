@@ -16,6 +16,7 @@ import { KnowledgeIngestionPanel } from "./knowledge-ingestion-panel";
 import { ConnectionSettings } from "./dashboard-connection-settings";
 import { AppBuilderStudio } from "./app-builder-studio";
 import { AutonomyPanel } from "./autonomy-panel";
+import { ExecutionReceiptsPanel } from "./execution-receipts-panel";
 
 export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
   const {
@@ -39,6 +40,17 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
     resolveApproval,
     loadApprovals,
   } = dashboard;
+  if (section === "receipts") {
+    return (
+      <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+        <div className="mx-auto min-w-0 max-w-5xl">
+          <Card title="Execution Receipts">
+            <ExecutionReceiptsPanel />
+          </Card>
+        </div>
+      </div>
+    );
+  }
   if (section === "appbuilder")
     return <AppBuilderStudio connected={hasToken} onOpenSandbox={() => setSection("sandbox")} />;
   if (section === "sandbox") {
