@@ -307,6 +307,9 @@ export const sectionConfigs: Record<string, SectionConfig> = {
       { label: "Operator approvals", path: "/remote/operator/approvals" },
     ],
   },
+  receipts: {
+    endpoints: [{ label: "Execution receipts", path: "/api/receipts?limit=100" }],
+  },
   audit: {
     endpoints: [
       { label: "Audit", path: "/api/audit?days=30" },
