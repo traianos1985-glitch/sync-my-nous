@@ -1,5 +1,6 @@
 "Single-use operator approvals with durable, cross-worker state transitions."
-import fcntl, json, os, tempfile, time
+from executor import portable_fcntl as fcntl
+import json, os, tempfile, time
 from contextlib import contextmanager
 
 FILE = "data/operator_approvals.json"

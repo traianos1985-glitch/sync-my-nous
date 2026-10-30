@@ -1,5 +1,5 @@
 """Concurrent-safe persistent task queue with bounded stale-task recovery."""
-import fcntl
+from executor import portable_fcntl as fcntl
 import json
 import os
 import time

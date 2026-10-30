@@ -1,5 +1,6 @@
 "Concurrent-safe bounded action log."
-import fcntl, json, os, tempfile, time
+from executor import portable_fcntl as fcntl
+import json, os, tempfile, time
 from contextlib import contextmanager
 
 FILE = "data/action_log.json"

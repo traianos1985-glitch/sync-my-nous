@@ -1,5 +1,5 @@
 """Concurrent-safe, bounded, hash-chained agent audit journal."""
-import fcntl
+from executor import portable_fcntl as fcntl
 import hashlib
 import json
 import os

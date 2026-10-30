@@ -1,5 +1,5 @@
 """Best-effort runtime metrics with atomic, concurrent-safe snapshots."""
-import fcntl
+from executor import portable_fcntl as fcntl
 import json
 import os
 import tempfile
