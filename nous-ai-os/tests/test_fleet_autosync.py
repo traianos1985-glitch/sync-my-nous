@@ -471,7 +471,7 @@ def test_vercel_deployment_readiness_matches_explicit_rollout_mapping(monkeypatc
     monkeypatch.delenv("RENDER_API_KEY", raising=False)
     monkeypatch.setenv("NOUS_FLEET_DEPLOY_TARGETS", json.dumps({
         "nous-vercel-04": {
-            "provider": "vercel",
+            "provider": " Vercel ",
             "deploy_hook_url": "https://api.vercel.com/v1/integrations/deploy/project/hook",
             "enabled": True,
         }
