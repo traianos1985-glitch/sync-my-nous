@@ -46,6 +46,7 @@ export const Route = createFileRoute("/api/chat/stream")({
           missionId?: string;
           activeFocus?: string;
           researchMode?: ResearchMode;
+          voice?: { persistTranscript?: boolean; redactTranscript?: boolean };
         };
         const message = body.message?.trim().slice(0, 20_000) ?? "";
         if (!message) return Response.json({ error: "Το μήνυμα είναι κενό." }, { status: 400 });
@@ -137,6 +138,8 @@ export const Route = createFileRoute("/api/chat/stream")({
         }
 
         const encoder = new TextEncoder();
+        const persistTranscript = body.voice?.persistTranscript === true;
+        const redactTranscript = body.voice?.redactTranscript !== false;
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         const stream = new ReadableStream({
@@ -149,7 +152,10 @@ export const Route = createFileRoute("/api/chat/stream")({
               );
             };
 
-            send("start", { ok: true });
+            send("start", {
+              ok: true,
+              voice: { stream: true, persistTranscript, redactTranscript },
+            });
             try {
               while (true) {
                 const { value, done } = await reader.read();
@@ -173,14 +179,18 @@ export const Route = createFileRoute("/api/chat/stream")({
                 "gemini-api",
                 selectedModel,
               );
-              await db.insert(nousMessages).values({
-                id: randomUUID(),
-                missionId: body.missionId?.slice(0, 128) ?? null,
-                userId,
-                role: "assistant",
-                content: answer,
-                citations: researchResult.used ? researchResult.citations : [],
-              });
+              if (persistTranscript) {
+                await db.insert(nousMessages).values({
+                  id: randomUUID(),
+                  missionId: body.missionId?.slice(0, 128) ?? null,
+                  userId,
+                  role: "assistant",
+                  content: redactTranscript
+                    ? answer.replace(/(?:bearer\s+|token\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]")
+                    : answer,
+                  citations: researchResult.used ? researchResult.citations : [],
+                });
+              }
               send("done", {
                 ok: true,
                 researchUsed: researchResult.used,
