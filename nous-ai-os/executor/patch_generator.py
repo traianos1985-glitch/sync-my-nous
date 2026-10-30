@@ -150,7 +150,7 @@ def patch_generator_status():
         "time": time.time(),
         "total": len(items),
         "pending": len([x for x in items if x.get("status") == "pending"]),
-        "approved": len([x for x in items if x.get("status") == "approved"]),
+        "approved": len([x for x in items if x.get("status") in {"approved", "applied"}]),
         "rejected": len([x for x in items if x.get("status") == "rejected"]),
         "recent": items[-10:],
     }
