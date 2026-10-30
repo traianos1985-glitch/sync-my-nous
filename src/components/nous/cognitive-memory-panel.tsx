@@ -22,7 +22,6 @@ export function CognitiveMemoryPanel() {
   const [loading, setLoading] = useState(true);
 
   const loadBriefing = useCallback(async () => {
-    setLoading(true);
     try {
       setBriefing(await nousFetch<Briefing>("/remote/daily-brief", { timeoutMs: 30_000 }));
     } catch {
@@ -33,7 +32,7 @@ export function CognitiveMemoryPanel() {
   }, []);
 
   useEffect(() => {
-    void loadBriefing();
+    queueMicrotask(loadBriefing);
   }, [loadBriefing]);
 
   return (
@@ -58,7 +57,10 @@ export function CognitiveMemoryPanel() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => void loadBriefing()}
+          onClick={() => {
+            setLoading(true);
+            void loadBriefing();
+          }}
           disabled={loading}
           aria-label="Refresh daily briefing"
         >
