@@ -13,5 +13,10 @@ export const openApiDocument = {
     },
     "/api/mobile/notify": { post: { summary: "Queue a mobile notification" } },
     "/api/capabilities": { get: { summary: "List runtime capabilities" } },
+    "/api/sandbox/policy": {
+      get: { summary: "Read sandbox limits" },
+      post: { summary: "Validate sandbox request" },
+    },
+    "/api/sandbox/run": { post: { summary: "Run code through isolated sandbox runner" } },
   },
 } as const;
