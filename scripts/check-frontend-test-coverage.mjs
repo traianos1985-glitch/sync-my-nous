@@ -18,8 +18,7 @@ while (pending.length) {
 }
 
 const testFiles = readdirSync("scripts").filter(
-  (name) =>
-    name.endsWith(".test.ts") ||
+  (name) => name.endsWith(".test.ts") ||
     name.endsWith(".test.js") ||
     name.endsWith(".test.mjs"),
 );
