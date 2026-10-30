@@ -142,7 +142,7 @@ for (const [route, handler] of [
   ['@agent_ops_bp.route("/research/read-url", methods=["POST"])', "api_research_read_url"],
 ]) {
   const start = opsBlueprint.indexOf(`def ${handler}(`);
-  const next = start < 0 ? -1 : opsBlueprint.indexOf("\\n@agent_ops_bp.route", start + 1);
+  const next = start < 0 ? -1 : opsBlueprint.indexOf("\n@agent_ops_bp.route", start + 1);
   const body = start < 0 ? "" : opsBlueprint.slice(start, next < 0 ? undefined : next);
   if (!opsBlueprint.includes(route) || !body.includes("_admin_required()")) {
     errors.push(`Operational endpoint ${handler} must be registered and require admin scope.`);
