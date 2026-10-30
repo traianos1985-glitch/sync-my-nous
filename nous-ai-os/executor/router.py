@@ -97,6 +97,7 @@ from executor.voice_engine import voice_status, prepare_tts
 from executor.web_search import search as web_search_fn
 from executor.scheduler_cron import cron_status, list_jobs as cron_list_jobs, add_job as cron_add_job, remove_job as cron_remove_job, toggle_job as cron_toggle_job, start_scheduler
 from executor.patch_apply_engine import patch_apply_status, list_patch_apply_history, apply_patch_proposal
+from executor.self_maintenance_engine import run_self_maintenance
 from executor.rollback_engine import rollback_status, list_rollbacks, rollback_backup
 from executor.repository_graph import repository_graph_status, build_repository_graph
 from executor.knowledge_graph import knowledge_graph_status, build_knowledge_graph
@@ -1109,6 +1110,13 @@ def remote_companion_ui_tree_logs_route():
 @app.route("/remote/patch-apply/status")
 def remote_patch_apply_status():
     return jsonify(patch_apply_status())
+
+
+@app.route("/remote/self-maintenance/run", methods=["POST"])
+def remote_self_maintenance_run():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify(run_self_maintenance())
 
 @app.route("/remote/patch-apply/history")
 def remote_patch_apply_history():
