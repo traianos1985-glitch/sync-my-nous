@@ -2,6 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, urlparse, parse_qs, unquote
 
+from executor.safe_outbound_http import decode_response_body, fetch_public_http
+
 HEADERS = {"User-Agent": "Mozilla/5.0 NOUS-AI-OS"}
 
 def _ddg_search(query):
@@ -39,12 +41,23 @@ def web_search(query):
     return {"query": query, "results": results}
 
 def fetch_page(url):
-    if not url.startswith("http"):
-        return {"error": "invalid_url"}
+    fetched = fetch_public_http(
+        url,
+        timeout=15,
+        max_bytes=1_000_000,
+        headers={**HEADERS, "Accept": "text/html,application/xhtml+xml"},
+    )
+    if not fetched.get("ok"):
+        return {"error": fetched.get("error", "request_failed")}
 
-    r = requests.get(url, headers=HEADERS, timeout=15)
-    soup = BeautifulSoup(r.text, "html.parser")
+    content_type = str(fetched.get("headers", {}).get("Content-Type", "")).lower()
+    if content_type and not any(
+        kind in content_type for kind in ("text/html", "application/xhtml+xml")
+    ):
+        return {"error": "unsupported_content_type"}
 
+    html = decode_response_body(fetched.get("body", b""), content_type)
+    soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "nav", "footer"]):
         tag.decompose()
 
