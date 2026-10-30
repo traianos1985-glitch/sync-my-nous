@@ -6,11 +6,14 @@ intents are not intercepted by the legacy browser_operator path first.
 
 from __future__ import annotations
 
+import logging
+
 from flask import jsonify, request
 
 from executor.router import app
 
 _orig_chat = app.view_functions.get("chat")
+logger = logging.getLogger(__name__)
 
 if _orig_chat is not None:
 
@@ -34,7 +37,9 @@ if _orig_chat is not None:
             if routed is not None:
                 return jsonify(routed)
         except Exception:
-            pass
+            logger.exception(
+                "Intent-first chat routing failed; falling back to legacy chat handler"
+            )
         return _orig_chat()
 
     app.view_functions["chat"] = chat_intent_first
