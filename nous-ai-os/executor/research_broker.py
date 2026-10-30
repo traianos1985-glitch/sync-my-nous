@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 
 ALLOWED_SCHEMES = {"http", "https"}
+ALLOWED_PORTS = {80, 443}
 
 
 @dataclass(frozen=True)
@@ -21,25 +22,47 @@ class ResearchSource:
 
 
 def validate_url(value: str, official_domains: set[str] | None = None) -> str:
-    parsed = urlparse(value)
-    if parsed.scheme not in ALLOWED_SCHEMES or not parsed.hostname:
+    """Validate a public web URL and fail closed on ambiguous or unresolved DNS."""
+    if not isinstance(value, str) or not value.strip() or len(value) > 2048:
+        raise ValueError("invalid_url")
+    try:
+        parsed = urlparse(value.strip())
+        port = parsed.port
+    except ValueError as error:
+        raise ValueError("invalid_url") from error
+    if parsed.scheme.lower() not in ALLOWED_SCHEMES or not parsed.hostname:
         raise ValueError("unsupported_url")
-    host = parsed.hostname.lower()
-    if host == "localhost" or host.endswith(".localhost") or host == "metadata.google.internal":
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("url_credentials_not_allowed")
+    if port is not None and port not in ALLOWED_PORTS:
+        raise ValueError("port_not_allowed")
+    host = parsed.hostname.rstrip(".").lower()
+    if host == "localhost" or host.endswith((".localhost", ".local", ".internal", ".test")):
         raise ValueError("private_host")
+    if host == "metadata.google.internal":
+        raise ValueError("private_host")
+    if official_domains and not any(
+        host == domain.lower().rstrip(".") or host.endswith("." + domain.lower().rstrip("."))
+        for domain in official_domains
+    ):
+        raise ValueError("domain_not_allowed")
     try:
         address = ipaddress.ip_address(host)
-        if address.is_private or address.is_loopback or address.is_link_local or address.is_reserved:
-            raise ValueError("private_address")
-    except ValueError as error:
-        if str(error) == "private_address":
-            raise
-    if official_domains and not any(host == domain or host.endswith("." + domain) for domain in official_domains):
-        raise ValueError("domain_not_allowed")
-    for result in socket.getaddrinfo(host, None):
-        address = ipaddress.ip_address(result[4][0])
-        if address.is_private or address.is_loopback or address.is_link_local or address.is_reserved:
-            raise ValueError("private_address")
+    except ValueError:
+        try:
+            records = socket.getaddrinfo(
+                host, port or (443 if parsed.scheme.lower() == "https" else 80),
+                type=socket.SOCK_STREAM,
+            )
+        except OSError as error:
+            raise ValueError("host_resolution_failed") from error
+        addresses = {ipaddress.ip_address(result[4][0]) for result in records}
+        if not addresses:
+            raise ValueError("host_resolution_failed")
+    else:
+        addresses = {address}
+    if any(not address.is_global for address in addresses):
+        raise ValueError("private_address")
     return parsed.geturl()
 
 
