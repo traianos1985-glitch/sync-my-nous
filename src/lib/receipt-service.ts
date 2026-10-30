@@ -29,7 +29,16 @@ export async function persistExecutionReceipt(userId: string, receipt: Execution
   return row;
 }
 
-export async function listExecutionReceipts(userId: string, limit = 50) {\n  return db\n    .select()\n    .from(nousExecutionReceipts)\n    .where(eq(nousExecutionReceipts.userId, userId))\n    .orderBy(desc(nousExecutionReceipts.createdAt))\n    .limit(Math.min(Math.max(limit, 1), 100));\n}\n\nexport async function verifyExecutionReceipt(
+export async function listExecutionReceipts(userId: string, limit = 50) {
+  return db
+    .select()
+    .from(nousExecutionReceipts)
+    .where(eq(nousExecutionReceipts.userId, userId))
+    .orderBy(desc(nousExecutionReceipts.createdAt))
+    .limit(Math.min(Math.max(limit, 1), 100));
+}
+
+export async function verifyExecutionReceipt(
   userId: string,
   id: string,
   verification: Record<string, unknown>,
