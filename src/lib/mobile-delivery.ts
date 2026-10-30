@@ -13,7 +13,8 @@ export async function processNextMobileDelivery(userId: string) {
   }
 
   const endpoint = process.env["FCM_DELIVERY_ENDPOINT"];
-  if (!endpoint) {
+  const workerToken = process.env["NOUS_WORKER_TOKEN"];
+  if (!endpoint || !workerToken) {
     const nextStatus = job.retryCount + 1 >= NOUS_LIMITS.maxJobRetries ? "dead-letter" : "failed";
     await updateJob(job.id, userId, nextStatus, { error: "fcm_provider_not_configured" });
     return { status: nextStatus as "failed" | "dead-letter", jobId: job.id };
@@ -22,7 +23,11 @@ export async function processNextMobileDelivery(userId: string) {
   try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${workerToken}`,
+        "x-nous-delivery": payload.deliveryId ?? "",
+      },
       body: JSON.stringify({
         deviceId: payload.deviceId,
         title: payload.title,

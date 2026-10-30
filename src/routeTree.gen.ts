@@ -38,6 +38,7 @@ import { Route as ApiMissionsStreamRouteImport } from './routes/api.missions.str
 import { Route as ApiMobileNotifyRouteImport } from './routes/api.mobile.notify'
 import { Route as ApiMobileWorkerRouteImport } from './routes/api.mobile.worker'
 import { Route as ApiSandboxPolicyRouteImport } from './routes/api.sandbox.policy'
+import { Route as ApiSandboxRunRouteImport } from './routes/api.sandbox.run'
 import { Route as ApiToolsExecuteRouteImport } from './routes/api.tools.execute'
 
 const IndexRoute = IndexRouteImport.update({
@@ -185,6 +186,11 @@ const ApiSandboxPolicyRoute = ApiSandboxPolicyRouteImport.update({
   path: '/api/sandbox/policy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSandboxRunRoute = ApiSandboxRunRouteImport.update({
+  id: '/api/sandbox/run',
+  path: '/api/sandbox/run',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiToolsExecuteRoute = ApiToolsExecuteRouteImport.update({
   id: '/api/tools/execute',
   path: '/api/tools/execute',
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/api/mobile/notify': typeof ApiMobileNotifyRoute
   '/api/mobile/worker': typeof ApiMobileWorkerRoute
   '/api/sandbox/policy': typeof ApiSandboxPolicyRoute
+  '/api/sandbox/run': typeof ApiSandboxRunRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesByTo {
@@ -253,6 +260,7 @@ export interface FileRoutesByTo {
   '/api/mobile/notify': typeof ApiMobileNotifyRoute
   '/api/mobile/worker': typeof ApiMobileWorkerRoute
   '/api/sandbox/policy': typeof ApiSandboxPolicyRoute
+  '/api/sandbox/run': typeof ApiSandboxRunRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesById {
@@ -286,6 +294,7 @@ export interface FileRoutesById {
   '/api/mobile/notify': typeof ApiMobileNotifyRoute
   '/api/mobile/worker': typeof ApiMobileWorkerRoute
   '/api/sandbox/policy': typeof ApiSandboxPolicyRoute
+  '/api/sandbox/run': typeof ApiSandboxRunRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRouteTypes {
@@ -320,6 +329,7 @@ export interface FileRouteTypes {
     | '/api/mobile/notify'
     | '/api/mobile/worker'
     | '/api/sandbox/policy'
+    | '/api/sandbox/run'
     | '/api/tools/execute'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -352,6 +362,7 @@ export interface FileRouteTypes {
     | '/api/mobile/notify'
     | '/api/mobile/worker'
     | '/api/sandbox/policy'
+    | '/api/sandbox/run'
     | '/api/tools/execute'
   id:
     | '__root__'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/api/mobile/notify'
     | '/api/mobile/worker'
     | '/api/sandbox/policy'
+    | '/api/sandbox/run'
     | '/api/tools/execute'
   fileRoutesById: FileRoutesById
 }
@@ -412,6 +424,7 @@ export interface RootRouteChildren {
   ApiMobileNotifyRoute: typeof ApiMobileNotifyRoute
   ApiMobileWorkerRoute: typeof ApiMobileWorkerRoute
   ApiSandboxPolicyRoute: typeof ApiSandboxPolicyRoute
+  ApiSandboxRunRoute: typeof ApiSandboxRunRoute
   ApiToolsExecuteRoute: typeof ApiToolsExecuteRoute
 }
 
@@ -620,6 +633,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSandboxPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sandbox/run': {
+      id: '/api/sandbox/run'
+      path: '/api/sandbox/run'
+      fullPath: '/api/sandbox/run'
+      preLoaderRoute: typeof ApiSandboxRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tools/execute': {
       id: '/api/tools/execute'
       path: '/api/tools/execute'
@@ -694,6 +714,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMobileNotifyRoute: ApiMobileNotifyRoute,
   ApiMobileWorkerRoute: ApiMobileWorkerRoute,
   ApiSandboxPolicyRoute: ApiSandboxPolicyRoute,
+  ApiSandboxRunRoute: ApiSandboxRunRoute,
   ApiToolsExecuteRoute: ApiToolsExecuteRoute,
 }
 export const routeTree = rootRouteImport
