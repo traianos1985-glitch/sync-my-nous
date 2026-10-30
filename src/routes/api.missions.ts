@@ -4,6 +4,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../lib/db";
 import { nousMissions } from "../lib/db/schema";
+import { createExecutionReceipt } from "../lib/execution-receipt";
 
 const NOUS_API_FALLBACK = "https://nous-ai-os-api.onrender.com";
 
@@ -73,6 +74,7 @@ export const Route = createFileRoute("/api/missions")({
           : Response.json({ error: "Mission not found" }, { status: 404 });
       },
       POST: async ({ request }) => {
+        const startedAt = new Date().toISOString();
         const body = (await request.json()) as { title?: string; objective?: string };
         const title = body.title?.trim().slice(0, 160);
         const objective = body.objective?.trim().slice(0, 4000);
@@ -95,7 +97,23 @@ export const Route = createFileRoute("/api/missions")({
           mission.status = dispatch.status;
         }
         return Response.json(
-          { ok: true, mission, dispatch: { error: dispatch.error } },
+          {
+            ok: true,
+            mission,
+            dispatch: { error: dispatch.error },
+            receipt: createExecutionReceipt({
+              id: mission.id,
+              operation: "mission",
+              startedAt,
+              status: dispatch.status === "failed" ? "failed" : "completed",
+              evidence: {
+                provider: "nous-dispatch",
+                model: dispatch.status,
+                researchUsed: false,
+                persisted: true,
+              },
+            }),
+          },
           { status: 201 },
         );
       },

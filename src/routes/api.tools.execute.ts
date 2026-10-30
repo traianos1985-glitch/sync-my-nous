@@ -6,6 +6,7 @@ import { db } from "../lib/db";
 import { nousApprovals, nousMissions, nousToolRuns } from "../lib/db/schema";
 import { getToolDefinition } from "../lib/tool-registry";
 import { research } from "../lib/research-broker";
+import { createExecutionReceipt } from "../lib/execution-receipt";
 
 async function getUserId(request: Request) {
   return requireAuthenticatedUserId(request);
@@ -116,6 +117,7 @@ export const Route = createFileRoute("/api/tools/execute")({
         }
 
         const runId = randomUUID();
+        const startedAt = new Date().toISOString();
         if (approval.missionId) {
           await db
             .update(nousMissions)
@@ -156,7 +158,22 @@ export const Route = createFileRoute("/api/tools/execute")({
             .set({ status: "completed", resolvedAt: new Date() })
             .where(and(eq(nousApprovals.id, approval.id), eq(nousApprovals.userId, userId)));
 
-          return Response.json({ ok: true, runId, output });
+          return Response.json({
+            ok: true,
+            runId,
+            output,
+            receipt: createExecutionReceipt({
+              id: runId,
+              operation: "tool",
+              startedAt,
+              evidence: {
+                provider: "tool-registry",
+                model: approval.tool,
+                researchUsed: approval.tool === "research",
+                persisted: true,
+              },
+            }),
+          });
         } catch {
           // Do not return raw provider/exception messages to the browser or
           // persist them in the tool-run payload; they may contain secrets.
@@ -180,7 +197,25 @@ export const Route = createFileRoute("/api/tools/execute")({
               .set({ status: "blocked", updatedAt: new Date() })
               .where(and(eq(nousMissions.id, approval.missionId), eq(nousMissions.userId, userId)));
           }
-          return Response.json({ error: "Tool execution failed", runId }, { status: 502 });
+          return Response.json(
+            {
+              error: "Tool execution failed",
+              runId,
+              receipt: createExecutionReceipt({
+                id: runId,
+                operation: "tool",
+                startedAt,
+                status: "failed",
+                evidence: {
+                  provider: "tool-registry",
+                  model: approval.tool,
+                  researchUsed: approval.tool === "research",
+                  persisted: true,
+                },
+              }),
+            },
+            { status: 502 },
+          );
         }
       },
     },
