@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { db } from "./index";
 import { nousJobs } from "./schema";
 import { isAllowedJobKind, NOUS_LIMITS, serializedBytes } from "../platform-policy";
@@ -65,7 +65,7 @@ export async function retryJob(id: string, userId: string) {
       completedAt: null,
       updatedAt: new Date(),
     })
-    .where(and(eq(nousJobs.id, id), eq(nousJobs.userId, userId), eq(nousJobs.status, "failed")))
+    .where(and(eq(nousJobs.id, id), eq(nousJobs.userId, userId), eq(nousJobs.status, "failed"), lt(nousJobs.retryCount, NOUS_LIMITS.maxJobRetries)))
     .returning();
   return job;
 }
@@ -78,6 +78,7 @@ export async function claimNextJob(userId: string, kind?: string) {
       and(
         eq(nousJobs.userId, userId),
         eq(nousJobs.status, "queued"),
+        lt(nousJobs.retryCount, NOUS_LIMITS.maxJobRetries),
         ...(kind ? [eq(nousJobs.kind, kind)] : []),
       ),
     )
