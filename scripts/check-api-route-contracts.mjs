@@ -163,13 +163,13 @@ while (pendingScripts.length) {
   for (const match of dependencies) pendingScripts.push(match[1]);
 }
 
-const frontendTestFiles = readdirSync("scripts").filter(
-  (name) => name.endsWith(".test.ts") ||
-    name.endsWith(".test.js") ||
-    name.endsWith(".test.mjs"),
+const frontendTestFiles = readdirSync("scripts").filter((name) =>
+  /\.test\.(?:ts|js|mjs)$/.test(name),
 );
-const missingFrontendTests = frontendTestFiles.filter(
-  (file) => ![...reachableScripts].some((name) => npmScripts[name].includes(`scripts/${file}`)),
+const missingFrontendTests = frontendTestFiles.filter((file) =>
+  [...reachableScripts].every(
+    (name) => !npmScripts[name].includes(`scripts/${file}`),
+  ),
 );
 for (const file of missingFrontendTests) {
   errors.push(`Frontend test file is not reachable from npm run check: scripts/${file}`);
