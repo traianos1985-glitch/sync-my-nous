@@ -1,5 +1,7 @@
 import { claimNextJob, updateJob } from "./db/jobs";
 import { NOUS_LIMITS } from "./platform-policy";
+import { createExecutionReceipt } from "./execution-receipt";
+import { persistExecutionReceipt } from "./receipt-service";
 
 type MobilePayload = { deviceId: string; title: string; message: string; deliveryId: string };
 
@@ -40,7 +42,14 @@ export async function processNextMobileDelivery(userId: string) {
       delivered: true,
       deliveryId: payload.deliveryId,
     });
-    return { status: "completed" as const, jobId: job.id };
+    const receipt = createExecutionReceipt({
+      id: payload.deliveryId ?? job.id,
+      operation: "fcm",
+      startedAt: job.createdAt.toISOString(),
+      evidence: { provider: "fcm-delivery", model: "push", researchUsed: false, persisted: true },
+    });
+    await persistExecutionReceipt(userId, receipt);
+    return { status: "completed" as const, jobId: job.id, receipt };
   } catch {
     const nextStatus = job.retryCount + 1 >= NOUS_LIMITS.maxJobRetries ? "dead-letter" : "failed";
     await updateJob(job.id, userId, nextStatus, { error: "fcm_delivery_failed" });

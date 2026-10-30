@@ -103,6 +103,19 @@ export const nousMemoryEntries = pgTable(
   }),
 );
 
+export const nousExecutionReceipts = pgTable("nous_execution_receipts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  operation: text("operation").notNull(),
+  status: text("status").notNull(),
+  verified: boolean("verified").notNull().default(false),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }).notNull(),
+  evidence: jsonb("evidence").notNull().default({}),
+  verification: jsonb("verification").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const nousToolRuns = pgTable("nous_tool_runs", {
   id: text("id").primaryKey(),
   missionId: text("mission_id"),

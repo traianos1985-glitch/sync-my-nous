@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SANDBOX_LIMITS, validateSandboxRequest } from "../lib/sandbox-policy";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
+import { randomUUID } from "node:crypto";
+import { createExecutionReceipt } from "../lib/execution-receipt";
+import { persistExecutionReceipt } from "../lib/receipt-service";
 
 const RUNNER_TIMEOUT_MS = 15_000;
 
@@ -8,7 +11,9 @@ export const Route = createFileRoute("/api/sandbox/run")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        await requireAuthenticatedUserId(request);
+        const userId = await requireAuthenticatedUserId(request);
+        const startedAt = new Date().toISOString();
+        const receiptId = randomUUID();
         const validation = validateSandboxRequest(await request.json());
         if (!validation.ok) return Response.json(validation, { status: 400 });
 
@@ -39,14 +44,37 @@ export const Route = createFileRoute("/api/sandbox/run")({
             }),
           });
           const body = await response.text();
-          return new Response(body, {
-            status: response.status,
-            headers: { "content-type": response.headers.get("content-type") ?? "application/json" },
+          const receipt = createExecutionReceipt({
+            id: receiptId,
+            operation: "sandbox",
+            startedAt,
+            status: response.ok ? "completed" : "failed",
+            evidence: {
+              provider: "isolated-sandbox",
+              model: "isolated-v1",
+              researchUsed: false,
+              persisted: true,
+            },
           });
+          await persistExecutionReceipt(userId, receipt);
+          return Response.json({ result: body, receipt }, { status: response.status });
         } catch (error) {
           const aborted = error instanceof Error && error.name === "AbortError";
+          const receipt = createExecutionReceipt({
+            id: receiptId,
+            operation: "sandbox",
+            startedAt,
+            status: "failed",
+            evidence: {
+              provider: "isolated-sandbox",
+              model: aborted ? "timeout" : "unavailable",
+              researchUsed: false,
+              persisted: true,
+            },
+          });
+          await persistExecutionReceipt(userId, receipt);
           return Response.json(
-            { error: aborted ? "sandbox_runner_timeout" : "sandbox_runner_unavailable" },
+            { error: aborted ? "sandbox_runner_timeout" : "sandbox_runner_unavailable", receipt },
             { status: 502 },
           );
         } finally {
