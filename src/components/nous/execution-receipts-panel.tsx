@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  CircleAlert,
-  Clock3,
-  RefreshCw,
-  ShieldCheck,
-} from "lucide-react";
+import { CheckCircle2, CircleAlert, Clock3, RefreshCw, ShieldCheck } from "lucide-react";
 
 type Receipt = {
   id: string;
@@ -62,8 +56,6 @@ export function ExecutionReceiptsPanel() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setError(null);
     try {
       const response = await fetch("/api/receipts?limit=100", {
         method: "GET",
@@ -72,9 +64,10 @@ export function ExecutionReceiptsPanel() {
         cache: "no-store",
         signal,
       });
-      const body = (await response.json().catch(() => null)) as
-        | { receipts?: Receipt[]; error?: string }
-        | null;
+      const body = (await response.json().catch(() => null)) as {
+        receipts?: Receipt[];
+        error?: string;
+      } | null;
       if (!response.ok) {
         const message =
           response.status === 401
@@ -86,9 +79,7 @@ export function ExecutionReceiptsPanel() {
       setUpdatedAt(new Date().toISOString());
     } catch (cause) {
       if (cause instanceof Error && cause.name === "AbortError") return;
-      setError(
-        cause instanceof Error ? cause.message : "Δεν ήταν δυνατή η φόρτωση.",
-      );
+      setError(cause instanceof Error ? cause.message : "Δεν ήταν δυνατή η φόρτωση.");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -104,10 +95,7 @@ export function ExecutionReceiptsPanel() {
     () =>
       receipts.filter((receipt) => {
         if (filter === "pending") {
-          return (
-            receipt.status === "queued" ||
-            receipt.status === "awaiting_approval"
-          );
+          return receipt.status === "queued" || receipt.status === "awaiting_approval";
         }
         if (filter === "completed") return receipt.status === "completed";
         if (filter === "failed") return receipt.status === "failed";
@@ -120,10 +108,7 @@ export function ExecutionReceiptsPanel() {
   const counts = useMemo(
     () => ({
       all: receipts.length,
-      pending: receipts.filter(
-        (item) =>
-          item.status === "queued" || item.status === "awaiting_approval",
-      ).length,
+      pending: receipts.filter((item) => item.status === "queued" || item.status === "awaiting_approval").length,
       completed: receipts.filter((item) => item.status === "completed").length,
       failed: receipts.filter((item) => item.status === "failed").length,
       verified: receipts.filter((item) => item.verified).length,
@@ -144,8 +129,8 @@ export function ExecutionReceiptsPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">
-            Αποδεικτικά εκτέλεσης από το NOUS. Η καταχώριση δεν σημαίνει από
-            μόνη της ότι μια ενέργεια επαληθεύτηκε.
+            Αποδεικτικά εκτέλεσης από το NOUS. Η καταχώριση δεν σημαίνει από μόνη της ότι μια
+            ενέργεια επαληθεύτηκε.
           </p>
           {updatedAt && (
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -155,7 +140,11 @@ export function ExecutionReceiptsPanel() {
         </div>
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => {
+            setLoading(true);
+            setError(null);
+            void load();
+          }}
           disabled={loading}
           className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium hover:border-primary disabled:opacity-50"
         >
@@ -177,29 +166,28 @@ export function ExecutionReceiptsPanel() {
             }`}
           >
             <span className="block text-muted-foreground">{item.label}</span>
-            <strong className="mt-1 block font-mono text-lg">
-              {counts[item.id]}
-            </strong>
+            <strong className="mt-1 block font-mono text-lg">{counts[item.id]}</strong>
           </button>
         ))}
       </div>
 
       {error && (
-        <div
-          role="alert"
-          className="rounded-xl border border-warn/40 bg-warn/5 p-4 text-sm"
-        >
+        <div role="alert" className="rounded-xl border border-warn/40 bg-warn/5 p-4 text-sm">
           <div className="flex items-center gap-2 font-semibold text-warn">
             <CircleAlert className="size-4" /> Δεν φορτώθηκε το ιστορικό
           </div>
           <p className="mt-2 text-xs text-muted-foreground">{error}</p>
           <p className="mt-2 text-xs text-muted-foreground">
-            Αν μόλις ενεργοποιήθηκε το νέο σύστημα receipts, επιβεβαίωσε ότι
-            εφαρμόστηκε η SQL migration στη σωστή PostgreSQL βάση.
+            Αν μόλις ενεργοποιήθηκε το νέο σύστημα receipts, επιβεβαίωσε ότι εφαρμόστηκε η SQL
+            migration στη σωστή PostgreSQL βάση.
           </p>
           <button
             type="button"
-            onClick={() => void load()}
+            onClick={() => {
+              setLoading(true);
+              setError(null);
+              void load();
+            }}
             className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs hover:border-primary"
           >
             Προσπάθεια ξανά
@@ -220,15 +208,10 @@ export function ExecutionReceiptsPanel() {
       ) : (
         <div className="space-y-2">
           {filtered.map((receipt) => (
-            <article
-              key={receipt.id}
-              className="rounded-xl border border-border bg-card/70 p-4"
-            >
+            <article key={receipt.id} className="rounded-xl border border-border bg-card/70 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-semibold capitalize">
-                    {receipt.operation}
-                  </p>
+                  <p className="font-semibold capitalize">{receipt.operation}</p>
                   <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">
                     {receipt.id}
                   </p>
@@ -274,8 +257,7 @@ export function ExecutionReceiptsPanel() {
                 )}
                 {receipt.evidence?.model && (
                   <p>
-                    <span className="text-muted-foreground">Model:</span>{" "}
-                    {receipt.evidence.model}
+                    <span className="text-muted-foreground">Model:</span> {receipt.evidence.model}
                   </p>
                 )}
                 {typeof receipt.evidence?.researchUsed === "boolean" && (
@@ -293,8 +275,7 @@ export function ExecutionReceiptsPanel() {
               </div>
               {receipt.verified && (
                 <p className="mt-3 flex items-center gap-1 text-[11px] text-ok">
-                  <CheckCircle2 className="size-3" /> Υπάρχει αποτέλεσμα
-                  επαλήθευσης.
+                  <CheckCircle2 className="size-3" /> Υπάρχει αποτέλεσμα επαλήθευσης.
                 </p>
               )}
             </article>
