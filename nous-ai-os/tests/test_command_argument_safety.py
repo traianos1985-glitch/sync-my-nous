@@ -46,5 +46,5 @@ def test_exact_git_status_command_remains_available_behind_approval(monkeypatch)
 
 def test_rejects_non_string_and_control_character_commands():
     assert command_tools.run_command(None)["error"] == "empty_command"
-    assert command_tools.run_command("pwd\\nwhoami")["error"] == "invalid_command"
+    assert command_tools.run_command("pwd\nwhoami")["error"] == "invalid_command"
     assert command_tools.run_command("x" * 513)["error"] == "invalid_command"
