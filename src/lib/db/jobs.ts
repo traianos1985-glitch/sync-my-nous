@@ -34,7 +34,9 @@ export async function updateJob(id: string, userId: string, status: string, outp
       status,
       output: output ?? {},
       startedAt: status === "running" ? now : undefined,
-      completedAt: ["completed", "failed", "dead-letter", "cancelled"].includes(status) ? now : undefined,
+      completedAt: ["completed", "failed", "dead-letter", "cancelled"].includes(status)
+        ? now
+        : undefined,
       lastError:
         status === "failed"
           ? String((output as { error?: unknown } | undefined)?.error ?? "Job failed").slice(0, 500)
