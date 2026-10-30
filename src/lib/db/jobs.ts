@@ -34,7 +34,7 @@ export async function updateJob(id: string, userId: string, status: string, outp
       status,
       output: output ?? {},
       startedAt: status === "running" ? now : undefined,
-      completedAt: ["completed", "failed", "cancelled"].includes(status) ? now : undefined,
+      completedAt: ["completed", "failed", "dead-letter", "cancelled"].includes(status) ? now : undefined,
       lastError:
         status === "failed"
           ? String((output as { error?: unknown } | undefined)?.error ?? "Job failed").slice(0, 500)
@@ -65,7 +65,14 @@ export async function retryJob(id: string, userId: string) {
       completedAt: null,
       updatedAt: new Date(),
     })
-    .where(and(eq(nousJobs.id, id), eq(nousJobs.userId, userId), eq(nousJobs.status, "failed"), lt(nousJobs.retryCount, NOUS_LIMITS.maxJobRetries)))
+    .where(
+      and(
+        eq(nousJobs.id, id),
+        eq(nousJobs.userId, userId),
+        eq(nousJobs.status, "failed"),
+        lt(nousJobs.retryCount, NOUS_LIMITS.maxJobRetries),
+      ),
+    )
     .returning();
   return job;
 }
