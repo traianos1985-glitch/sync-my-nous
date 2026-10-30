@@ -105,6 +105,6 @@ def test_every_navigation_section_is_configured_or_has_an_explicit_custom_render
     )
     config_ids = {first or second for first, second in pairs}
     # These sections are rendered directly in dashboard.tsx instead of SectionPanel.
-    custom_sections = {"chat", "documents", "settings"}
+    custom_sections = {"chat", "documents", "settings", "receipts"}
     missing = sorted(nav_ids - config_ids - custom_sections)
     assert not missing, f"Navigation sections without a panel or custom renderer: {missing}"

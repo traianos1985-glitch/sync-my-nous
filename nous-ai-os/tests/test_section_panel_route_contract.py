@@ -124,6 +124,6 @@ def test_every_navigation_section_has_a_config_or_explicit_custom_renderer():
         for line in config_source.splitlines()
         if line.startswith("  ") and line.rstrip().endswith(": {")
     }
-    custom_sections = {"chat", "home", "documents", "control", "settings"}
+    custom_sections = {"chat", "home", "documents", "control", "settings", "receipts"}
     missing = sorted(nav_ids - config_ids - custom_sections)
     assert not missing, f"Navigation sections without a panel or custom renderer: {missing}"

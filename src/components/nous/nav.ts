@@ -62,6 +62,7 @@ export const navGroups: NavGroup[] = [
       { id: "command", icon: "⌨", label: "Command" },
       { id: "approvals", icon: "check", label: "Approvals" },
       { id: "audit", icon: "🧪", label: "Audit" },
+      { id: "receipts", icon: "🧾", label: "Execution Receipts" },
       { id: "companion", icon: "📱", label: "Companion" },
       { id: "pending", icon: "📥", label: "Pending" },
       { id: "graphs", icon: "🕸", label: "Graphs" },
