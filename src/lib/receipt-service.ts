@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "./db";
 import { nousExecutionReceipts } from "./db/schema";
 import type { ExecutionReceipt } from "./execution-receipt";
@@ -13,7 +13,7 @@ export async function persistExecutionReceipt(userId: string, receipt: Execution
       status: receipt.status,
       verified: receipt.verified,
       startedAt: new Date(receipt.startedAt),
-      completedAt: new Date(receipt.completedAt),
+      completedAt: receipt.completedAt ? new Date(receipt.completedAt) : null,
       evidence: receipt.evidence,
       verification: {},
     })
@@ -29,7 +29,7 @@ export async function persistExecutionReceipt(userId: string, receipt: Execution
   return row;
 }
 
-export async function verifyExecutionReceipt(
+export async function listExecutionReceipts(userId: string, limit = 50) {\n  return db\n    .select()\n    .from(nousExecutionReceipts)\n    .where(eq(nousExecutionReceipts.userId, userId))\n    .orderBy(desc(nousExecutionReceipts.createdAt))\n    .limit(Math.min(Math.max(limit, 1), 100));\n}\n\nexport async function verifyExecutionReceipt(
   userId: string,
   id: string,
   verification: Record<string, unknown>,
