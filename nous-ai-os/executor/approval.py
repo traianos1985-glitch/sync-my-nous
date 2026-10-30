@@ -1,7 +1,15 @@
+"""Deprecated interactive approval shim.
+
+Web/server execution must use executor.operator_approval and its durable,
+single-use approval records. This compatibility function deliberately fails
+closed rather than prompting on stdin or silently approving an action.
+"""
+
+
 def ask_approval(action):
-
-    print(f"[APPROVAL REQUIRED] {action}")
-
-    ans = input("Approve? (y/n): ").strip().lower()
-
-    return ans == "y"
+    """Reject legacy console approval; callers must migrate to operator_approval."""
+    label = str(action).strip()[:128]
+    raise RuntimeError(
+        "interactive_approval_removed: use executor.operator_approval "
+        f"for explicit approval of {label!r}"
+    )

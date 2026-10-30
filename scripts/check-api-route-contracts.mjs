@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const apiClient = readFileSync("src/lib/nous-api.ts", "utf8");
 const dashboard = readFileSync("src/components/nous/use-dashboard.ts", "utf8");
@@ -9,6 +9,7 @@ const fleetBlueprint = readFileSync(
   "utf8",
 );
 const sectionConfigs = readFileSync("src/components/nous/section-configs.ts", "utf8");
+const opsBlueprint = readFileSync("nous-ai-os/executor/blueprints/agent_ops_bp.py", "utf8");
 const errors = [];
 
 function requireMatch(source, pattern, message) {
@@ -133,6 +134,43 @@ for (const route of [
   if (!sectionConfigs.includes(route)) {
     errors.push(`Control UI is missing fleet endpoint ${route}.`);
   }
+}
+for (const [route, handler] of [
+  ['@agent_ops_bp.route("/react/run", methods=["POST"])', "api_react_run"],
+  ['@agent_ops_bp.route("/research/read-url", methods=["POST"])', "api_research_read_url"],
+]) {
+  const start = opsBlueprint.indexOf(`def ${handler}(`);
+  const next = start < 0 ? -1 : opsBlueprint.indexOf("\n@agent_ops_bp.route", start + 1);
+  const body = start < 0 ? "" : opsBlueprint.slice(start, next < 0 ? undefined : next);
+  if (!opsBlueprint.includes(route) || !body.includes("_admin_required()")) {
+    errors.push(`Operational endpoint ${handler} must be registered and require admin scope.`);
+  }
+}
+
+const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+const npmScripts = packageJson.scripts ?? {};
+const reachableScripts = new Set();
+const pendingScripts = ["check"];
+while (pendingScripts.length) {
+  const name = pendingScripts.pop();
+  if (reachableScripts.has(name)) continue;
+  if (typeof npmScripts[name] !== "string") {
+    errors.push(`Frontend check references missing npm script: ${name}`);
+    continue;
+  }
+  reachableScripts.add(name);
+  const dependencies = npmScripts[name].matchAll(/npm run ([a-zA-Z0-9:_-]+)/g);
+  for (const match of dependencies) pendingScripts.push(match[1]);
+}
+
+const frontendTestFiles = readdirSync("scripts").filter((name) =>
+  /\.test\.(?:ts|js|mjs)$/.test(name),
+);
+const missingFrontendTests = frontendTestFiles.filter((file) =>
+  [...reachableScripts].every((name) => !npmScripts[name].includes(`scripts/${file}`)),
+);
+for (const file of missingFrontendTests) {
+  errors.push(`Frontend test file is not reachable from npm run check: scripts/${file}`);
 }
 
 if (errors.length) {
