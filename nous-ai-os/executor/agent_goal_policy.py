@@ -19,7 +19,7 @@ def _tokens(value: str) -> set[str]:
     normalized = "".join(
         char for char in normalized if not unicodedata.combining(char)
     )
-    return set(re.findall(r"[^\\W_]+", normalized, flags=re.UNICODE))
+    return set(re.findall(r"[^\W_]+", normalized, flags=re.UNICODE))
 
 
 def requires_code_generation(goal: str) -> bool:
