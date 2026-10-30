@@ -29,6 +29,7 @@ def test_reader_blocks_redirects(monkeypatch):
         def close(self):
             self.closed = True
 
+    monkeypatch.setattr(url_reader_engine, "_validate_public_http_url", lambda url: (True, None))
     monkeypatch.setattr(
         url_reader_engine,
         "fetch_public_http",
