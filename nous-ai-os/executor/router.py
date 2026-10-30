@@ -120,7 +120,7 @@ from executor.git_workflow import git_workflow_status, git_safe_checkpoint
 from executor.web_deploy_manager import deploy_status, register_local_deploy
 from executor.android_actions_v2 import android_actions_status, run_android_action
 from executor.browser_automation import browser_status, browser_search, browser_read
-from executor.multi_agent_team import team_status, team_cycle
+from executor.multi_agent_team import team_status, team_cycle, delegate_goal
 from executor.agent_journal import list_journal
 from executor.progress_linker import progress_snapshot, link_task_to_project
 from executor.goal_progress import list_goal_progress, refresh_goal_progress, goal_progress_summary
@@ -2894,6 +2894,16 @@ def remote_team_cycle_route():
 
     data = request.get_json(silent=True) or {}
     return jsonify(team_cycle(bool(data.get("real_research", False))))
+
+
+@app.route("/remote/team/delegate", methods=["POST"])
+def remote_team_delegate_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    result = delegate_goal(data.get("goal", ""))
+    return jsonify(result), (400 if result.get("status") == "invalid" else 200)
 
 
 @app.route("/remote/internet-learning/status")

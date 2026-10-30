@@ -1,4 +1,5 @@
 import { ChatMarkdown } from "@/components/nous/chat-markdown";
+import { WarRoomPanel } from "./war-room-panel";
 import { ChatToolCalls } from "./chat-tool-calls";
 
 import { ApprovalList } from "@/components/nous/approval-list";
@@ -148,6 +149,7 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
               </p>
             </div>
           </div>
+          <WarRoomPanel />
           <section
             className="mb-5 rounded-2xl border border-primary/25 bg-card/70 p-4 "
             aria-labelledby="connection-center-title"

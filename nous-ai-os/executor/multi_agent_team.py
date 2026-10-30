@@ -54,6 +54,25 @@ def team_status():
     }
 
 
+def delegate_goal(goal=""):
+    """Create a bounded delegation plan without executing side effects."""
+    objective = str(goal or "").strip()[:2000]
+    if not objective:
+        return {"status": "invalid", "error": "goal_required"}
+    return {
+        "goal": objective,
+        "status": "awaiting_approval",
+        "approval_required": True,
+        "delegations": [
+            {"role": "planner", "title": "Architect / Planner", "task": "Σπάει τον στόχο σε διαδοχικά, ελέγξιμα υπο-βήματα.", "status": "ready"},
+            {"role": "researcher", "title": "Research & Web Agent", "task": "Συλλέγει δεδομένα, πηγές και τεκμηρίωση όπου χρειάζεται.", "status": "ready"},
+            {"role": "builder", "title": "Coder / App Builder", "task": "Υλοποιεί το εγκεκριμένο πλάνο στο sandbox με checkpoints.", "status": "ready"},
+            {"role": "reviewer", "title": "Reviewer / QA", "task": "Ελέγχει αποτέλεσμα, ασφάλεια και συμμόρφωση πριν την παράδοση.", "status": "ready"},
+        ],
+        "time": time.time(),
+    }
+
+
 def _run_role(role: str, callback: Callable[[], Any]) -> dict[str, Any]:
     """Turn exceptions and malformed role outputs into explicit, bounded outcomes."""
     try:
