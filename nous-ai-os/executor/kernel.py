@@ -2,6 +2,7 @@ from executor.intent import detect_intent
 from executor.tools import run_tool
 from executor.memory import save
 from executor.hybrid_agent import run as hybrid_run
+from executor.agent_goal_policy import requires_code_generation
 from executor.operator_approval import (
     claim_approved_approval,
     finish_approval,
@@ -9,7 +10,6 @@ from executor.operator_approval import (
     request_approval,
 )
 from executor.tool_catalog import get_tool
-
 
 
 def _requires_approval(tool, action, command):
@@ -20,10 +20,14 @@ def _requires_approval(tool, action, command):
     if required is True:
         return True
     if required == "depends_on_action" and action == "agent_solve":
-        # solve_goal invokes Code Forge for these goals, so its dynamic
-        # approval must be applied before that nested code-generation path.
-        lowered = str(command).lower()
-        return any(term in lowered for term in ("plugin", "calculator", "κώδικ", "code"))
+        # Use the same classifier as solve_goal so the approval decision and
+        # nested Code Forge dispatch cannot drift apart.
+        goal = str(command).strip()
+        for prefix in ("agent solve ", "λύσε στόχο "):
+            if goal.casefold().startswith(prefix.casefold()):
+                goal = goal[len(prefix):].strip()
+                break
+        return requires_code_generation(goal)
     return False
 
 
