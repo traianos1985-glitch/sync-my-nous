@@ -28,6 +28,7 @@ export function HealthPanel({
   canTestGemini,
   onRefresh,
   onTestGemini,
+  capabilityVerification,
 }: {
   renderStatus: string | undefined;
   renderState: "loading" | "ready" | "error";
@@ -38,6 +39,7 @@ export function HealthPanel({
   canTestGemini: boolean;
   onRefresh: () => void;
   onTestGemini: () => void;
+  capabilityVerification?: string;
 }) {
   const renderOk = renderStatus === "ok" || renderStatus === "online" || renderStatus === "healthy";
   const renderTone: Tone = renderState === "loading" ? "muted" : renderOk ? "ok" : "warn";
@@ -61,6 +63,15 @@ export function HealthPanel({
         label="Live missions"
         value={missionsLive ? "Ενημερώνεται" : "Σε παύση"}
         tone={missionsLive ? "ok" : "muted"}
+      />
+      <Row
+        label="Capability evidence"
+        value={
+          capabilityVerification === "local_inventory_only"
+            ? "Τοπικός έλεγχος μόνο"
+            : "Δεν αναφέρθηκε"
+        }
+        tone="warn"
       />
       {geminiMessage && (
         <p className={`mt-2 text-xs ${geminiState === "ok" ? "text-ok" : "text-warn"}`}>
