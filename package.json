@@ -16,6 +16,7 @@
     "check:public-bundle": "node scripts/check-public-bundle-secrets.mjs",
     "format:check": "prettier --check .",
     "test:python": "cd nous-ai-os && python -m pytest -q",
+    "test:redaction": "node --experimental-strip-types --test scripts/redaction.test.ts",
     "format": "prettier --write ."
   },
   "overrides": {

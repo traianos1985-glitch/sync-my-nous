@@ -23,9 +23,11 @@ import { Route as ApiJobsRouteImport } from './routes/api.jobs'
 import { Route as ApiKnowledgeRouteImport } from './routes/api.knowledge'
 import { Route as ApiMissionsRouteImport } from './routes/api.missions'
 import { Route as ApiObservabilityRouteImport } from './routes/api.observability'
+import { Route as ApiOpenapiRouteImport } from './routes/api.openapi'
 import { Route as ApiSecurityAuditRouteImport } from './routes/api.security-audit'
 import { Route as ApiSecurityLessonsRouteImport } from './routes/api.security-lessons'
 import { Route as ApiStatusRouteImport } from './routes/api.status'
+import { Route as ApiTelemetryRouteImport } from './routes/api.telemetry'
 import { Route as ChatSessionIdRouteImport } from './routes/chat.$sessionId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiChatStreamRouteImport } from './routes/api.chat.stream'
@@ -33,6 +35,7 @@ import { Route as ApiKnowledgeFileRouteImport } from './routes/api.knowledge.fil
 import { Route as ApiKnowledgeProcessRouteImport } from './routes/api.knowledge.process'
 import { Route as ApiKnowledgeSearchRouteImport } from './routes/api.knowledge.search'
 import { Route as ApiMissionsStreamRouteImport } from './routes/api.missions.stream'
+import { Route as ApiMobileNotifyRouteImport } from './routes/api.mobile.notify'
 import { Route as ApiToolsExecuteRouteImport } from './routes/api.tools.execute'
 
 const IndexRoute = IndexRouteImport.update({
@@ -105,6 +108,11 @@ const ApiObservabilityRoute = ApiObservabilityRouteImport.update({
   path: '/api/observability',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOpenapiRoute = ApiOpenapiRouteImport.update({
+  id: '/api/openapi',
+  path: '/api/openapi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSecurityAuditRoute = ApiSecurityAuditRouteImport.update({
   id: '/api/security-audit',
   path: '/api/security-audit',
@@ -118,6 +126,11 @@ const ApiSecurityLessonsRoute = ApiSecurityLessonsRouteImport.update({
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTelemetryRoute = ApiTelemetryRouteImport.update({
+  id: '/api/telemetry',
+  path: '/api/telemetry',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatSessionIdRoute = ChatSessionIdRouteImport.update({
@@ -155,6 +168,11 @@ const ApiMissionsStreamRoute = ApiMissionsStreamRouteImport.update({
   path: '/stream',
   getParentRoute: () => ApiMissionsRoute,
 } as any)
+const ApiMobileNotifyRoute = ApiMobileNotifyRouteImport.update({
+  id: '/api/mobile/notify',
+  path: '/api/mobile/notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiToolsExecuteRoute = ApiToolsExecuteRouteImport.update({
   id: '/api/tools/execute',
   path: '/api/tools/execute',
@@ -176,9 +194,11 @@ export interface FileRoutesByFullPath {
   '/api/knowledge': typeof ApiKnowledgeRouteWithChildren
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/openapi': typeof ApiOpenapiRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/chat/$sessionId': typeof ChatSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -186,6 +206,7 @@ export interface FileRoutesByFullPath {
   '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
+  '/api/mobile/notify': typeof ApiMobileNotifyRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesByTo {
@@ -203,9 +224,11 @@ export interface FileRoutesByTo {
   '/api/knowledge': typeof ApiKnowledgeRouteWithChildren
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/openapi': typeof ApiOpenapiRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/chat/$sessionId': typeof ChatSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -213,6 +236,7 @@ export interface FileRoutesByTo {
   '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
+  '/api/mobile/notify': typeof ApiMobileNotifyRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRoutesById {
@@ -231,9 +255,11 @@ export interface FileRoutesById {
   '/api/knowledge': typeof ApiKnowledgeRouteWithChildren
   '/api/missions': typeof ApiMissionsRouteWithChildren
   '/api/observability': typeof ApiObservabilityRoute
+  '/api/openapi': typeof ApiOpenapiRoute
   '/api/security-audit': typeof ApiSecurityAuditRoute
   '/api/security-lessons': typeof ApiSecurityLessonsRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/chat/$sessionId': typeof ChatSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -241,6 +267,7 @@ export interface FileRoutesById {
   '/api/knowledge/process': typeof ApiKnowledgeProcessRoute
   '/api/knowledge/search': typeof ApiKnowledgeSearchRoute
   '/api/missions/stream': typeof ApiMissionsStreamRoute
+  '/api/mobile/notify': typeof ApiMobileNotifyRoute
   '/api/tools/execute': typeof ApiToolsExecuteRoute
 }
 export interface FileRouteTypes {
@@ -260,9 +287,11 @@ export interface FileRouteTypes {
     | '/api/knowledge'
     | '/api/missions'
     | '/api/observability'
+    | '/api/openapi'
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
+    | '/api/telemetry'
     | '/chat/$sessionId'
     | '/api/auth/$'
     | '/api/chat/stream'
@@ -270,6 +299,7 @@ export interface FileRouteTypes {
     | '/api/knowledge/process'
     | '/api/knowledge/search'
     | '/api/missions/stream'
+    | '/api/mobile/notify'
     | '/api/tools/execute'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -287,9 +317,11 @@ export interface FileRouteTypes {
     | '/api/knowledge'
     | '/api/missions'
     | '/api/observability'
+    | '/api/openapi'
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
+    | '/api/telemetry'
     | '/chat/$sessionId'
     | '/api/auth/$'
     | '/api/chat/stream'
@@ -297,6 +329,7 @@ export interface FileRouteTypes {
     | '/api/knowledge/process'
     | '/api/knowledge/search'
     | '/api/missions/stream'
+    | '/api/mobile/notify'
     | '/api/tools/execute'
   id:
     | '__root__'
@@ -314,9 +347,11 @@ export interface FileRouteTypes {
     | '/api/knowledge'
     | '/api/missions'
     | '/api/observability'
+    | '/api/openapi'
     | '/api/security-audit'
     | '/api/security-lessons'
     | '/api/status'
+    | '/api/telemetry'
     | '/chat/$sessionId'
     | '/api/auth/$'
     | '/api/chat/stream'
@@ -324,6 +359,7 @@ export interface FileRouteTypes {
     | '/api/knowledge/process'
     | '/api/knowledge/search'
     | '/api/missions/stream'
+    | '/api/mobile/notify'
     | '/api/tools/execute'
   fileRoutesById: FileRoutesById
 }
@@ -342,11 +378,14 @@ export interface RootRouteChildren {
   ApiKnowledgeRoute: typeof ApiKnowledgeRouteWithChildren
   ApiMissionsRoute: typeof ApiMissionsRouteWithChildren
   ApiObservabilityRoute: typeof ApiObservabilityRoute
+  ApiOpenapiRoute: typeof ApiOpenapiRoute
   ApiSecurityAuditRoute: typeof ApiSecurityAuditRoute
   ApiSecurityLessonsRoute: typeof ApiSecurityLessonsRoute
   ApiStatusRoute: typeof ApiStatusRoute
+  ApiTelemetryRoute: typeof ApiTelemetryRoute
   ChatSessionIdRoute: typeof ChatSessionIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiMobileNotifyRoute: typeof ApiMobileNotifyRoute
   ApiToolsExecuteRoute: typeof ApiToolsExecuteRoute
 }
 
@@ -450,6 +489,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiObservabilityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/openapi': {
+      id: '/api/openapi'
+      path: '/api/openapi'
+      fullPath: '/api/openapi'
+      preLoaderRoute: typeof ApiOpenapiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/security-audit': {
       id: '/api/security-audit'
       path: '/api/security-audit'
@@ -469,6 +515,13 @@ declare module '@tanstack/react-router' {
       path: '/api/status'
       fullPath: '/api/status'
       preLoaderRoute: typeof ApiStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/telemetry': {
+      id: '/api/telemetry'
+      path: '/api/telemetry'
+      fullPath: '/api/telemetry'
+      preLoaderRoute: typeof ApiTelemetryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat/$sessionId': {
@@ -519,6 +572,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/missions/stream'
       preLoaderRoute: typeof ApiMissionsStreamRouteImport
       parentRoute: typeof ApiMissionsRoute
+    }
+    '/api/mobile/notify': {
+      id: '/api/mobile/notify'
+      path: '/api/mobile/notify'
+      fullPath: '/api/mobile/notify'
+      preLoaderRoute: typeof ApiMobileNotifyRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/tools/execute': {
       id: '/api/tools/execute'
@@ -584,11 +644,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKnowledgeRoute: ApiKnowledgeRouteWithChildren,
   ApiMissionsRoute: ApiMissionsRouteWithChildren,
   ApiObservabilityRoute: ApiObservabilityRoute,
+  ApiOpenapiRoute: ApiOpenapiRoute,
   ApiSecurityAuditRoute: ApiSecurityAuditRoute,
   ApiSecurityLessonsRoute: ApiSecurityLessonsRoute,
   ApiStatusRoute: ApiStatusRoute,
+  ApiTelemetryRoute: ApiTelemetryRoute,
   ChatSessionIdRoute: ChatSessionIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiMobileNotifyRoute: ApiMobileNotifyRoute,
   ApiToolsExecuteRoute: ApiToolsExecuteRoute,
 }
 export const routeTree = rootRouteImport
