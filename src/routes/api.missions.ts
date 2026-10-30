@@ -101,7 +101,7 @@ export const Route = createFileRoute("/api/missions")({
           id: mission.id,
           operation: "mission",
           startedAt,
-          status: dispatch.status === "failed" ? "failed" : "completed",
+          status: dispatch.status === "failed" ? "failed" : dispatch.status === "awaiting_approval" ? "awaiting_approval" : "queued",
           evidence: {
             provider: "nous-dispatch",
             model: dispatch.status,
