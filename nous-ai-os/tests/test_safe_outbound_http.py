@@ -24,7 +24,7 @@ class FakeResponse:
 class FakeConnection:
     seen = []
 
-    def __init__(self, host, port, timeout=None):
+    def __init__(self, host, port, hostname=None, timeout=None):
         self.host = host
         self.port = port
         self.response = FakeResponse()
@@ -58,7 +58,7 @@ def test_rejects_private_and_mixed_dns_answers(monkeypatch):
 
 def test_rejects_localhost_credentials_and_unusual_ports():
     assert safe.fetch_public_http("http://127.0.0.1/")["error"] == "invalid_or_non_public_url"
-    assert safe.fetch_public_http("http://localhost/")["error"] == "invalid_or_non_public_url"
+    assert safe.fetch_public_http("http://localhost/")["error"] == "non_public_host"
     assert safe.fetch_public_http("https://user:pass@example.com/")["error"] == "invalid_or_non_public_url"
     assert safe.fetch_public_http("https://example.com:8443/")["error"] == "invalid_or_non_public_url"
 
@@ -87,8 +87,8 @@ def test_redirects_are_rejected_not_followed(monkeypatch):
     )
     original_init = FakeConnection.__init__
 
-    def redirect_init(self, host, port, timeout=None):
-        original_init(self, host, port, timeout)
+    def redirect_init(self, host, port, hostname=None, timeout=None):
+        original_init(self, host, port, hostname, timeout)
         self.response = FakeConnection.seen_response
 
     monkeypatch.setattr(FakeConnection, "__init__", redirect_init)
@@ -103,8 +103,8 @@ def test_response_size_is_bounded(monkeypatch):
     monkeypatch.setattr(safe, "_PinnedHTTPSConnection", FakeConnection)
     original_init = FakeConnection.__init__
 
-    def large_init(self, host, port, timeout=None):
-        original_init(self, host, port, timeout)
+    def large_init(self, host, port, hostname=None, timeout=None):
+        original_init(self, host, port, hostname, timeout)
         self.response = FakeResponse(body=b"x" * 1024)
 
     monkeypatch.setattr(FakeConnection, "__init__", large_init)
