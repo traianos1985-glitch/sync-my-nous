@@ -147,7 +147,6 @@ for (const [route, handler] of [
   }
 }
 
-
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 const npmScripts = packageJson.scripts ?? {};
 const reachableScripts = new Set();
@@ -165,14 +164,12 @@ while (pendingScripts.length) {
 }
 
 const frontendTestFiles = readdirSync("scripts").filter(
-  (name) =>
-    name.endsWith(".test.ts") ||
+  (name) => name.endsWith(".test.ts") ||
     name.endsWith(".test.js") ||
     name.endsWith(".test.mjs"),
 );
 const missingFrontendTests = frontendTestFiles.filter(
-  (file) =>
-    ![...reachableScripts].some((name) => npmScripts[name].includes(`scripts/${file}`)),
+  (file) => ![...reachableScripts].some((name) => npmScripts[name].includes(`scripts/${file}`)),
 );
 for (const file of missingFrontendTests) {
   errors.push(`Frontend test file is not reachable from npm run check: scripts/${file}`);
