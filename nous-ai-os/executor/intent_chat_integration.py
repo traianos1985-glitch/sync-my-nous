@@ -38,6 +38,19 @@ def _ok_response(
     return out
 
 
+def _external_call_allowed(action: str) -> tuple[bool, str]:
+    """Fail closed when the external-call policy cannot be evaluated."""
+    try:
+        from executor.capability_awareness import allow_external_call
+
+        allowed, message = allow_external_call(action)
+        if not allowed:
+            return False, str(message or "Η εξωτερική κλήση δεν επιτρέπεται αυτή τη στιγμή.")
+        return True, ""
+    except Exception:
+        return False, "Δεν ήταν δυνατός ο έλεγχος της πολιτικής εξωτερικών κλήσεων· η ενέργεια μπλοκαρίστηκε."
+
+
 def _handle_classified_intent(classification: dict[str, Any], message: str) -> dict[str, Any] | None:
     intent = classification.get("intent")
     slots = classification.get("slots") or {}
@@ -113,14 +126,9 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
     if intent == "search_web":
         query = (slots.get("query") or message).strip()
         if query:
-            try:
-                from executor.capability_awareness import allow_external_call
-
-                ok_rl, msg_rl = allow_external_call("search")
-                if not ok_rl:
-                    return _ok_response(msg_rl, intent=intent, executed=False, confidence=confidence, ok=False)
-            except Exception:
-                pass
+            ok_rl, msg_rl = _external_call_allowed("search")
+            if not ok_rl:
+                return _ok_response(msg_rl, intent=intent, executed=False, confidence=confidence, ok=False)
             try:
                 from executor.internet_search_engine import answer_from_web
 
@@ -134,6 +142,9 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
 
     if intent == "deep_research":
         query = (slots.get("query") or message).strip()
+        ok_rl, msg_rl = _external_call_allowed("deep_research")
+        if not ok_rl:
+            return _ok_response(msg_rl, intent=intent, executed=False, confidence=confidence, ok=False)
         try:
             from executor.deep_research_engine import deep_research
 
@@ -155,14 +166,9 @@ def _handle_classified_intent(classification: dict[str, Any], message: str) -> d
         return _ok_response(text, intent=intent, confidence=confidence, slots={"query": cleaned or query})
 
     if intent == "read_url":
-        try:
-            from executor.capability_awareness import allow_external_call
-
-            ok_rl, msg_rl = allow_external_call("url")
-            if not ok_rl:
-                return _ok_response(msg_rl, intent=intent, executed=False, confidence=confidence, ok=False)
-        except Exception:
-            pass
+        ok_rl, msg_rl = _external_call_allowed("url")
+        if not ok_rl:
+            return _ok_response(msg_rl, intent=intent, executed=False, confidence=confidence, ok=False)
         url = (slots.get("url") or "").strip()
         if not url:
             found = re.findall(r"https?://[^\s]+", message or "")
