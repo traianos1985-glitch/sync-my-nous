@@ -663,6 +663,17 @@ def larmor_em_calculator():
     result["age_desc"]   = age["desc"]
     return jsonify(result)
 
+@app.route("/larmor/deviation", methods=["POST"])
+def larmor_deviation_route():
+    """Read-only deviation model: rods' final point -> probable target position."""
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    from executor.larmor_deviation import field_deviation
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "invalid_request_body"}), 400
+    return jsonify(field_deviation(data))
+
 @app.route("/larmor/inject-knowledge", methods=["POST"])
 def larmor_inject_knowledge():
     """Inject all Larmor/NMR domain knowledge into the NOUS brain."""
