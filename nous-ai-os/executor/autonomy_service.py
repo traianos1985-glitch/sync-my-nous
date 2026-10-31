@@ -210,6 +210,10 @@ def status():
         }
     state["battery"] = battery_guard()
     state["log_file"] = LOG_FILE
+    # This module exposes a managed loop entry point; importing it never starts
+    # a background worker, so callers can distinguish enabled from running.
+    state["loop_running"] = False
+    state["loop_mode"] = "managed_cli_or_explicit_run_forever"
     state["status"] = "healthy"
     return state
 

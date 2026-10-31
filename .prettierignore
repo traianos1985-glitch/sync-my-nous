@@ -9,3 +9,4 @@ routeTree.gen.ts
 .github/workflows
 nous-ai-os/executor/memory/*.json
 AGENTS.md
+.vercel
