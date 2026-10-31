@@ -29,6 +29,7 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
     geminiTestMessage,
     systemStatusError,
     liveMissions,
+    runNextMissionStep,
     sentinelError,
     setSentinelError,
     sentinel,
@@ -281,7 +282,9 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
             </div>
           )}
           <div className="mt-5 space-y-2">
-            {section === "missions" && <MissionList missions={liveMissions} />}
+            {section === "missions" && (
+              <MissionList missions={liveMissions} onRunNext={runNextMissionStep} />
+            )}
             {section === "approvals" && (
               <ApprovalList
                 approvals={approvals}
