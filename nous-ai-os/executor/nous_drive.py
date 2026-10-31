@@ -12,6 +12,7 @@ import json
 import time
 import os
 import shutil
+import sqlite3
 import threading
 import subprocess
 from pathlib import Path
@@ -619,6 +620,63 @@ def restore_missing_data_files() -> dict:
     return restored
 
 
+
+MAX_BACKUP_SNAPSHOTS = 10
+
+
+def create_data_backup(max_backups: int = MAX_BACKUP_SNAPSHOTS, log_fn=None) -> tuple[Path, float]:
+    """Create a consistent backup of data/ using sqlite3.backup() for databases and rotate old backups."""
+    def _log(msg: str):
+        if callable(log_fn):
+            log_fn(msg)
+
+    _log(f"📁 Δημιουργία φακέλου {BACKUP_DIR}/…")
+    backup_dir = BACKUP_DIR
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    ts = f"{time.strftime('%Y%m%d_%H%M%S')}_{int(time.time() * 1000) % 1000:03d}"
+    backup_path = backup_dir / f"nous_data_{ts}"
+    backup_path.mkdir(parents=True, exist_ok=True)
+
+    _log(f"📋 Αντιγραφή data/ → {backup_path}…")
+    data_dir = Path("data")
+    if data_dir.exists():
+        for item in data_dir.iterdir():
+            if item.name == "backups":
+                continue
+            dest_item = backup_path / item.name
+            if item.is_dir():
+                shutil.copytree(str(item), str(dest_item), ignore=shutil.ignore_patterns("backups"))
+            elif item.is_file():
+                if item.suffix.lower() in {".db", ".sqlite", ".sqlite3"}:
+                    try:
+                        src_conn = sqlite3.connect(f"file:{item.resolve()}?mode=ro", uri=True, timeout=5.0)
+                        dest_conn = sqlite3.connect(str(dest_item))
+                        src_conn.backup(dest_conn)
+                        dest_conn.close()
+                        src_conn.close()
+                    except Exception:
+                        shutil.copy2(str(item), str(dest_item))
+                else:
+                    shutil.copy2(str(item), str(dest_item))
+
+    # Rotation: Keep only the newest max_backups snapshots
+    all_backups = sorted(backup_dir.glob("nous_data_*"), key=lambda f: f.stat().st_mtime, reverse=True)
+    if len(all_backups) > max_backups:
+        for old_b in all_backups[max_backups:]:
+            try:
+                if old_b.is_dir():
+                    shutil.rmtree(str(old_b), ignore_errors=True)
+                else:
+                    old_b.unlink(missing_ok=True)
+                _log(f"🧹 Διαγραφή παλιού αντιγράφου: {old_b.name}")
+            except Exception:
+                pass
+
+    size_mb = sum(f.stat().st_size for f in backup_path.rglob("*") if f.is_file()) / 1024 / 1024
+    _log(f"✅ Backup ολοκληρώθηκε! {size_mb:.1f}MB αποθηκεύτηκαν στο {backup_path}")
+    return backup_path, size_mb
+
+
 def _execute_proposal_tracked(proposal: dict):
     """Execute an auto-executable action, writing status back to disk as it progresses."""
     pid   = str(proposal["id"])
@@ -633,15 +691,7 @@ def _execute_proposal_tracked(proposal: dict):
     try:
         # ── create_backup ─────────────────────────────────────────────────────
         if action == "create_backup":
-            _append(f"📁 Δημιουργία φακέλου {BACKUP_DIR}/…")
-            backup_dir = BACKUP_DIR
-            backup_dir.mkdir(parents=True, exist_ok=True)
-            ts = time.strftime("%Y%m%d_%H%M%S")
-            backup_path = backup_dir / f"nous_data_{ts}"
-            _append(f"📋 Αντιγραφή data/ → {backup_path}…")
-            shutil.copytree("data", str(backup_path), ignore=shutil.ignore_patterns("backups"))
-            size_mb = sum(f.stat().st_size for f in backup_path.rglob("*")) / 1024 / 1024
-            _append(f"✅ Backup ολοκληρώθηκε! {size_mb:.1f}MB αποθηκεύτηκαν στο {backup_path}")
+            backup_path, size_mb = create_data_backup(log_fn=_append)
             _update_proposal(pid, {"status": "done",
                                     "execution_result": f"Backup: {backup_path} ({size_mb:.1f}MB)",
                                     "execution_completed": time.time(),

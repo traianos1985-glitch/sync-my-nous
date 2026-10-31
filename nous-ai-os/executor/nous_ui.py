@@ -1726,7 +1726,11 @@ function openMenu(){document.getElementById("sidebar").classList.add("open");doc
 function closeMenu(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("show")}
 function renderObject(obj){document.getElementById("raw").textContent=JSON.stringify(obj,null,2)}
 function feed(text){document.getElementById("activity").innerHTML=new Date().toLocaleTimeString()+" — "+text+"<br>"+document.getElementById("activity").innerHTML}
-function kv(k,v){return `<div class="kv"><span>${k}</span><b>${v}</b></div>`}
+function escHtml(s){
+  if(s === null || s === undefined) return "";
+  return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
+}
+function kv(k,v){return `<div class="kv"><span>${escHtml(k)}</span><b>${escHtml(v)}</b></div>`}
 function addMsg(text,cls=""){const c=document.getElementById("chatlog");const d=document.createElement("div");d.className="msg "+cls;if(window.NOUS_RENDER_CLEAN_MESSAGE){window.NOUS_RENDER_CLEAN_MESSAGE(d,text)}else{d.textContent=(typeof text==="object"?JSON.stringify(text):String(text))}c.appendChild(d);c.scrollTop=c.scrollHeight}
 
 function showSection(id){
@@ -1979,7 +1983,7 @@ async function larmorPing(){
     const d = await getJson("/larmor/ping");
     const el = document.getElementById("larmorStatus");
     if(d.online){ el.innerHTML='<span style="color:var(--ok)">🟢 Online</span>'; }
-    else{ el.innerHTML='<span style="color:var(--bad)">🔴 Offline</span> — '+( d.error||""); }
+    else{ el.innerHTML='<span style="color:var(--bad)">🔴 Offline</span> — '+escHtml(d.error||""); }
   }catch(e){ document.getElementById("larmorStatus").textContent="⚠️ Σφάλμα"; }
 }
 
@@ -2106,7 +2110,7 @@ async function emCalcRun(){
   box.innerHTML = '<div style="color:var(--muted);font-size:12px;">⏳ Υπολογισμός…</div>';
   try{
     const d = await postJson("/larmor/em-calculator",{metal,radius_cm:radius,depth_m:depth,soil,age});
-    if(d.error){ box.innerHTML=`<div style="color:var(--bad);">⚠️ ${d.error}</div>`; return; }
+    if(d.error){ box.innerHTML=`<div style="color:var(--bad);">⚠️ ${escHtml(d.error)}</div>`; return; }
     const pen = d.fully_penetrated
       ? `<span style="color:var(--ok)">✅ Πλήρης διείσδυση εντός αντικειμένου (δ_μετ=${d.delta_metal_mm}mm ≥ a=${(radius*10).toFixed(0)}mm)</span>`
       : `<span style="color:#f80">⚠️ Μερική διείσδυση δ_μετ=${d.delta_metal_mm}mm &lt; a=${(radius*10).toFixed(0)}mm — εξωτερική στρώση μόνο</span>`;
@@ -2285,7 +2289,7 @@ function applyTunnelState(d){
     urlBox.style.display = "none";
     startBtn.disabled = true;
   } else if(d.status === "error"){
-    statusEl.innerHTML = `<span style="color:#f55;">●</span> Σφάλμα: ${d.error||"άγνωστο"}`;
+    statusEl.innerHTML = `<span style="color:#f55;">●</span> Σφάλμα: ${escHtml(d.error||"άγνωστο")}`;
     urlBox.style.display = "none";
     startBtn.style.display = "inline-block";
     stopBtn.style.display  = "none";

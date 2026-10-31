@@ -5,24 +5,30 @@ import time
 from executor.operator_capability_manager import operator_capabilities
 from executor.code_assistant import run_cmd
 from executor.agent_journal import write_journal
+from executor.research_broker import validate_url
 
 SCRIPTS_DIR = "data/browser_scripts"
 
+
 def _ensure():
     os.makedirs(SCRIPTS_DIR, exist_ok=True)
+
 
 def browser_driver_status():
     caps = operator_capabilities()
     return {
         "time": time.time(),
-        "ready": bool(caps["browser_driver_ready"]),
-        "node_ready": bool(caps["node_ready"]),
+        "ready": bool(caps.get("browser_driver_ready")),
+        "node_ready": bool(caps.get("node_ready")),
         "capabilities": caps,
         "supported_when_ready": ["open", "click", "fill", "screenshot"],
     }
 
+
 def create_playwright_script(url, actions=None):
     _ensure()
+    # Guard URL to fail closed on illegal schemes, private hosts/IPs or credentials
+    safe_url = validate_url(url)
     actions = actions or []
     sid = int(time.time_ns())
     path = f"{SCRIPTS_DIR}/{sid}.js"
@@ -33,7 +39,7 @@ const {{ chromium }} = require('playwright');
 (async () => {{
   const browser = await chromium.launch({{ headless: true }});
   const page = await browser.newPage();
-  await page.goto({json.dumps(url)}, {{ waitUntil: 'domcontentloaded', timeout: 30000 }});
+  await page.goto({json.dumps(safe_url)}, {{ waitUntil: 'domcontentloaded', timeout: 30000 }});
 
   const actions = {json.dumps(actions)};
   for (const action of actions) {{
@@ -60,7 +66,16 @@ const {{ chromium }} = require('playwright');
     open(path, "w", encoding="utf-8").write(script)
     return path
 
+
 def run_browser_actions(url, actions=None):
+    try:
+        safe_url = validate_url(url)
+    except ValueError as val_err:
+        return {
+            "ok": False,
+            "error": f"invalid_url:{val_err}",
+        }
+
     status = browser_driver_status()
     if not status["ready"]:
         return {
@@ -69,7 +84,14 @@ def run_browser_actions(url, actions=None):
             "status": status,
         }
 
-    script = create_playwright_script(url, actions or [])
+    try:
+        script = create_playwright_script(safe_url, actions or [])
+    except ValueError as val_err:
+        return {
+            "ok": False,
+            "error": f"invalid_url:{val_err}",
+        }
+
     result = run_cmd(f"node {script}")
     output = {
         "ok": bool(result.get("ok")),
