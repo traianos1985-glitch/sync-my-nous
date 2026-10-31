@@ -3952,8 +3952,36 @@ def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
     if not script.is_file() or script.suffix.lower() != ".py":
         raise ValueError("invalid_app_entrypoint")
     parts = [_sys.executable, str(script)]
-    proc = _sp.Popen(parts, shell=False, stdout=_sp.PIPE, stderr=_sp.STDOUT,
-                     cwd=str(_P(".").resolve()), text=True, bufsize=1)
+    # Keep sensitive server secrets and backend credentials isolated from child app runtime.
+    import os as _os
+    isolated_env = {
+        "PATH": _os.environ.get("PATH", ""),
+        "PYTHONNOUSERSITE": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "HOME": str(root),
+        "TMPDIR": str(root),
+        "TEMP": str(root),
+    }
+    for _k in ("SYSTEMROOT", "WINDIR", "PATHEXT"):
+        if _k in _os.environ:
+            isolated_env[_k] = _os.environ[_k]
+
+    from executor.app_validation_runner import _limit_child_resources
+
+    proc = _sp.Popen(
+        parts,
+        shell=False,
+        stdout=_sp.PIPE,
+        stderr=_sp.STDOUT,
+        cwd=str(root),
+        env=isolated_env,
+        text=True,
+        bufsize=1,
+        close_fds=True,
+        start_new_session=(_os.name == "posix"),
+        preexec_fn=_limit_child_resources if _os.name == "posix" else None,
+    )
     info = {"proc": proc, "pid": proc.pid, "cmd": run_cmd, "log": ""}
     _running_apps[app_name] = info
     lines = []
