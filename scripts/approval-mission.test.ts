@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+  canRunNextStep,
+  describeRunNext,
   filterMissions,
   missionStatusMeta,
+  normalizeMission,
   summarizeMissions,
 } from "../src/components/nous/mission-status";
 import { formatApprovalPayload } from "../src/components/nous/approval-model";
@@ -70,5 +73,68 @@ describe("approval payload formatter", () => {
     expect(formatted).toContain('"command": "npm test"');
     expect(formatted).toContain('"timeout": 30');
     expect(JSON.parse(formatted)).toEqual(payload);
+  });
+});
+
+describe("mission progress and run-next", () => {
+  const raw = (status: string, tasks: Array<{ title: string; status: string }>) => ({
+    id: 7,
+    title: "Έλεγχος backup",
+    status,
+    tasks,
+  });
+
+  it("labels the backend mission statuses", () => {
+    expect(missionStatusMeta("active").tone).toBe("active");
+    expect(missionStatusMeta("blocked").tone).toBe("warn");
+    expect(missionStatusMeta("waiting_approval").label).toBe("Θέλει έγκριση");
+  });
+
+  it("counts finished steps and picks the current one", () => {
+    const mission = normalizeMission(
+      raw("active", [
+        { title: "Λήψη", status: "done" },
+        { title: "Έλεγχος", status: "pending" },
+        { title: "Αναφορά", status: "pending" },
+      ]),
+    );
+    expect(mission).toMatchObject({
+      id: "7",
+      tasksDone: 1,
+      tasksTotal: 3,
+      currentStep: "Έλεγχος",
+      currentStepStatus: "pending",
+    });
+    expect(canRunNextStep(mission!)).toBe(true);
+  });
+
+  it("does not offer run-next while a step waits, runs or failed", () => {
+    for (const status of ["waiting_approval", "running", "needs_review", "failed"]) {
+      const mission = normalizeMission(
+        raw("blocked", [
+          { title: "Πρώτο", status },
+          { title: "Δεύτερο", status: "pending" },
+        ]),
+      )!;
+      expect(mission.currentStep).toBe("Πρώτο");
+      expect(canRunNextStep(mission)).toBe(false);
+    }
+    expect(canRunNextStep(normalizeMission(raw("done", [{ title: "x", status: "done" }]))!)).toBe(
+      false,
+    );
+    expect(normalizeMission({ title: "χωρίς id" })).toBeNull();
+  });
+
+  it("describes run-next responses", () => {
+    expect(describeRunNext({ ok: true, mission: { status: "active" } }).ok).toBe(true);
+    expect(describeRunNext({ ok: true, mission: { status: "done" } }).message).toContain(
+      "ολοκληρώθηκε",
+    );
+    expect(describeRunNext({ ok: false, approval_required: true }).message).toContain("έγκριση");
+    expect(describeRunNext({ ok: false, busy: true }).ok).toBe(false);
+    expect(describeRunNext({ ok: false, error: "mission_not_found" }).message).toContain(
+      "δεν βρέθηκε",
+    );
+    expect(describeRunNext(null).ok).toBe(false);
   });
 });

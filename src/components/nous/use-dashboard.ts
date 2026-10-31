@@ -7,7 +7,13 @@ import { useEffect, useRef, useState } from "react";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { Activity, Sparkles, ScanLine, ShieldCheck, ShieldAlert } from "lucide-react";
 import { navGroups } from "./nav";
-import { summarizeMissions } from "./mission-status";
+import {
+  describeRunNext,
+  normalizeMission,
+  summarizeMissions,
+  type LiveMission,
+  type RunNextOutcome,
+} from "./mission-status";
 import {
   clearNousToken,
   getNousToken,
@@ -241,9 +247,7 @@ export function useDashboard(sessionId?: string) {
   );
   const [systemStatusCheckedAt, setSystemStatusCheckedAt] = useState<string | null>(null);
   const [systemStatusError, setSystemStatusError] = useState<string | null>(null);
-  const [liveMissions, setLiveMissions] = useState<
-    Array<{ id: string; title: string; status: string }>
-  >([]);
+  const [liveMissions, setLiveMissions] = useState<LiveMission[]>([]);
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "connected">("idle");
   const missionSummary = summarizeMissions(liveMissions);
   const [jobHistory, setJobHistory] = useState<
@@ -370,18 +374,13 @@ export function useDashboard(sessionId?: string) {
       if (missionsBusyRef.current || !mountedRef.current) return false;
       missionsBusyRef.current = true;
       try {
-        const data = await nousFetch<
-          | Array<{ id: string; title?: string; name?: string; status?: string }>
-          | { missions?: Array<{ id: string; title?: string; name?: string; status?: string }> }
-        >("/remote/missions");
+        const data = await nousFetch<unknown[] | { missions?: unknown[] }>("/remote/missions");
         if (!mountedRef.current) return false;
         const missions = Array.isArray(data) ? data : (data.missions ?? []);
         setLiveMissions(
-          missions.map((mission) => ({
-            id: String(mission.id),
-            title: String(mission.title ?? mission.name ?? "Untitled mission"),
-            status: String(mission.status ?? "unknown"),
-          })),
+          missions
+            .map(normalizeMission)
+            .filter((mission): mission is LiveMission => mission !== null),
         );
         setLiveStatus("connected");
         return true;
@@ -399,6 +398,23 @@ export function useDashboard(sessionId?: string) {
         missionPollRef.current = window.setTimeout(() => void poll(), 3_000);
     };
     await poll();
+  };
+
+  // A mutation: sent once, never replayed. The live poll picks up the new state.
+  const runNextMissionStep = async (id: string): Promise<RunNextOutcome> => {
+    let outcome: RunNextOutcome;
+    try {
+      const result = await nousFetch<unknown>("/remote/missions/run-next", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+        timeoutMs: 90_000,
+      });
+      outcome = describeRunNext(result);
+    } catch {
+      outcome = { ok: false, message: "Δεν ήταν δυνατή η εκτέλεση. Έλεγξε τη σύνδεση." };
+    }
+    if (mountedRef.current && liveStatus !== "connected") void connectMissionStream();
+    return outcome;
   };
 
   const loadAuditEvents = async () => {
@@ -994,6 +1010,7 @@ export function useDashboard(sessionId?: string) {
     setSystemStatusError,
     liveMissions,
     setLiveMissions,
+    runNextMissionStep,
     liveStatus,
     setLiveStatus,
     missionSummary,
