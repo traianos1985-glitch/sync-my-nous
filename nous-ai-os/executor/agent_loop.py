@@ -71,10 +71,17 @@ def _run_tool(tool: str, query: str) -> str:
 
         elif tool == "search_memory":
             from executor.knowledge_memory_engine import search_knowledge
-            hits = search_knowledge(query, limit=3)
-            if not hits:
+            res = search_knowledge(query, limit=3)
+            raw_hits = res.get("hits", []) if isinstance(res, dict) else (res if isinstance(res, list) else [])
+            if not raw_hits:
                 return "Δεν βρήκα σχετική μνήμη."
-            parts = [h.get("content", "")[:200] for h in hits[:3] if h.get("content")]
+            parts = []
+            for h in raw_hits[:3]:
+                if not isinstance(h, dict):
+                    continue
+                snippet = (h.get("answer") or h.get("content") or h.get("question") or "").strip()
+                if snippet:
+                    parts.append(snippet[:200])
             return "\n".join(parts) or "Δεν βρήκα σχετική μνήμη."
 
     except Exception as e:
