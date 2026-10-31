@@ -1,19 +1,32 @@
 import { useState } from "react";
-import { Check, Copy, Search, X } from "lucide-react";
+import { Check, Copy, Loader2, Play, Search, X } from "lucide-react";
 import {
+  canRunNextStep,
   filterMissions,
   missionStatusMeta,
   missionToneClass,
   summarizeMissions,
+  type LiveMission,
   type MissionFilterTab,
+  type RunNextOutcome,
 } from "./mission-status";
 
-export type LiveMission = { id: string; title: string; status: string };
+export type { LiveMission } from "./mission-status";
 
-export function MissionList({ missions }: { missions: LiveMission[] }) {
+export function MissionList({
+  missions,
+  onRunNext,
+}: {
+  missions: LiveMission[];
+  /** Runs the next step of a mission (POST /remote/missions/run-next). */
+  onRunNext?: (id: string) => Promise<RunNextOutcome>;
+}) {
   const [tab, setTab] = useState<MissionFilterTab>("all");
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // One step at a time: the backend runs missions sequentially anyway.
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [outcomes, setOutcomes] = useState<Record<string, RunNextOutcome>>({});
 
   if (missions.length === 0) {
     return (
@@ -34,10 +47,18 @@ export function MissionList({ missions }: { missions: LiveMission[] }) {
     }
   };
 
+  const runNext = async (id: string) => {
+    if (!onRunNext || runningId) return;
+    setRunningId(id);
+    const outcome = await onRunNext(id);
+    setOutcomes((prev) => ({ ...prev, [id]: outcome }));
+    setRunningId(null);
+  };
+
   const tabs: Array<{ id: MissionFilterTab; label: string; count: number }> = [
     { id: "all", label: "Όλες", count: missions.length },
     { id: "active", label: "Ενεργές", count: summary.active },
-    { id: "awaiting", label: "Προς έγκριση", count: summary.awaiting },
+    { id: "awaiting", label: "Θέλουν προσοχή", count: summary.awaiting },
     { id: "failed", label: "Αποτυχίες", count: summary.failed },
     { id: "completed", label: "Ολοκληρωμένες", count: summary.completed },
   ];
@@ -97,44 +118,105 @@ export function MissionList({ missions }: { missions: LiveMission[] }) {
         <ul className="divide-y divide-border/60">
           {filtered.map((mission) => {
             const meta = missionStatusMeta(mission.status);
+            const total = mission.tasksTotal ?? 0;
+            const done = mission.tasksDone ?? 0;
+            const pct = total ? Math.round((done / total) * 100) : 0;
+            const step = mission.currentStepStatus
+              ? missionStatusMeta(mission.currentStepStatus)
+              : null;
+            const outcome = outcomes[mission.id];
             return (
-              <li
-                key={mission.id}
-                className="group flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-foreground">
-                      {mission.title}
+              <li key={mission.id} className="group py-2.5">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {mission.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void copyId(mission.id)}
+                        className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                        title={`Αντιγραφή ID: ${mission.id}`}
+                      >
+                        {copiedId === mission.id ? (
+                          <Check className="size-3 text-ok" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </button>
+                    </div>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      ID: {mission.id}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => void copyId(mission.id)}
-                      className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-foreground"
-                      title={`Αντιγραφή ID: ${mission.id}`}
-                    >
-                      {copiedId === mission.id ? (
-                        <Check className="size-3 text-ok" />
-                      ) : (
-                        <Copy className="size-3" />
-                      )}
-                    </button>
                   </div>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    ID: {mission.id}
+
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+                      missionToneClass[meta.tone]
+                    }`}
+                  >
+                    {meta.active && meta.tone === "active" ? (
+                      <span className="mr-1 size-1.5 rounded-full bg-primary animate-pulse" />
+                    ) : null}
+                    {meta.label}
                   </span>
                 </div>
-
-                <span
-                  className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
-                    missionToneClass[meta.tone]
-                  }`}
-                >
-                  {meta.active && meta.tone === "active" ? (
-                    <span className="mr-1 size-1.5 rounded-full bg-primary animate-pulse" />
-                  ) : null}
-                  {meta.label}
-                </span>
+                {total > 0 && (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <div
+                      className="h-1 flex-1 overflow-hidden rounded-full bg-muted/50"
+                      role="progressbar"
+                      aria-valuenow={pct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`Πρόοδος ${mission.title}`}
+                    >
+                      <div
+                        className={`h-full rounded-full transition-[width] duration-500 ${
+                          meta.tone === "danger"
+                            ? "bg-destructive"
+                            : meta.tone === "ok"
+                              ? "bg-ok"
+                              : "bg-primary"
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                      {done}/{total}
+                    </span>
+                  </div>
+                )}
+                {mission.currentStep && (meta.active || meta.tone === "warn") && (
+                  <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                    Βήμα: {mission.currentStep}
+                    {step && mission.currentStepStatus !== "pending" ? ` · ${step.label}` : ""}
+                  </p>
+                )}
+                {onRunNext && (canRunNextStep(mission) || runningId === mission.id) && (
+                  <button
+                    type="button"
+                    onClick={() => void runNext(mission.id)}
+                    disabled={runningId !== null}
+                    className="mt-2 inline-flex items-center gap-1 rounded-md border border-primary/30 px-2 py-1 text-[11px] text-primary hover:bg-primary/10 disabled:opacity-50"
+                  >
+                    {runningId === mission.id ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Play className="size-3" />
+                    )}
+                    {runningId === mission.id ? "Εκτελείται…" : "Επόμενο βήμα"}
+                  </button>
+                )}
+                {outcome && runningId !== mission.id && (
+                  <p
+                    role="status"
+                    className={`mt-1.5 text-[11px] ${outcome.ok ? "text-ok" : "text-warn"}`}
+                  >
+                    {outcome.message}
+                  </p>
+                )}
               </li>
             );
           })}

@@ -62,6 +62,7 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
     liveMissions,
     liveStatus,
     missionSummary,
+    runNextMissionStep,
     loadSystemStatus,
     testGeminiConnection,
     resolveApproval,
@@ -256,7 +257,7 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
               Ενεργά: {missionSummary.active}
             </span>
             <span className="rounded-full border border-warn/30 px-2 py-0.5 text-warn">
-              Θέλουν έγκριση: {missionSummary.awaiting}
+              Θέλουν προσοχή: {missionSummary.awaiting}
             </span>
             <span className="rounded-full border border-destructive/30 px-2 py-0.5 text-destructive">
               Απέτυχαν: {missionSummary.failed}
@@ -269,7 +270,7 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
                   : "Εκτός σύνδεσης"}
             </span>
           </div>
-          <MissionList missions={liveMissions} />
+          <MissionList missions={liveMissions} onRunNext={runNextMissionStep} />
         </Card>
 
         <Card title="Εγκρίσεις">
