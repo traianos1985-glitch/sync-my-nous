@@ -20,6 +20,8 @@ _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+/-]{0,119}$")
 _MAX_INSTANCES = 500
 _STALE_AFTER_SECONDS = 15 * 60
 _MIN_INSTANCE_TOKEN_LENGTH = 32
+_SHA = re.compile(r"^[A-Fa-f0-9]{7,64}$")
+_HEALTH_RECOVERY_SUCCESSES = 3
 
 
 def fleet_auth_configuration() -> dict[str, Any]:
@@ -70,6 +72,16 @@ def _initialize(connection: sqlite3.Connection) -> None:
         first_seen REAL NOT NULL,
         last_seen REAL NOT NULL
     )""")
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(fleet_instances)").fetchall()}
+    migrations = {
+        "health_state": "TEXT NOT NULL DEFAULT 'unknown'",
+        "healthy_streak": "INTEGER NOT NULL DEFAULT 0",
+        "failure_count": "INTEGER NOT NULL DEFAULT 0",
+        "last_failure_at": "REAL",
+    }
+    for name, definition in migrations.items():
+        if name not in columns:
+            connection.execute(f"ALTER TABLE fleet_instances ADD COLUMN {name} {definition}")
     connection.execute("CREATE INDEX IF NOT EXISTS idx_fleet_last_seen ON fleet_instances(last_seen)")
     connection.commit()
 
@@ -131,6 +143,22 @@ def current_version() -> str:
     return value[:120] if _VERSION.fullmatch(value) else "unknown"
 
 
+def versions_match(reported_version: str, reported_commit_sha: str | None, desired: str) -> bool:
+    """Compare release labels exactly and full Git SHAs without ambiguous prefixes."""
+    desired_value = str(desired or "").strip()
+    version_value = str(reported_version or "").strip()
+    commit_value = str(reported_commit_sha or "").strip()
+    if not desired_value:
+        return False
+    if _SHA.fullmatch(desired_value):
+        if len(desired_value) in {40, 64}:
+            candidates = [value for value in (commit_value, version_value)
+                          if len(value) in {40, 64} and _SHA.fullmatch(value)]
+            return any(value.lower() == desired_value.lower() for value in candidates)
+        return version_value.lower() == desired_value.lower()
+    return version_value == desired_value
+
+
 def record_heartbeat(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         return {"ok": False, "error": "json_object_required"}
@@ -152,26 +180,58 @@ def record_heartbeat(payload: Any) -> dict[str, Any]:
     desired = target_version()
     with _connect() as connection:
         _initialize(connection)
-        existing = connection.execute("SELECT first_seen FROM fleet_instances WHERE instance_id = ?", (instance_id,)).fetchone()
+        existing = connection.execute(
+            "SELECT first_seen, health_state, healthy_streak, failure_count, last_failure_at "
+            "FROM fleet_instances WHERE instance_id = ?", (instance_id,)
+        ).fetchone()
         if existing is None:
             count = connection.execute("SELECT COUNT(*) FROM fleet_instances").fetchone()[0]
             if count >= _MAX_INSTANCES:
                 return {"ok": False, "error": "fleet_capacity_reached"}
             first_seen = now
+            health_state = "unknown"
+            healthy_streak = 0
+            failure_count = 0
+            last_failure_at = None
         else:
             first_seen = float(existing["first_seen"])
+            health_state = str(existing["health_state"] or "unknown")
+            healthy_streak = int(existing["healthy_streak"] or 0)
+            failure_count = int(existing["failure_count"] or 0)
+            last_failure_at = existing["last_failure_at"]
+
+        if status == "degraded":
+            health_state = "degraded"
+            healthy_streak = 0
+            failure_count += 1
+            last_failure_at = now
+        elif status == "healthy":
+            if health_state == "degraded":
+                healthy_streak = min(healthy_streak + 1, _HEALTH_RECOVERY_SUCCESSES)
+                if healthy_streak >= _HEALTH_RECOVERY_SUCCESSES:
+                    health_state = "healthy"
+            else:
+                health_state = "healthy"
+                healthy_streak = min(healthy_streak + 1, _HEALTH_RECOVERY_SUCCESSES)
+        elif health_state == "unknown":
+            healthy_streak = 0
+
         connection.execute("""INSERT INTO fleet_instances
-            (instance_id, provider, version, commit_sha, status, first_seen, last_seen)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (instance_id, provider, version, commit_sha, status, first_seen, last_seen,
+             health_state, healthy_streak, failure_count, last_failure_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(instance_id) DO UPDATE SET provider=excluded.provider,
             version=excluded.version, commit_sha=excluded.commit_sha,
-            status=excluded.status, last_seen=excluded.last_seen""",
-            (instance_id, provider, version, commit_sha or None, status, first_seen, now))
+            status=excluded.status, last_seen=excluded.last_seen,
+            health_state=excluded.health_state, healthy_streak=excluded.healthy_streak,
+            failure_count=excluded.failure_count, last_failure_at=excluded.last_failure_at""",
+            (instance_id, provider, version, commit_sha or None, status, first_seen, now,
+             health_state, healthy_streak, failure_count, last_failure_at))
         connection.commit()
     return {
         "ok": True, "instance_id": instance_id, "received_at": now,
         "desired_version": desired or None,
-        "update_available": bool(desired and version != desired),
+        "update_available": bool(desired and not versions_match(version, commit_sha, desired)),
         "update_mode": _update_mode(instance_id, provider),
         "automatic_deployment_enabled": _provider_target_enabled(instance_id, provider),
     }
@@ -183,7 +243,9 @@ def fleet_status(now: float | None = None) -> dict[str, Any]:
     with _connect() as connection:
         _initialize(connection)
         rows = connection.execute("""SELECT instance_id, provider, version, commit_sha,
-            status, first_seen, last_seen FROM fleet_instances ORDER BY instance_id LIMIT ?""",
+            status, first_seen, last_seen, health_state, healthy_streak,
+            failure_count, last_failure_at
+            FROM fleet_instances ORDER BY instance_id LIMIT ?""",
             (_MAX_INSTANCES,)).fetchall()
     instances = []
     for row in rows:
@@ -192,9 +254,15 @@ def fleet_status(now: float | None = None) -> dict[str, Any]:
         instances.append({
             "instance_id": row["instance_id"], "provider": row["provider"],
             "version": row["version"], "commit_sha": row["commit_sha"],
-            "reported_status": row["status"], "first_seen": row["first_seen"],
-            "last_seen": seen, "stale": stale,
-            "update_available": bool(desired and row["version"] != desired),
+            "reported_status": row["health_state"] or "unknown",
+            "last_reported_status": row["status"],
+            "healthy_streak": int(row["healthy_streak"] or 0),
+            "failure_count": int(row["failure_count"] or 0),
+            "last_failure_at": row["last_failure_at"],
+            "first_seen": row["first_seen"], "last_seen": seen, "stale": stale,
+            "update_available": bool(
+                desired and not versions_match(row["version"], row["commit_sha"], desired)
+            ),
             "update_mode": _update_mode(row["instance_id"], row["provider"]),
             "automatic_deployment_enabled": _provider_target_enabled(row["instance_id"], row["provider"]),
         })
