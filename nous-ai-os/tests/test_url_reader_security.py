@@ -30,7 +30,13 @@ def test_reader_blocks_redirects(monkeypatch):
             self.closed = True
 
     monkeypatch.setattr(url_reader_engine, "_validate_public_http_url", lambda url: (True, None))
-    monkeypatch.setattr("requests.get", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setattr(
+        url_reader_engine,
+        "fetch_public_http",
+        lambda *args, **kwargs: {
+            "ok": False, "error": "redirect_blocked", "status": 302,
+        },
+    )
 
     result = url_reader_engine.read_url("https://public.example/redirect")
 

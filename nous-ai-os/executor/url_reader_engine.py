@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from executor.safe_outbound_http import decode_response_body, fetch_public_http
+
 CACHE = Path("data/url_reader_cache.json")
 REPORTS = Path("data/reports")
 MAX_RESPONSE_BYTES = 1_500_000
@@ -89,57 +91,29 @@ def read_url(url: str, limit: int = DEFAULT_TEXT_LIMIT) -> dict[str, Any]:
         return {"ok": False, "error": reason or "unsafe_url", "url": url}
 
     try:
-        import requests
         from bs4 import BeautifulSoup
     except Exception:
         return {"ok": False, "error": "missing_dependencies", "url": url}
 
-    response = None
-    try:
-        response = requests.get(
-            url,
-            timeout=(4, 12),
-            allow_redirects=False,
-            stream=True,
-            headers={
-                "User-Agent": "NOUS-AI-OS/1.0 (+https://github.com/traianos1985-glitch/sync-my-nous)",
-                "Accept": "text/html,application/xhtml+xml",
-            },
-        )
-        if 300 <= response.status_code < 400:
-            return {"ok": False, "error": "redirect_blocked", "status": response.status_code, "url": url}
-        if response.status_code >= 400:
-            return {"ok": False, "error": "http_error", "status": response.status_code, "url": url}
+    fetched = fetch_public_http(
+        url,
+        timeout=12,
+        max_bytes=MAX_RESPONSE_BYTES,
+        headers={"Accept": "text/html,application/xhtml+xml"},
+    )
+    if not fetched.get("ok"):
+        return {
+            "ok": False,
+            "error": fetched.get("error", "request_failed"),
+            "status": fetched.get("status"),
+            "url": url,
+        }
 
-        content_type = str(response.headers.get("Content-Type", "")).lower()
-        if content_type and not any(kind in content_type for kind in ("text/html", "application/xhtml+xml")):
-            return {"ok": False, "error": "unsupported_content_type", "url": url}
-
-        declared_length = response.headers.get("Content-Length")
-        if declared_length:
-            try:
-                if int(declared_length) > MAX_RESPONSE_BYTES:
-                    return {"ok": False, "error": "response_too_large", "url": url}
-            except ValueError:
-                pass
-
-        chunks = []
-        total = 0
-        for chunk in response.iter_content(chunk_size=16_384):
-            if not chunk:
-                continue
-            total += len(chunk)
-            if total > MAX_RESPONSE_BYTES:
-                return {"ok": False, "error": "response_too_large", "url": url}
-            chunks.append(chunk)
-        body = b"".join(chunks)
-        encoding = response.encoding or "utf-8"
-        html = body.decode(encoding, errors="replace")
-    except Exception:
-        return {"ok": False, "error": "request_failed", "url": url}
-    finally:
-        if response is not None:
-            response.close()
+    headers = fetched.get("headers", {})
+    content_type = str(headers.get("Content-Type", "")).lower()
+    if content_type and not any(kind in content_type for kind in ("text/html", "application/xhtml+xml")):
+        return {"ok": False, "error": "unsupported_content_type", "url": url}
+    html = decode_response_body(fetched.get("body", b""), content_type)
 
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "noscript", "svg", "iframe", "object", "embed"]):
