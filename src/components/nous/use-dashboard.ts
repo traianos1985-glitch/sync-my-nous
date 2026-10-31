@@ -55,6 +55,13 @@ type SystemStatus = {
     verification?: "local_inventory_only" | string;
     inventory?: Record<string, unknown>;
   };
+  registeredCapabilities?: Array<{
+    name: string;
+    description: string;
+    risk: string;
+    enabled: boolean;
+    source: string;
+  }>;
 };
 
 export function useDashboard(sessionId?: string) {
@@ -483,14 +490,18 @@ export function useDashboard(sessionId?: string) {
     statusBusyRef.current = true;
     setSystemStatusState("loading");
     setSystemStatusError(null);
-    const [healthResult, statusResult, metricsResult, overviewResult] = await Promise.allSettled([
-      // This endpoint is mapped by nous-api.ts directly to the Render backend's /health.
-      // Keep backend reachability separate from local dashboard/database status.
-      nousFetch<{ system?: string; status?: string; ok?: boolean }>("/api/health"),
-      nousFetch<SystemStatus>("/api/status"),
-      nousFetch<SystemStatus["metrics"]>("/system-info"),
-      nousFetch<SystemStatus["overview"]>("/remote/ops/status"),
-    ]);
+    const [healthResult, statusResult, metricsResult, overviewResult, capabilitiesResult] =
+      await Promise.allSettled([
+        // This endpoint is mapped by nous-api.ts directly to the Render backend's /health.
+        // Keep backend reachability separate from local dashboard/database status.
+        nousFetch<{ system?: string; status?: string; ok?: boolean }>("/api/health"),
+        nousFetch<SystemStatus>("/api/status"),
+        nousFetch<SystemStatus["metrics"]>("/system-info"),
+        nousFetch<SystemStatus["overview"]>("/remote/ops/status"),
+        nousFetch<{ registeredCapabilities?: SystemStatus["registeredCapabilities"] }>(
+          "/api/capabilities",
+        ),
+      ]);
 
     statusBusyRef.current = false;
     if (!mountedRef.current) return;
@@ -498,6 +509,10 @@ export function useDashboard(sessionId?: string) {
     const status = statusResult.status === "fulfilled" ? statusResult.value : undefined;
     const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : undefined;
     const overview = overviewResult.status === "fulfilled" ? overviewResult.value : undefined;
+    const registeredCapabilities =
+      capabilitiesResult.status === "fulfilled"
+        ? capabilitiesResult.value.registeredCapabilities
+        : undefined;
     const backendHealthy = Boolean(
       health && (health.system === "healthy" || health.status === "healthy" || health.ok === true),
     );
@@ -518,6 +533,7 @@ export function useDashboard(sessionId?: string) {
           : "unavailable",
       metrics,
       overview,
+      registeredCapabilities,
     });
     setSystemStatusState(hasAnyData || backendHealthy ? "ready" : "error");
     setSystemStatusError(backendHealthy ? null : detail);

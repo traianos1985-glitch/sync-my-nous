@@ -251,6 +251,31 @@ export function DashboardHome({ dashboard }: { dashboard: ReturnType<typeof useD
           )}
         </Card>
 
+        <Card title="Registered web tools">
+          {dashboard.systemStatus?.registeredCapabilities?.length ? (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Επιβεβαιωμένα από το ίδιο το dashboard runtime, όχι απλή υπόσχεση του UI.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {dashboard.systemStatus.registeredCapabilities.map((capability) => (
+                  <span
+                    key={capability.name}
+                    title={`${capability.description} · ${capability.source}`}
+                    className="rounded-full border border-ok/30 bg-ok/5 px-2.5 py-1 font-mono text-[11px] text-ok"
+                  >
+                    {capability.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Δεν επιβεβαιώθηκαν ακόμη καταχωρημένα web tools.
+            </p>
+          )}
+        </Card>
+
         <Card title="Missions — ζωντανά">
           <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
             <span className="rounded-full border border-border px-2 py-0.5">

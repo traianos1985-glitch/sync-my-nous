@@ -3,6 +3,15 @@ import { asc, eq, or, isNull } from "drizzle-orm";
 import { db } from "../lib/db";
 import { nousRuntimeCapabilities } from "../lib/db/schema";
 import { requireAuthenticatedUserId } from "../lib/auth-identity";
+import { toolDefinitions } from "../lib/tool-registry";
+
+const registeredCapabilities = Object.entries(toolDefinitions).map(([name, definition]) => ({
+  name,
+  description: definition.description,
+  risk: definition.risk,
+  enabled: true,
+  source: "web-runtime",
+}));
 
 export const Route = createFileRoute("/api/capabilities")({
   server: {
@@ -23,7 +32,12 @@ export const Route = createFileRoute("/api/capabilities")({
           )
           .orderBy(asc(nousRuntimeCapabilities.name));
         return Response.json(
-          { ok: true, capabilities, generatedAt: new Date().toISOString() },
+          {
+            ok: true,
+            capabilities,
+            registeredCapabilities,
+            generatedAt: new Date().toISOString(),
+          },
           { headers: { "Cache-Control": "private, max-age=30" } },
         );
       },
