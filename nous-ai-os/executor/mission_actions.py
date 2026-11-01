@@ -304,12 +304,34 @@ def run_mission_action(action: str, payload: Any) -> dict[str, Any]:
     try:
         clean = validate_payload(action, payload)
     except MissionPayloadError as exc:
-        return {"ok": False, "error": str(exc), "action": action}
+        err_res = {"ok": False, "error": str(exc), "action": action}
+        try:
+            from executor.failure_memory import record_failure
+            record_failure("mission_actions", action, str(exc), {"error_type": "payload_validation"})
+        except Exception:
+            pass
+        return err_res
     try:
         result = HANDLERS[action](clean)
     except Exception as exc:  # exception text may embed URLs/paths; keep only the type
         result = {"ok": False, "error": "mission_action_exception", "detail": type(exc).__name__}
+        try:
+            from executor.failure_memory import record_failure
+            record_failure("mission_actions", action, type(exc).__name__, {"detail": "handler_exception"})
+        except Exception:
+            pass
     if not isinstance(result, dict):
         result = {"ok": False, "error": "malformed_action_result"}
+    elif not result.get("ok"):
+        try:
+            from executor.failure_memory import record_failure
+            record_failure(
+                "mission_actions",
+                action,
+                str(result.get("error") or "action_failed"),
+                {"detail": str(result.get("detail") or "")}
+            )
+        except Exception:
+            pass
     result["duration_ms"] = round((time.time() - started) * 1000, 1)
     return result

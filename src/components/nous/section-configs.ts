@@ -270,6 +270,7 @@ export const sectionConfigs: Record<string, SectionConfig> = {
     endpoints: [
       { label: "Learning", path: "/remote/learning/status" },
       { label: "Lessons", path: "/remote/lessons/status" },
+      { label: "Μνήμη σφαλμάτων & προσαρμογής", path: "/remote/failure-memory/list" },
     ],
     actions: [{ label: "Κύκλος μάθησης", path: "/remote/learning/run", body: { max_topics: 1 } }],
   },

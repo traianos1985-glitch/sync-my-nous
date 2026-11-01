@@ -4410,6 +4410,31 @@ def remote_error_learning_search_solutions_route():
     return jsonify(search_solutions(data.get("query", ""), int(data.get("limit", 8))))
 
 
+@app.route("/remote/failure-memory/list", methods=["GET"])
+def remote_failure_memory_list_route():
+    from executor.failure_memory import query_failures
+    domain = request.args.get("domain")
+    action = request.args.get("action")
+    limit = int(request.args.get("limit", 20))
+    return jsonify({"ok": True, "failures": query_failures(domain=domain, action=action, limit=limit)})
+
+
+@app.route("/remote/failure-memory/record", methods=["POST"])
+def remote_failure_memory_record_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    from executor.failure_memory import record_failure
+    data = request.get_json(silent=True) or {}
+    domain = data.get("domain", "manual")
+    action = data.get("action", "unknown")
+    error = data.get("error", "unknown_error")
+    details = data.get("details")
+    suggested_fix = data.get("suggested_fix")
+    res = record_failure(domain, action, error, details=details, suggested_fix=suggested_fix)
+    return jsonify({"ok": True, "recorded": res})
+
+
+
 # ─────────────────────────────────────────────
 # ΠΕΔΙΟ & ΧΑΡΤΗΣ — Field Diary / Vision AI
 # ─────────────────────────────────────────────
