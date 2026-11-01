@@ -250,34 +250,34 @@ def learn_from_chat_result(question: str, answer: str, mode: str, sources=None):
                               origin=f"chat:{mode}")
 
 def seed_code_lessons():
-  with _store_lock(CODE_LESSONS_FILE):
-    lessons = load_json(CODE_LESSONS_FILE, [])
-    if not isinstance(lessons, list): lessons = []
+    with _store_lock(CODE_LESSONS_FILE):
+        lessons = load_json(CODE_LESSONS_FILE, [])
+        if not isinstance(lessons, list): lessons = []
 
-    base = [
-        ("mobile termux patches", "Ο χρήστης δουλεύει κυρίως από Android/Termux. Δίνε μεγάλες copy-paste εντολές και όχι μικρο-αλλαγές γραμμών.", "high", ["termux","android","copy-paste"]),
-        ("python code changes", "Μετά από κάθε αλλαγή Python πρέπει να τρέχει py_compile στα επηρεαζόμενα αρχεία πριν από commit.", "high", ["python","py_compile"]),
-        ("git workflow", "Πριν από push να γίνεται git status και commit μόνο ουσιαστικών αρχείων, όχι runtime reports/cache εκτός αν ζητηθεί.", "high", ["git","commit"]),
-        ("NOUS architecture", "Μην ξανασχεδιάζεις τον ΝΟΥΣ από την αρχή. Κάνε σταθερές αναβαθμίσεις πάνω στην υπάρχουσα αρχιτεκτονική.", "critical", ["nous","architecture"]),
-        ("chat missions", "Το chat δεν πρέπει να δημιουργεί mission μόνο του. Mission μόνο με ρητή εντολή /plan, /run ή explicit command.", "critical", ["chat","mission"]),
-    ]
+        base = [
+            ("mobile termux patches", "Ο χρήστης δουλεύει κυρίως από Android/Termux. Δίνε μεγάλες copy-paste εντολές και όχι μικρο-αλλαγές γραμμών.", "high", ["termux","android","copy-paste"]),
+            ("python code changes", "Μετά από κάθε αλλαγή Python πρέπει να τρέχει py_compile στα επηρεαζόμενα αρχεία πριν από commit.", "high", ["python","py_compile"]),
+            ("git workflow", "Πριν από push να γίνεται git status και commit μόνο ουσιαστικών αρχείων, όχι runtime reports/cache εκτός αν ζητηθεί.", "high", ["git","commit"]),
+            ("NOUS architecture", "Μην ξανασχεδιάζεις τον ΝΟΥΣ από την αρχή. Κάνε σταθερές αναβαθμίσεις πάνω στην υπάρχουσα αρχιτεκτονική.", "critical", ["nous","architecture"]),
+            ("chat missions", "Το chat δεν πρέπει να δημιουργεί mission μόνο του. Mission μόνο με ρητή εντολή /plan, /run ή explicit command.", "critical", ["chat","mission"]),
+        ]
 
-    ids = {x.get("id") for x in lessons if isinstance(x, dict)}
-    for trigger, lesson, severity, tags in base:
-        lid = make_id(trigger, lesson)
-        if lid not in ids:
-            lessons.insert(0, {
-                "id": lid,
-                "trigger": trigger,
-                "lesson": lesson,
-                "severity": severity,
-                "tags": tags,
-                "created_at": now_iso(),
-                "updated_at": now_iso(),
-                "uses": 0,
-            })
+        ids = {x.get("id") for x in lessons if isinstance(x, dict)}
+        for trigger, lesson, severity, tags in base:
+            lid = make_id(trigger, lesson)
+            if lid not in ids:
+                lessons.insert(0, {
+                    "id": lid,
+                    "trigger": trigger,
+                    "lesson": lesson,
+                    "severity": severity,
+                    "tags": tags,
+                    "created_at": now_iso(),
+                    "updated_at": now_iso(),
+                    "uses": 0,
+                })
 
-    save_json(CODE_LESSONS_FILE, lessons[:1000])
+        save_json(CODE_LESSONS_FILE, lessons[:MAX_CODE_LESSONS])
 
 def remember_code_lesson(trigger: str, lesson: str, files=None, severity="medium", tags=None):
     seed_code_lessons()
@@ -285,6 +285,11 @@ def remember_code_lesson(trigger: str, lesson: str, files=None, severity="medium
     if not trigger or not lesson:
         return {"ok": False, "error": "empty_trigger_or_lesson"}
 
+    with _store_lock(CODE_LESSONS_FILE):
+        return _remember_code_lesson_locked(trigger, lesson, files, severity, tags)
+
+
+def _remember_code_lesson_locked(trigger, lesson, files, severity, tags):
     lessons = load_json(CODE_LESSONS_FILE, [])
     if not isinstance(lessons, list): lessons = []
 
@@ -348,6 +353,11 @@ def coding_context(query: str, limit=8) -> str:
 
 
 def dedupe_code_lessons() -> dict:
+    with _store_lock(CODE_LESSONS_FILE):
+        return _dedupe_code_lessons_locked()
+
+
+def _dedupe_code_lessons_locked() -> dict:
     lessons = load_json(CODE_LESSONS_FILE, [])
     if not isinstance(lessons, list):
         lessons = []
