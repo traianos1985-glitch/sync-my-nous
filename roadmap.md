@@ -37,10 +37,11 @@
 
 - [ ] Apply Python updates to Render and verify authenticated document upload/search; requires owner redeploy and NOUS token in Settings.
 
-- [ ] Audit N-03: managed autonomy background loop (start/stop/reconcile, truthful loop_running)
-- [ ] Audit N-05: real mission actions (search_web, read_url, search_memory, knowledge_search, code_analysis, app_validation, agent_task)
-- [ ] Audit N-06: browser host-support status + url_reader/web_search fallback so research jobs complete
-- [ ] Audit N-07: knowledge memory locked atomic writes, size limits, provenance
-- [ ] Audit F-04: short Git SHA prefix matching in fleet versions_match
-- [ ] Audit N-01: app launch env allowlist (verify + test)
-- [ ] Tests for all of the above, full suite green
+- [x] Audit N-03: managed autonomy background loop (start/stop/reconcile, truthful loop_running)
+- [x] Audit N-05: real mission actions (search_web, read_url, search_memory, knowledge_search, code_analysis, app_validation, agent_task)
+- [x] Audit N-06: browser host-support status + url_reader/web_search fallback so research jobs complete
+- [x] Audit N-07: knowledge memory locked atomic writes, size limits, provenance
+- [x] Audit F-04: short Git SHA prefix matching in fleet versions_match
+- [x] Audit N-01: app launch env allowlist (verify + test)
+- [x] Tests for all of the above, full suite green
+- [ ] Verify audit upgrades live on Render; requires owner redeploy of `nous-ai-os` and NOUS token in Settings.
