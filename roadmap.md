@@ -45,3 +45,5 @@
 - [x] Audit N-01: app launch env allowlist (verify + test)
 - [x] Tests for all of the above, full suite green
 - [ ] Verify audit upgrades live on Render; requires owner redeploy of `nous-ai-os` and NOUS token in Settings.
+
+- [ ] Interactive Field Assistant & Larmor Studio: contextual chat, unit-safe calculator, explicit field diary saves, scientific safeguards, tests and GitHub delivery.

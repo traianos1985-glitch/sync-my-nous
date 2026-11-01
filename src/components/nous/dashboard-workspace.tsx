@@ -1,3 +1,4 @@
+import { FieldLarmorStudio } from "./field-larmor-studio";
 import { AppSandboxPanel } from "./app-sandbox-panel";
 import { BrowserOperatorStudio } from "./browser-operator-studio";
 import { ApprovalList } from "@/components/nous/approval-list";
@@ -42,6 +43,9 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
     resolveApproval,
     loadApprovals,
   } = dashboard;
+  if (section === "field" || section === "larmor") {
+    return <FieldLarmorStudio key={section} connected={hasToken} mode={section} />;
+  }
   if (section === "receipts") {
     return (
       <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
