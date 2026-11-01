@@ -36,3 +36,11 @@
 - [x] Global Keyboard Shortcuts & Command Palette Suite: enhanced Command Menu with quick actions (Gemini test, approvals queue refresh, API base copy, shortcut cheat sheet), header approvals indicator pill, global Alt+1..5 navigation with '?' shortcuts modal, and dedicated approvals view wiring.- [x] Global Keyboard Shortcuts & Command Palette Suite: enhanced Command Menu with quick actions (Gemini test, approvals queue refresh, API base copy, shortcut cheat sheet), header approvals indicator pill, global Alt+1..5 navigation with '?' shortcuts modal, and dedicated approvals view wiring.
 
 - [ ] Apply Python updates to Render and verify authenticated document upload/search; requires owner redeploy and NOUS token in Settings.
+
+- [ ] Audit N-03: managed autonomy background loop (start/stop/reconcile, truthful loop_running)
+- [ ] Audit N-05: real mission actions (search_web, read_url, search_memory, knowledge_search, code_analysis, app_validation, agent_task)
+- [ ] Audit N-06: browser host-support status + url_reader/web_search fallback so research jobs complete
+- [ ] Audit N-07: knowledge memory locked atomic writes, size limits, provenance
+- [ ] Audit F-04: short Git SHA prefix matching in fleet versions_match
+- [ ] Audit N-01: app launch env allowlist (verify + test)
+- [ ] Tests for all of the above, full suite green
