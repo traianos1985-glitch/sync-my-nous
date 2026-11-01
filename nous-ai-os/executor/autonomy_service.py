@@ -168,6 +168,7 @@ def emergency_stop(reason="emergency_stop_triggered"):
     state["last_heartbeat"] = time.time()
     _save(state)
     log_event("emergency_stop", {"reason": str(reason)})
+    stop_loop("emergency_stop", timeout=0)
     try:
         from executor.autonomy import autonomy_state
         autonomy_state.stop()
@@ -205,6 +206,7 @@ def disable():
     state["last_heartbeat"] = time.time()
     _save(state)
     log_event("service_disabled")
+    stop_loop("disabled", timeout=0)
     return state
 
 
