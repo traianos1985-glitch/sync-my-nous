@@ -1,8 +1,10 @@
-"""Bounded autonomy service with durable state and cross-worker cycle exclusion."""
+"""Bounded autonomy service with durable state, cross-worker cycle exclusion and a
+managed in-process background loop (start_loop/stop_loop/reconcile)."""
 from executor import portable_fcntl as fcntl
 import json
 import os
 import tempfile
+import threading
 import time
 from contextlib import contextmanager
 
@@ -16,6 +18,14 @@ LOG_FILE = "data/autonomy.log"
 DEFAULT_INTERVAL = 300
 MIN_INTERVAL = 5
 MAX_INTERVAL = 86400
+# Backoff applied after a failed cycle, bounded so a broken dependency never spins.
+ERROR_BACKOFF_MAX = 3600
+
+_loop_lock = threading.RLock()
+_loop_thread = None
+_loop_stop = threading.Event()
+_loop_meta = {"ticks": 0}
+
 
 
 def _default_state():
@@ -198,6 +208,24 @@ def disable():
     return state
 
 
+def _loop_info():
+    thread = _loop_thread
+    alive = bool(thread and thread.is_alive())
+    return {
+        "loop_running": alive,
+        "loop_mode": "managed_thread" if alive else "stopped",
+        "loop": {
+            "running": alive,
+            "thread_name": thread.name if alive else None,
+            "started_at": _loop_meta.get("started_at") if alive else None,
+            "last_tick": _loop_meta.get("last_tick"),
+            "ticks": int(_loop_meta.get("ticks", 0)),
+            "last_outcome": _loop_meta.get("last_outcome"),
+            "stopped_reason": None if alive else _loop_meta.get("stopped_reason"),
+        },
+    }
+
+
 def status():
     try:
         state = _load()
@@ -207,13 +235,12 @@ def status():
             "status": "degraded",
             "error": "autonomy_state_integrity_failure",
             "log_file": LOG_FILE,
+            **_loop_info(),
         }
     state["battery"] = battery_guard()
     state["log_file"] = LOG_FILE
-    # This module exposes a managed loop entry point; importing it never starts
-    # a background worker, so callers can distinguish enabled from running.
-    state["loop_running"] = False
-    state["loop_mode"] = "managed_cli_or_explicit_run_forever"
+    # loop_running reflects a live managed thread in this process, never the flag alone.
+    state.update(_loop_info())
     state["status"] = "healthy"
     return state
 
