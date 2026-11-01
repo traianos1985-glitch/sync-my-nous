@@ -143,19 +143,36 @@ def current_version() -> str:
     return value[:120] if _VERSION.fullmatch(value) else "unknown"
 
 
+MIN_SHA_PREFIX = 7
+
+
+def _sha_equivalent(a: str, b: str) -> bool:
+    """Equal SHAs, or a 7+ char short SHA that prefixes a full 40/64 char SHA."""
+    a, b = a.lower(), b.lower()
+    if not (_SHA.fullmatch(a) and _SHA.fullmatch(b)):
+        return False
+    if a == b:
+        return True
+    short, full = (a, b) if len(a) < len(b) else (b, a)
+    return len(full) in {40, 64} and len(short) >= MIN_SHA_PREFIX and full.startswith(short)
+
+
 def versions_match(reported_version: str, reported_commit_sha: str | None, desired: str) -> bool:
-    """Compare release labels exactly and full Git SHAs without ambiguous prefixes."""
+    """Compare release labels exactly; Git SHAs match exactly or by 7+ char prefix (F-04).
+
+    A short SHA (e.g. ``git rev-parse --short``) is accepted against a full 40/64-char SHA
+    when it is a prefix of it, so a deployment reporting the full SHA is not flagged as
+    ``update_available`` merely because the target was configured with the short form.
+    Two different short SHAs, or a prefix shorter than 7 chars, never match.
+    """
     desired_value = str(desired or "").strip()
     version_value = str(reported_version or "").strip()
     commit_value = str(reported_commit_sha or "").strip()
     if not desired_value:
         return False
     if _SHA.fullmatch(desired_value):
-        if len(desired_value) in {40, 64}:
-            candidates = [value for value in (commit_value, version_value)
-                          if len(value) in {40, 64} and _SHA.fullmatch(value)]
-            return any(value.lower() == desired_value.lower() for value in candidates)
-        return version_value.lower() == desired_value.lower()
+        candidates = [value for value in (commit_value, version_value) if value and _SHA.fullmatch(value)]
+        return any(_sha_equivalent(value, desired_value) for value in candidates)
     return version_value == desired_value
 
 

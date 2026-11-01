@@ -56,3 +56,8 @@
 - Chat tool cards use AI Elements Tool primitives with concise public action summaries, not private model reasoning; persist terminal records and mark unconfirmed running records interrupted on restoration.
 - App Builder Studio owns cancellable per-application requests and a single mutation lock; stream validation output without replay and use authenticated blob downloads.
 - Generated-app repairs are review-first: rerun baseline/static checks before explicit application, retain decision status, and never rewrite files during app launch.
+- Autonomy enable must be backed by the managed in-process loop (`autonomy_service.start_loop/reconcile`, reconciled at router import); `loop_running` reports the live thread, never the flag, so the UI cannot claim autonomy that is not running.
+- Non-diagnostic mission actions live in `executor/mission_actions.py` with per-action payload schemas validated at mission creation; unattended auto-missions may run only its read-only subset, keeping LLM steps and app tests operator-triggered.
+- Browser work without Playwright on the host falls back to the guarded HTTP reader/web search and reports `not_available_on_this_host`; interactive actions are never claimed as performed.
+- Knowledge memory writes go through the re-entrant file lock + atomic replace with item/size bounds, provenance (`verified: False`) and TTL for web-derived answers, so unverified content ages out.
+- Fleet version checks accept a 7+ char Git SHA prefix of a full SHA; release labels still compare exactly.

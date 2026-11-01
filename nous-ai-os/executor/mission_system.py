@@ -12,6 +12,7 @@ from executor.mission_completion import find_explicit_failure, verify_mission_co
 from executor.audit_safety import audit_summary, payload_fingerprint
 from executor.runtime_governance import ActionPayloadError, validate_action_payload
 from executor.id_compat import find_by_id, new_runtime_id
+from executor.mission_actions import MISSION_ACTIONS, MissionPayloadError, validate_payload as validate_mission_payload
 
 FILE = "data/missions.json"
 
@@ -25,6 +26,8 @@ SAFE_TASK_ACTIONS = {
     "companion_back",
     "companion_ui_tree",
     "full_validation",
+    # N-05: real, read-only/isolated mission work (see executor/mission_actions.py).
+    *MISSION_ACTIONS,
 }
 
 APPROVAL_REQUIRED = {
@@ -103,6 +106,11 @@ def create_mission(title, description="", tasks=None):
             validate_action_payload(task.get("payload", {}))
         except ActionPayloadError as exc:
             return {"ok": False, "error": str(exc), "action": action}
+        if action in MISSION_ACTIONS:
+            try:
+                validate_mission_payload(action, task.get("payload", {}))
+            except MissionPayloadError as exc:
+                return {"ok": False, "error": str(exc), "action": action}
 
     now = time.time()
     mission = {
@@ -165,6 +173,15 @@ def create_standard_mission(kind):
                 {"title": "Request UI tree", "action": "companion_ui_tree"},
             ],
         )
+    if kind == "code_quality":
+        return create_mission(
+            "Code quality analysis",
+            "Static analysis of the backend plus a compile/git health check.",
+            [
+                {"title": "Analyse backend code", "action": "code_analysis", "payload": {"path": "executor"}},
+                {"title": "Check code health", "action": "code_health"},
+            ],
+        )
     if kind == "deploy_check":
         return create_mission(
             "Deploy verification",
@@ -174,7 +191,7 @@ def create_standard_mission(kind):
                 {"title": "Deploy test app", "action": "deploy_vercel_test_app"},
             ],
         )
-    return {"ok": False, "error": "unknown_standard_mission", "available": ["system_check", "android_check", "deploy_check"]}
+    return {"ok": False, "error": "unknown_standard_mission", "available": ["system_check", "android_check", "deploy_check", "code_quality"]}
 
 
 def _find_mission(items, mission_id):

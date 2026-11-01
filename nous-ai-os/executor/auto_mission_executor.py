@@ -21,6 +21,12 @@ SAFE_AUTO_ACTIONS = {
     "companion_status",
     "companion_ui_tree",
     "vercel_status",
+    # Read-only research/analysis actions (N-05); LLM and app-test actions stay manual.
+    "search_web",
+    "read_url",
+    "search_memory",
+    "knowledge_search",
+    "code_analysis",
 }
 
 BLOCKED_AUTO_ACTIONS = {

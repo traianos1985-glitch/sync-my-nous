@@ -6,6 +6,7 @@ from executor.vercel_deploy_integration import vercel_status, vercel_deploy
 from executor.companion_bridge import companion_status, companion_home, companion_back, companion_ui_tree
 from executor.agent_journal import write_journal
 from executor.audit_safety import audit_summary
+from executor.mission_actions import MISSION_ACTIONS, run_mission_action
 
 
 def ops_status():
@@ -23,6 +24,7 @@ def ops_status():
             "checkpoint",
             "deploy_vercel_test_app",
             "full_validation",
+            *sorted(MISSION_ACTIONS),
         ],
         "blocked": [
             "arbitrary_shell",
@@ -100,6 +102,14 @@ def run_ops_action(action, payload=None):
         result = ops_deploy_vercel_test_app()
     elif action == "full_validation":
         result = ops_full_validation()
+    elif action in MISSION_ACTIONS:
+        result = run_mission_action(action, payload)
+        if not result.get("ok"):
+            # Surface real failure at the wrapper level so missions never report success.
+            output = {"ok": False, "action": action, "result": result,
+                      "error": result.get("error", "mission_action_failed"), "time": time.time()}
+            write_journal("ops_action_failed", {**audit_summary(output), "result_summary": audit_summary(result)})
+            return output
     else:
         return {
             "ok": False,

@@ -67,7 +67,7 @@ def test_heartbeat_requires_server_side_fleet_secret(monkeypatch):
     assert response.status_code == 200
 
 
-def test_full_commit_sha_matching_is_exact_and_short_target_fails_closed(monkeypatch):
+def test_full_commit_sha_matching_is_exact_and_short_prefix_target_matches(monkeypatch):
     full_sha = "a" * 40
     monkeypatch.setenv("NOUS_FLEET_TARGET_VERSION", full_sha)
     exact = fleet.record_heartbeat({
@@ -76,12 +76,13 @@ def test_full_commit_sha_matching_is_exact_and_short_target_fails_closed(monkeyp
     })
     assert exact["update_available"] is False
 
+    # F-04: a 7+ char short SHA that prefixes the reported full SHA is the same release.
     monkeypatch.setenv("NOUS_FLEET_TARGET_VERSION", "a" * 12)
     short_target = fleet.record_heartbeat({
         "instance_id": "nous-sha-short-01", "provider": "render",
         "version": full_sha, "commit_sha": full_sha, "status": "healthy",
     })
-    assert short_target["update_available"] is True
+    assert short_target["update_available"] is False
 
 
 def test_full_commit_sha_matching_rejects_same_length_mismatch(monkeypatch):
