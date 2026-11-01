@@ -4702,3 +4702,102 @@ if __name__ == "__main__":
     validate_startup_security(force_public=True)
     print("🧠 NUS AI OS LEVEL 22 RUNNING")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")))
+
+
+# ── GitHub & Pages Operator Endpoints ─────────────────────────────────────────
+
+@app.route("/remote/github/status", methods=["GET"])
+def remote_github_status_route():
+    from executor.github_operator import get_github_status
+    return jsonify(get_github_status())
+
+
+@app.route("/remote/github/config", methods=["POST"])
+def remote_github_config_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    from executor.github_operator import save_github_config
+    data = request.get_json(silent=True) or {}
+    token = data.get("token", "")
+    default_owner = data.get("default_owner")
+    return jsonify(save_github_config(token=token, default_owner=default_owner))
+
+
+@app.route("/remote/github/repos", methods=["GET"])
+def remote_github_repos_route():
+    from executor.github_operator import list_repositories
+    sort = request.args.get("sort", "updated")
+    per_page = int(request.args.get("per_page", 50))
+    return jsonify(list_repositories(per_page=per_page, sort=sort))
+
+
+@app.route("/remote/github/tree", methods=["GET"])
+def remote_github_tree_route():
+    from executor.github_operator import get_repository_tree
+    owner = request.args.get("owner", "").strip()
+    repo = request.args.get("repo", "").strip()
+    path = request.args.get("path", "").strip()
+    branch = request.args.get("branch")
+    if not owner or not repo:
+        return jsonify({"ok": False, "error": "missing_owner_or_repo"}), 400
+    return jsonify(get_repository_tree(owner=owner, repo=repo, path=path, branch=branch))
+
+
+@app.route("/remote/github/file", methods=["GET"])
+def remote_github_file_route():
+    from executor.github_operator import get_file_content
+    owner = request.args.get("owner", "").strip()
+    repo = request.args.get("repo", "").strip()
+    path = request.args.get("path", "").strip()
+    branch = request.args.get("branch")
+    if not owner or not repo or not path:
+        return jsonify({"ok": False, "error": "missing_parameters"}), 400
+    return jsonify(get_file_content(owner=owner, repo=repo, path=path, branch=branch))
+
+
+@app.route("/remote/github/commit", methods=["POST"])
+def remote_github_commit_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    from executor.github_operator import commit_file
+    data = request.get_json(silent=True) or {}
+    owner = data.get("owner", "").strip()
+    repo = data.get("repo", "").strip()
+    path = data.get("path", "").strip()
+    content = data.get("content", "")
+    message = data.get("message", "")
+    branch = data.get("branch")
+    sha = data.get("sha")
+    if not owner or not repo or not path:
+        return jsonify({"ok": False, "error": "missing_parameters"}), 400
+    return jsonify(commit_file(owner=owner, repo=repo, path=path, content=content, message=message, branch=branch, sha=sha))
+
+
+@app.route("/remote/github/deploy-pages-app", methods=["POST"])
+def remote_github_deploy_pages_app_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    from executor.github_operator import create_or_update_pages_app
+    data = request.get_json(silent=True) or {}
+    repo_name = data.get("repo_name", "").strip()
+    files = data.get("files", {})
+    description = data.get("description", "Deployed by NOUS AI OS")
+    is_private = bool(data.get("private", False))
+    enable_pages = bool(data.get("enable_pages", True))
+    if not repo_name or not isinstance(files, dict):
+        return jsonify({"ok": False, "error": "invalid_payload"}), 400
+    return jsonify(create_or_update_pages_app(repo_name=repo_name, files=files, description=description, is_private=is_private, enable_pages=enable_pages))
+
+
+@app.route("/remote/github/deploy-sandbox-app", methods=["POST"])
+def remote_github_deploy_sandbox_app_route():
+    if not check_admin_token(request):
+        return jsonify({"error": "unauthorized"}), 401
+    from executor.github_operator import deploy_sandbox_app_to_github
+    data = request.get_json(silent=True) or {}
+    app_name = data.get("app_name", "").strip()
+    repo_name = data.get("repo_name")
+    description = data.get("description")
+    if not app_name:
+        return jsonify({"ok": False, "error": "missing_app_name"}), 400
+    return jsonify(deploy_sandbox_app_to_github(app_name=app_name, repo_name=repo_name, description=description))

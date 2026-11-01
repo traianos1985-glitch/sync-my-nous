@@ -21,6 +21,7 @@ export const navGroups: NavGroup[] = [
       { id: "appbuilder", icon: "🏗", label: "App Builder" },
       { id: "sandbox", icon: "📦", label: "App Sandbox" },
       { id: "browser", icon: "🌐", label: "Web Operator" },
+      { id: "github", icon: "🐙", label: "GitHub & Pages" },
     ],
   },
   {

@@ -15,6 +15,7 @@ import type { useDashboard } from "./use-dashboard";
 import { KnowledgeIngestionPanel } from "./knowledge-ingestion-panel";
 import { ConnectionSettings } from "./dashboard-connection-settings";
 import { AppBuilderStudio } from "./app-builder-studio";
+import { GithubOperatorStudio } from "./github-operator-studio";
 import { AutonomyPanel } from "./autonomy-panel";
 import { ExecutionReceiptsPanel } from "./execution-receipts-panel";
 
@@ -60,6 +61,13 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
         <div className="mx-auto min-w-0 max-w-6xl">
           <AppSandboxPanel connected={hasToken} />
         </div>
+      </div>
+    );
+  }
+  if (section === "github") {
+    return (
+      <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+        <GithubOperatorStudio connected={hasToken} />
       </div>
     );
   }
