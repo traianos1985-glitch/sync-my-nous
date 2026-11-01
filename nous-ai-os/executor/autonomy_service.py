@@ -479,10 +479,13 @@ def watchdog_check(max_silence_seconds=900):
     if not state.get("enabled"):
         return {"ok": True, "enabled": False, "action": "none", "reason": "service_disabled"}
     if not last:
-        return {"ok": False, "enabled": True, "action": "needs_attention", "reason": "no_heartbeat"}
+        return {"ok": False, "enabled": True, "action": "needs_attention", "reason": "no_heartbeat",
+                "loop_running": loop_running()}
 
     silence = now - float(last)
     if silence > float(max_silence_seconds):
         log_event("watchdog_warning", {"silence": silence})
-        return {"ok": False, "enabled": True, "action": "needs_restart", "silence": silence}
-    return {"ok": True, "enabled": True, "action": "none", "silence": silence}
+        return {"ok": False, "enabled": True, "action": "needs_restart", "silence": silence,
+                "loop_running": loop_running()}
+    return {"ok": True, "enabled": True, "action": "none", "silence": silence,
+            "loop_running": loop_running()}

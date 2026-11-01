@@ -23,7 +23,7 @@ from executor.security import check_token, check_admin_token, validate_startup_s
 from executor.auth_guard import install_auth_guard
 from executor.api_tokens import create_token, list_tokens, revoke_token, token_stats
 from executor import autonomy as autonomy_state
-from executor.autonomy_service import enable as service_enable, disable as service_disable, status as service_status, run_cycle as service_run_cycle, watchdog_check, emergency_stop as service_emergency_stop, recent_events as service_recent_events
+from executor.autonomy_service import enable as service_enable, disable as service_disable, status as service_status, run_cycle as service_run_cycle, watchdog_check, emergency_stop as service_emergency_stop, recent_events as service_recent_events, start_loop as service_start_loop, reconcile as service_reconcile
 from executor.goal_executor import goal_executor_cycle
 from executor.project_progress import list_progress, project_summary, sync_projects, mark_step
 from executor.self_healing_runtime import self_heal_check
@@ -252,6 +252,12 @@ def _trigger_nous_environment_bootstrap():
 try:
     reconcile_scheduler_loop_state()
     reconcile_auto_mission_scheduler()
+except Exception:
+    pass
+
+try:
+    # N-03: an enabled autonomy flag must be backed by a live managed loop.
+    service_reconcile()
 except Exception:
     pass
 
@@ -3422,7 +3428,13 @@ def remote_service_enable_route():
         interval = int(data.get("interval", 300))
     except (TypeError, ValueError):
         interval = 300
-    return jsonify(service_enable(interval))
+    try:
+        state = service_enable(interval)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    loop = service_start_loop()
+    return jsonify({**state, "loop_running": bool(loop.get("loop_running")),
+                    "loop_mode": loop.get("loop_mode"), "loop": loop.get("loop")})
 
 
 @app.route("/remote/service/disable", methods=["POST"])
