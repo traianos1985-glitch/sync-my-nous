@@ -10,6 +10,17 @@ export type AutonomyServiceState = {
   status: "healthy" | "degraded" | string;
   log_file?: string;
   error?: string;
+  loop_running?: boolean;
+  loop_mode?: "managed_thread" | "stopped" | string;
+  loop?: {
+    running?: boolean;
+    thread_name?: string | null;
+    started_at?: number | null;
+    last_tick?: number | null;
+    ticks?: number;
+    last_outcome?: string | null;
+    stopped_reason?: string | null;
+  } | null;
 };
 
 export type WatchdogStatus = {

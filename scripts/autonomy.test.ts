@@ -110,3 +110,21 @@ describe("autonomy service model", () => {
     expect(searchError[0].event).toBe("service_cycle_error");
   });
 });
+
+test("handles loop_running and loop thread metadata", () => {
+  const liveState: AutonomyServiceState = {
+    enabled: true,
+    interval: 300,
+    last_heartbeat: 1000,
+    last_run: 950,
+    last_error: null,
+    cycles: 12,
+    status: "healthy",
+    loop_running: true,
+    loop_mode: "managed_thread",
+    loop: { running: true, ticks: 4, thread_name: "nous-autonomy-worker" },
+  };
+  expect(liveState.loop_running).toBe(true);
+  expect(liveState.loop?.running).toBe(true);
+  expect(liveState.loop_mode).toBe("managed_thread");
+});

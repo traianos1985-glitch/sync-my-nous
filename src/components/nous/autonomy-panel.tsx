@@ -343,17 +343,36 @@ export function AutonomyPanel({ connected }: { connected: boolean }) {
             <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               ΚΑΤΑΣΤΑΣΗ ΚΥΚΛΟΥ
             </span>
-            <span
-              className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold ${
-                emergencyActive
-                  ? "border border-destructive/40 bg-destructive/10 text-destructive"
-                  : state?.enabled
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold ${
+                  state?.loop_running
                     ? "border border-ok/40 bg-ok/10 text-ok"
-                    : "border border-warn/40 bg-warn/10 text-warn"
-              }`}
-            >
-              {emergencyActive ? "KILL SWITCH" : state?.enabled ? "ΕΝΕΡΓΟΣ" : "ΣΕ ΠΑΥΣΗ"}
-            </span>
+                    : "border border-muted-foreground/30 bg-muted text-muted-foreground"
+                }`}
+                title={
+                  state?.loop_running
+                    ? "Managed worker thread είναι ενεργό"
+                    : "Ο managed worker είναι ανενεργός"
+                }
+              >
+                <span
+                  className={`size-1.5 rounded-full ${state?.loop_running ? "animate-pulse bg-ok" : "bg-muted-foreground"}`}
+                />
+                {state?.loop_running ? "LOOP LIVE" : "LOOP IDLE"}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold ${
+                  emergencyActive
+                    ? "border border-destructive/40 bg-destructive/10 text-destructive"
+                    : state?.enabled
+                      ? "border border-ok/40 bg-ok/10 text-ok"
+                      : "border border-warn/40 bg-warn/10 text-warn"
+                }`}
+              >
+                {emergencyActive ? "KILL SWITCH" : state?.enabled ? "ΕΝΕΡΓΟΣ" : "ΣΕ ΠΑΥΣΗ"}
+              </span>
+            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2 text-center">
