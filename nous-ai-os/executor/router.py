@@ -2529,7 +2529,8 @@ def remote_browser_bridge_create_route():
     return jsonify(create_browser_job(
         data.get("url", ""),
         data.get("actions", []),
-        data.get("reason", "remote browser required")
+        data.get("reason", "remote browser required"),
+        data.get("query"),
     ))
 
 
