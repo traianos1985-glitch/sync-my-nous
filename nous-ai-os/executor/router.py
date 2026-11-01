@@ -3955,6 +3955,9 @@ def _try_autorepair_app(app_dir) -> dict:
     return {"repaired": False, "files": [], "message": ""}
 
 
+APP_ENV_PASSTHROUGH = ("LANG", "LC_ALL", "LC_CTYPE", "TZ", "SYSTEMROOT", "WINDIR", "PATHEXT")
+
+
 def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
     """Launch the approved app entry point without a shell."""
     import shlex as _shlex
@@ -3987,7 +3990,9 @@ def _launch_app_proc(run_cmd: str, app_name: str, app_dir) -> dict:
         "TMPDIR": str(root),
         "TEMP": str(root),
     }
-    for _k in ("SYSTEMROOT", "WINDIR", "PATHEXT"):
+    # Explicit allowlist only: locale/timezone and Windows runtime basics. Secrets such as
+    # NOUS_TOKEN, GEMINI_API_KEY, RENDER_API_KEY or fleet tokens are never forwarded.
+    for _k in APP_ENV_PASSTHROUGH:
         if _k in _os.environ:
             isolated_env[_k] = _os.environ[_k]
 
