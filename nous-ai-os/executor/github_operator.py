@@ -433,45 +433,56 @@ def create_or_update_pages_app(
     """Create a new GitHub repository, upload files, and activate GitHub Pages."""
     tok = get_github_token()
     if not tok:
-        return {"ok": False, "error": "unauthorized", "message": "Απαιτείται GitHub Token για δημιουργία repo."}
+        return _missing_token("deploy_pages")
 
-    headers = _headers(tok)
-    clean_name = re.sub(r"[^A-Za-z0-9_.-]", "-", repo_name.strip()).strip("-")
+    clean_name = re.sub(r"[^A-Za-z0-9_.-]", "-", (repo_name or "").strip()).strip("-.")
     if not clean_name:
         return {"ok": False, "error": "invalid_repo_name"}
+    if not isinstance(files, dict) or not files:
+        return {"ok": False, "error": "no_files"}
+    for fpath, fcontent in files.items():
+        if not isinstance(fpath, str) or not isinstance(fcontent, str):
+            return {"ok": False, "error": "invalid_file_entry"}
+        parts = fpath.replace("\\", "/").split("/")
+        if fpath.startswith("/") or ".." in parts or not fpath.strip():
+            return {"ok": False, "error": "unsafe_file_path", "path": fpath[:200]}
+        if _is_sensitive_file(Path(fpath)):
+            return {"ok": False, "error": "sensitive_file_blocked", "path": fpath[:200]}
 
-    # 1. Check or create repository
+    headers = _headers(tok)
     owner = get_default_owner()
-    check_url = f"{GITHUB_API_BASE}/repos/{owner}/{clean_name}"
-    check_res = requests.get(check_url, headers=headers, timeout=REQUEST_TIMEOUT)
-    
-    repo_data = {}
-    if check_res.status_code == 404:
-        # Create repo
-        create_payload = {
-            "name": clean_name,
-            "description": description,
-            "private": is_private,
-            "auto_init": True,  # initializes with README.md so main branch exists
-        }
-        create_res = requests.post(f"{GITHUB_API_BASE}/user/repos", headers=headers, json=create_payload, timeout=REQUEST_TIMEOUT)
-        if create_res.status_code not in (200, 201):
-            return {
-                "ok": False,
-                "error": "create_repo_failed",
-                "details": create_res.json() if create_res.text else create_res.status_code,
+    try:
+        check_res = requests.get(f"{GITHUB_API_BASE}/repos/{owner}/{clean_name}", headers=headers, timeout=REQUEST_TIMEOUT)
+        repo_data: dict[str, Any] = {}
+        if check_res.status_code == 404:
+            create_payload = {
+                "name": clean_name,
+                "description": description,
+                "private": is_private,
+                "auto_init": True,  # initializes with README.md so main branch exists
             }
-        repo_data = create_res.json()
-        owner = repo_data.get("owner", {}).get("login", owner)
-    elif check_res.status_code == 200:
-        repo_data = check_res.json()
-        owner = repo_data.get("owner", {}).get("login", owner)
-    else:
-        return {"ok": False, "error": f"repo_check_failed_{check_res.status_code}"}
+            create_res = requests.post(f"{GITHUB_API_BASE}/user/repos", headers=headers, json=create_payload, timeout=REQUEST_TIMEOUT)
+            if create_res.status_code not in (200, 201):
+                return {
+                    "ok": False,
+                    "error": "create_repo_failed",
+                    "status_code": create_res.status_code,
+                }
+            repo_data = create_res.json()
+        elif check_res.status_code == 200:
+            repo_data = check_res.json()
+        elif check_res.status_code == 401:
+            return {"ok": False, "error": "invalid_credentials", "status_code": 401, "message": "Το GitHub Token είναι άκυρο ή έχει λήξει."}
+        else:
+            return {"ok": False, "error": f"repo_check_failed_{check_res.status_code}", "status_code": check_res.status_code}
+    except Exception as exc:
+        return {"ok": False, "error": "network_error", "message": _safe_error(exc, tok)}
 
-    # 2. Commit each file
-    committed = []
+    owner = (repo_data.get("owner") or {}).get("login", owner)
     default_branch = repo_data.get("default_branch", "main")
+
+    committed: list[str] = []
+    failed: list[dict[str, str]] = []
     for fpath, fcontent in files.items():
         res = commit_file(
             owner=owner,
@@ -483,46 +494,130 @@ def create_or_update_pages_app(
         )
         if res.get("ok"):
             committed.append(fpath)
+        else:
+            failed.append({"path": fpath, "error": str(res.get("error", "commit_failed"))[:200]})
 
-    # 3. Enable GitHub Pages if requested
     pages_enabled = False
+    pages_error: str | None = None
     pages_url = f"https://{owner}.github.io/{clean_name}/"
-    if enable_pages:
-        pages_api = f"{GITHUB_API_BASE}/repos/{owner}/{clean_name}/pages"
-        pages_payload = {"source": {"branch": default_branch, "path": "/"}}
-        pres = requests.post(pages_api, headers=headers, json=pages_payload, timeout=REQUEST_TIMEOUT)
-        if pres.status_code in (200, 201, 409):  # 409 means already enabled
-            pages_enabled = True
+    if enable_pages and committed:
+        try:
+            pres = requests.post(
+                f"{GITHUB_API_BASE}/repos/{owner}/{clean_name}/pages",
+                headers=headers,
+                json={"source": {"branch": default_branch, "path": "/"}},
+                timeout=REQUEST_TIMEOUT,
+            )
+            if pres.status_code in (200, 201, 409):  # 409 means already enabled
+                pages_enabled = True
+            else:
+                pages_error = f"github_http_{pres.status_code}"
+        except Exception as exc:
+            pages_error = _safe_error(exc, tok)
 
+    ok = bool(committed) and not failed and (pages_enabled or not enable_pages)
     return {
-        "ok": True,
+        "ok": ok,
+        "partial": bool(committed) and not ok,
+        "error": None if ok else ("commit_failed" if failed or not committed else "pages_enable_failed"),
         "repo_name": clean_name,
         "owner": owner,
         "repo_url": repo_data.get("html_url") or f"https://github.com/{owner}/{clean_name}",
         "pages_enabled": pages_enabled,
+        "pages_error": pages_error,
         "pages_url": pages_url,
         "committed_files": committed,
+        "failed_files": failed,
     }
 
 
-def deploy_sandbox_app_to_github(app_name: str, repo_name: str | None = None, description: str | None = None) -> dict[str, Any]:
-    """Read files from data/generated_apps/{app_name} and deploy to GitHub Pages."""
-    app_dir = Path(os.environ.get("NOUS_DATA_DIR", Path(__file__).resolve().parents[1] / "data")) / "generated_apps" / app_name
-    if not app_dir.exists() or not app_dir.is_dir():
+def _apps_root() -> Path:
+    return Path(os.environ.get("NOUS_DATA_DIR", Path(__file__).resolve().parents[1] / "data")) / "generated_apps"
+
+
+def _is_sensitive_file(path: Path) -> bool:
+    name = path.name.lower()
+    return (
+        name in _DENY_NAMES
+        or name.startswith(".env")
+        or path.suffix.lower() in _DENY_SUFFIXES
+        or any(part in _SKIP_PARTS for part in path.parts)
+    )
+
+
+def collect_sandbox_app_files(app_name: str) -> dict[str, Any]:
+    """Collect publishable files of a generated app; never follow symlinks or include secrets."""
+    if not isinstance(app_name, str) or not _APP_SLUG.fullmatch(app_name) or ".." in app_name:
+        return {"ok": False, "error": "invalid_app_name"}
+    root = _apps_root().resolve()
+    app_dir = (root / app_name).resolve()
+    if root not in app_dir.parents:
+        return {"ok": False, "error": "path_outside_apps_directory"}
+    if not app_dir.is_dir():
         return {"ok": False, "error": "app_not_found", "message": f"Η εφαρμογή '{app_name}' δεν βρέθηκε στο generated_apps."}
 
     files: dict[str, str] = {}
-    for p in app_dir.rglob("*"):
-        if p.is_file() and p.stat().st_size <= MAX_FILE_BYTES:
-            rel = str(p.relative_to(app_dir)).replace("\\", "/")
-            try:
-                files[rel] = p.read_text(encoding="utf-8")
-            except Exception:
-                pass
+    excluded: list[dict[str, str]] = []
+    for p in sorted(app_dir.rglob("*")):
+        rel_path = p.relative_to(app_dir)
+        rel = rel_path.as_posix()
+        if p.is_symlink():
+            excluded.append({"path": rel, "reason": "symlink"})
+            continue
+        if not p.is_file():
+            continue
+        if _is_sensitive_file(rel_path):
+            excluded.append({"path": rel, "reason": "sensitive"})
+            continue
+        if p.stat().st_size > MAX_FILE_BYTES:
+            excluded.append({"path": rel, "reason": "too_large"})
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            excluded.append({"path": rel, "reason": "not_text"})
+            continue
+        if redact_secrets(text, "") != text:
+            excluded.append({"path": rel, "reason": "contains_credentials"})
+            continue
+        files[rel] = text
 
     if not files:
-        return {"ok": False, "error": "empty_app", "message": f"Δεν βρέθηκαν αρχεία κώδικα στο {app_dir}."}
+        return {"ok": False, "error": "empty_app", "message": "Δεν βρέθηκαν αρχεία προς δημοσίευση.", "excluded_files": excluded}
+    return {"ok": True, "files": files, "excluded_files": excluded}
 
-    target_repo = repo_name or app_name
+
+def deploy_sandbox_app_to_github(
+    app_name: str,
+    repo_name: str | None = None,
+    description: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Publish data/generated_apps/{app_name} to GitHub Pages, or preview the publish plan."""
+    collected = collect_sandbox_app_files(app_name)
+    if not collected.get("ok"):
+        return collected
+    files: dict[str, str] = collected["files"]
+    target_repo = re.sub(r"[^A-Za-z0-9_.-]", "-", (repo_name or app_name).strip()).strip("-.")
+    if dry_run:
+        has_token = bool(get_github_token())
+        owner = get_default_owner()
+        return {
+            "ok": True,
+            "dry_run": True,
+            "token_configured": has_token,
+            "ready": has_token and bool(target_repo),
+            "message": None if has_token else MISSING_TOKEN_MESSAGE,
+            "repo_name": target_repo,
+            "owner": owner,
+            "pages_url": f"https://{owner}.github.io/{target_repo}/",
+            "files": sorted(files),
+            "total_bytes": sum(len(v.encode("utf-8")) for v in files.values()),
+            "excluded_files": collected["excluded_files"],
+        }
+    if not get_github_token():
+        return _missing_token("deploy_pages")
     desc = description or f"NOUS AI OS App: {app_name}"
-    return create_or_update_pages_app(repo_name=target_repo, files=files, description=desc, enable_pages=True)
+    result = create_or_update_pages_app(repo_name=target_repo, files=files, description=desc, enable_pages=True)
+    result["excluded_files"] = collected["excluded_files"]
+    return result
