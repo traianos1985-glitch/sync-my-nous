@@ -28,7 +28,12 @@ import {
   fetchGithubFile,
   commitGithubFile,
   deploySandboxAppToPages,
+  previewSandboxAppDeploy,
   saveGithubConfig,
+  githubTokenState,
+  canWriteToGithub,
+  describeGithubError,
+  type GithubDeployPreview,
   type GithubStatus,
   type GithubRepo,
   type GithubTreeItem,
@@ -85,6 +90,11 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
     pagesUrl?: string;
     error?: string;
   } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [deployPreview, setDeployPreview] = useState<GithubDeployPreview | null>(null);
+
+  const tokenState = githubTokenState(status);
+  const canWrite = canWriteToGithub(status);
 
   // Load status on mount
   useEffect(() => {
@@ -135,10 +145,13 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
         await loadStatus();
         await loadRepos();
       } else {
-        setConfigMessage("❌ Σφάλμα αποθήκευσης.");
+        setConfigMessage(`❌ ${describeGithubError((res as { error?: string }).error)}`);
       }
     } catch (err: unknown) {
-      setConfigMessage(`❌ Σφάλμα: ${err instanceof Error ? err.message : "Άγνωστο σφάλμα"}`);
+      setPatInput("");
+      setConfigMessage(
+        `❌ Σφάλμα: ${describeGithubError(null, err instanceof Error ? err.message : null)}`,
+      );
     } finally {
       setSavingConfig(false);
     }
@@ -188,7 +201,9 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
         setCommitMessage(`update: ${item.name} via NOUS AI OS`);
       }
     } catch (err: unknown) {
-      alert(`Αποτυχία ανάγνωσης αρχείου: ${err instanceof Error ? err.message : "Σφάλμα"}`);
+      alert(
+        `Αποτυχία ανάγνωσης αρχείου: ${describeGithubError(null, err instanceof Error ? err.message : null)}`,
+      );
     } finally {
       setLoadingFile(false);
     }
@@ -226,13 +241,13 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
       } else {
         setCommitStatus({
           success: false,
-          message: `Αποτυχία: ${res.error || "Σφάλμα commit"}`,
+          message: `Αποτυχία: ${describeGithubError(res.error, "Σφάλμα commit")}`,
         });
       }
     } catch (err: unknown) {
       setCommitStatus({
         success: false,
-        message: err instanceof Error ? err.message : "Σφάλμα commit",
+        message: describeGithubError(null, err instanceof Error ? err.message : "Σφάλμα commit"),
       });
     } finally {
       setCommitting(false);
@@ -258,18 +273,42 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
         });
         await loadRepos();
       } else {
+        const failed = res.failed_files?.length
+          ? ` (${res.failed_files.map((f) => f.path).join(", ")})`
+          : "";
         setDeployResult({
           success: false,
-          error: res.error || res.message || "Αποτυχία deployment",
+          error: describeGithubError(res.error, res.message) + failed,
         });
       }
     } catch (err: unknown) {
       setDeployResult({
         success: false,
-        error: err instanceof Error ? err.message : "Σφάλμα deployment",
+        error: describeGithubError(null, err instanceof Error ? err.message : "Σφάλμα deployment"),
       });
     } finally {
       setDeploying(false);
+    }
+  }
+
+  async function handlePreviewDeploy() {
+    if (!deployAppName.trim()) return;
+    setPreviewing(true);
+    setDeployPreview(null);
+    setDeployResult(null);
+    try {
+      const res = await previewSandboxAppDeploy({
+        app_name: deployAppName.trim(),
+        repo_name: deployRepoName.trim() || undefined,
+      });
+      setDeployPreview(res);
+    } catch (err: unknown) {
+      setDeployPreview({
+        ok: false,
+        error: describeGithubError(null, err instanceof Error ? err.message : null),
+      });
+    } finally {
+      setPreviewing(false);
     }
   }
 
@@ -320,7 +359,13 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
           ) : (
             <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
               <AlertCircle className="h-3.5 w-3.5" />
-              <span>Απαιτείται Token</span>
+              <span>
+                {tokenState === "invalid"
+                  ? "Άκυρο Token"
+                  : tokenState === "error"
+                    ? "Σφάλμα σύνδεσης"
+                    : "Απαιτείται Token"}
+              </span>
             </div>
           )}
 
@@ -350,6 +395,44 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
         </div>
       </div>
 
+      {!connected && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground"
+        >
+          <KeyRound className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            Βάλε πρώτα το NOUS token στις Ρυθμίσεις για να συνδεθεί αυτή η οθόνη με τον NOUS.
+          </span>
+        </div>
+      )}
+
+      {connected && (tokenState === "missing" || tokenState === "invalid") && (
+        <div
+          role="alert"
+          data-testid="github-token-missing"
+          className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200"
+        >
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold text-amber-300">
+                {tokenState === "missing"
+                  ? "Λείπει το GitHub Token"
+                  : "Το GitHub Token δεν είναι έγκυρο"}
+              </span>
+              <span>
+                Μπορείς να δεις μόνο δημόσια repositories. Οι αλλαγές κώδικα και η δημοσίευση στο
+                GitHub Pages είναι απενεργοποιημένες μέχρι να προσθέσεις έγκυρο token.
+              </span>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowConfig(true)}>
+            <KeyRound className="h-3.5 w-3.5" /> Πρόσθεση Token
+          </Button>
+        </div>
+      )}
+
       {/* Expandable Token Config Box */}
       {showConfig && (
         <Card title="Ρύθμιση GitHub Personal Access Token (PAT)">
@@ -367,6 +450,8 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
                 </label>
                 <input
                   type="password"
+                  autoComplete="off"
+                  spellCheck={false}
                   placeholder="ghp_..."
                   value={patInput}
                   onChange={(e) => setPatInput(e.target.value)}
@@ -388,7 +473,12 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
             </div>
             <div className="flex items-center justify-between pt-2">
               {configMessage && <span className="text-xs font-medium">{configMessage}</span>}
-              <Button type="submit" size="sm" disabled={savingConfig} className="ml-auto text-xs">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={savingConfig || !patInput.trim()}
+                className="ml-auto text-xs"
+              >
                 {savingConfig ? "Αποθήκευση..." : "Αποθήκευση & Σύνδεση"}
               </Button>
             </div>
@@ -720,7 +810,8 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
                         <Button
                           size="sm"
                           onClick={handleCommit}
-                          disabled={committing || !commitMessage.trim()}
+                          disabled={committing || !commitMessage.trim() || !canWrite}
+                          title={canWrite ? undefined : "Απαιτείται έγκυρο GitHub Token"}
                           className="w-full sm:w-auto text-xs gap-1.5 shrink-0"
                         >
                           {committing ? (
@@ -815,10 +906,26 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
               />
             </div>
 
+            <div className="mt-2 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handlePreviewDeploy()}
+              disabled={previewing || deploying || !deployAppName.trim() || !connected}
+              className="text-xs gap-2"
+            >
+              {previewing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+              Δοκιμαστικός έλεγχος (χωρίς δημοσίευση)
+            </Button>
             <Button
               type="submit"
-              disabled={deploying || !deployAppName.trim()}
-              className="mt-2 text-xs gap-2 self-start"
+              disabled={deploying || !deployAppName.trim() || !canWrite}
+              title={canWrite ? undefined : "Απαιτείται έγκυρο GitHub Token"}
+              className="text-xs gap-2"
             >
               {deploying ? (
                 <>
@@ -832,6 +939,65 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
                 </>
               )}
             </Button>
+            </div>
+
+            {!canWrite && connected && (
+              <p className="text-[11px] text-amber-300">
+                Η δημοσίευση απαιτεί GitHub Token. Ο δοκιμαστικός έλεγχος λειτουργεί και χωρίς αυτό.
+              </p>
+            )}
+
+            {deployPreview && (
+              <div
+                data-testid="github-deploy-preview"
+                className="rounded-xl border border-border/60 bg-muted/20 p-4 text-xs flex flex-col gap-2"
+              >
+                {deployPreview.ok ? (
+                  <>
+                    <div className="flex items-center gap-2 font-semibold">
+                      {deployPreview.ready ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-amber-400" />
+                      )}
+                      {deployPreview.ready
+                        ? "Έτοιμο για δημοσίευση"
+                        : "Λείπει GitHub Token — δεν θα δημοσιευτεί τίποτα ακόμη"}
+                    </div>
+                    <p className="text-muted-foreground">
+                      Repo: <span className="font-mono">{deployPreview.owner}/{deployPreview.repo_name}</span>{" "}
+                      · Διεύθυνση: <span className="font-mono">{deployPreview.pages_url}</span>
+                    </p>
+                    <p className="font-medium">
+                      Θα ανέβουν {deployPreview.files?.length ?? 0} αρχεία (
+                      {((deployPreview.total_bytes ?? 0) / 1024).toFixed(1)} KB):
+                    </p>
+                    <ul className="font-mono text-[11px] max-h-40 overflow-y-auto">
+                      {deployPreview.files?.map((f) => <li key={f}>✓ {f}</li>)}
+                    </ul>
+                    {!!deployPreview.excluded_files?.length && (
+                      <>
+                        <p className="font-medium text-amber-300">
+                          Εξαιρούνται για ασφάλεια {deployPreview.excluded_files.length} αρχεία:
+                        </p>
+                        <ul className="font-mono text-[11px] max-h-32 overflow-y-auto text-muted-foreground">
+                          {deployPreview.excluded_files.map((f) => (
+                            <li key={f.path}>
+                              ✕ {f.path} <span className="opacity-60">({f.reason})</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    {describeGithubError(deployPreview.error, deployPreview.message)}
+                  </div>
+                )}
+              </div>
+            )}
 
             {deployResult && (
               <div
