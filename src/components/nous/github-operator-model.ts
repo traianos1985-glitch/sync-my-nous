@@ -26,7 +26,8 @@ export function githubTokenState(status: GithubStatus | null): GithubTokenState 
   if (!status) return "unknown";
   if (status.connected) return "connected";
   if (status.error === "missing_token" || status.token_configured === false) return "missing";
-  if (status.error === "invalid_credentials" || status.error === "github_http_401") return "invalid";
+  if (status.error === "invalid_credentials" || status.error === "github_http_401")
+    return "invalid";
   return "error";
 }
 
@@ -53,7 +54,10 @@ const GITHUB_ERROR_LABELS: Record<string, string> = {
 export function describeGithubError(error?: string | null, message?: string | null): string {
   const label = error ? GITHUB_ERROR_LABELS[error] : undefined;
   const text = label ?? message ?? error ?? "Άγνωστο σφάλμα";
-  return String(redactForAudit(text)).replace(/\bgh[pousr]_[A-Za-z0-9_]{16,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, "[REDACTED]");
+  return String(redactForAudit(text)).replace(
+    /\bgh[pousr]_[A-Za-z0-9_]{16,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
+    "[REDACTED]",
+  );
 }
 
 export type GithubDeployPreview = {

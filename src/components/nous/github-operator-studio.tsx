@@ -427,7 +427,12 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
               </span>
             </div>
           </div>
-          <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowConfig(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs"
+            onClick={() => setShowConfig(true)}
+          >
             <KeyRound className="h-3.5 w-3.5" /> Πρόσθεση Token
           </Button>
         </div>
@@ -907,38 +912,38 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
             </div>
 
             <div className="mt-2 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void handlePreviewDeploy()}
-              disabled={previewing || deploying || !deployAppName.trim() || !connected}
-              className="text-xs gap-2"
-            >
-              {previewing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-              Δοκιμαστικός έλεγχος (χωρίς δημοσίευση)
-            </Button>
-            <Button
-              type="submit"
-              disabled={deploying || !deployAppName.trim() || !canWrite}
-              title={canWrite ? undefined : "Απαιτείται έγκυρο GitHub Token"}
-              className="text-xs gap-2"
-            >
-              {deploying ? (
-                <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handlePreviewDeploy()}
+                disabled={previewing || deploying || !deployAppName.trim() || !connected}
+                className="text-xs gap-2"
+              >
+                {previewing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Δημιουργία Repo & Deployment...
-                </>
-              ) : (
-                <>
-                  <Rocket className="h-4 w-4" />
-                  🚀 Deploy στο GitHub Pages
-                </>
-              )}
-            </Button>
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+                Δοκιμαστικός έλεγχος (χωρίς δημοσίευση)
+              </Button>
+              <Button
+                type="submit"
+                disabled={deploying || !deployAppName.trim() || !canWrite}
+                title={canWrite ? undefined : "Απαιτείται έγκυρο GitHub Token"}
+                className="text-xs gap-2"
+              >
+                {deploying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Δημιουργία Repo & Deployment...
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="h-4 w-4" />
+                    🚀 Deploy στο GitHub Pages
+                  </>
+                )}
+              </Button>
             </div>
 
             {!canWrite && connected && (
@@ -965,7 +970,10 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
                         : "Λείπει GitHub Token — δεν θα δημοσιευτεί τίποτα ακόμη"}
                     </div>
                     <p className="text-muted-foreground">
-                      Repo: <span className="font-mono">{deployPreview.owner}/{deployPreview.repo_name}</span>{" "}
+                      Repo:{" "}
+                      <span className="font-mono">
+                        {deployPreview.owner}/{deployPreview.repo_name}
+                      </span>{" "}
                       · Διεύθυνση: <span className="font-mono">{deployPreview.pages_url}</span>
                     </p>
                     <p className="font-medium">
@@ -973,7 +981,9 @@ export function GithubOperatorStudio({ connected }: GithubOperatorStudioProps) {
                       {((deployPreview.total_bytes ?? 0) / 1024).toFixed(1)} KB):
                     </p>
                     <ul className="font-mono text-[11px] max-h-40 overflow-y-auto">
-                      {deployPreview.files?.map((f) => <li key={f}>✓ {f}</li>)}
+                      {deployPreview.files?.map((f) => (
+                        <li key={f}>✓ {f}</li>
+                      ))}
                     </ul>
                     {!!deployPreview.excluded_files?.length && (
                       <>
