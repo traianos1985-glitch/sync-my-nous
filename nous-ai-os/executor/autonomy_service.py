@@ -152,21 +152,23 @@ def _bounded_interval(interval):
 
 def enable(interval=DEFAULT_INTERVAL):
     interval = _bounded_interval(interval)
-    state = _load()
-    state["enabled"] = True
-    state["emergency_stop"] = False
-    state["interval"] = interval
-    state["last_heartbeat"] = time.time()
-    _save(state)
+    with _state_lock():
+        state = _load_unlocked()
+        state["enabled"] = True
+        state["emergency_stop"] = False
+        state["interval"] = interval
+        state["last_heartbeat"] = time.time()
+        _save_unlocked(state)
     log_event("service_enabled", {"interval": interval})
     return state
 
 def emergency_stop(reason="emergency_stop_triggered"):
-    state = _load()
-    state["enabled"] = False
-    state["emergency_stop"] = True
-    state["last_heartbeat"] = time.time()
-    _save(state)
+    with _state_lock():
+        state = _load_unlocked()
+        state["enabled"] = False
+        state["emergency_stop"] = True
+        state["last_heartbeat"] = time.time()
+        _save_unlocked(state)
     log_event("emergency_stop", {"reason": str(reason)})
     stop_loop("emergency_stop", timeout=0)
     try:
@@ -201,10 +203,11 @@ def recent_events(limit=50):
 
 
 def disable():
-    state = _load()
-    state["enabled"] = False
-    state["last_heartbeat"] = time.time()
-    _save(state)
+    with _state_lock():
+        state = _load_unlocked()
+        state["enabled"] = False
+        state["last_heartbeat"] = time.time()
+        _save_unlocked(state)
     log_event("service_disabled")
     stop_loop("disabled", timeout=0)
     return state
@@ -254,6 +257,20 @@ def heartbeat():
     return state
 
 
+def _save_cycle_fields(fields):
+    """Persist cycle bookkeeping without overwriting enabled/emergency_stop changed mid-cycle."""
+    try:
+        with _state_lock():
+            latest = _load_unlocked()
+            if "cycles" in fields:
+                fields = {**fields, "cycles": int(latest.get("cycles", 0)) + 1}
+            latest.update(fields)
+            _save_unlocked(latest)
+    except RuntimeError:
+        return fields
+    return latest
+
+
 def _run_cycle_locked():
     try:
         state = _load()
@@ -272,17 +289,20 @@ def _run_cycle_locked():
         result = run_once()
         result["learning"] = auto_learning_cycle()
         result["master"] = master_cycle(real_research=False)
-        state["last_run"] = time.time()
-        state["last_error"] = None
-        state["cycles"] = int(state.get("cycles", 0)) + 1
-        state["last_heartbeat"] = time.time()
-        _save(state)
+        now = time.time()
+        state = _save_cycle_fields({
+            "last_run": now,
+            "last_error": None,
+            "cycles": None,
+            "last_heartbeat": now,
+        })
         log_event("service_cycle_ok", {"keys": list(result.keys()) if isinstance(result, dict) else []})
         return {"ok": True, "result": result, "state": state}
     except Exception as exc:
-        state["last_error"] = type(exc).__name__
-        state["last_heartbeat"] = time.time()
-        _save(state)
+        state = _save_cycle_fields({
+            "last_error": type(exc).__name__,
+            "last_heartbeat": time.time(),
+        })
         log_event("service_cycle_error", {"error": type(exc).__name__})
         return {"ok": False, "error": "autonomy_cycle_failed", "state": state}
 

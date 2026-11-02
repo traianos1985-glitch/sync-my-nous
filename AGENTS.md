@@ -61,5 +61,5 @@
 - Browser work without Playwright on the host falls back to the guarded HTTP reader/web search and reports `not_available_on_this_host`; interactive actions are never claimed as performed.
 - Knowledge memory writes go through the re-entrant file lock + atomic replace with item/size bounds, provenance (`verified: False`) and TTL for web-derived answers, so unverified content ages out.
 - Fleet version checks accept a 7+ char Git SHA prefix of a full SHA; release labels still compare exactly.
-
+- GitHub operator results pass through `redact_secrets`, report token presence/source but never values, refuse write actions without a token before any network call, and publish only allowlisted non-secret files; tests mock all GitHub traffic so no real token is ever needed or logged.
 - Field/Larmor workspace uses existing authenticated Render endpoints and bounded contextual conversations; calculations use explicit unit conversion and AI interpretations never count as verified detections.

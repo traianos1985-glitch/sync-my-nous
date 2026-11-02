@@ -4720,14 +4720,20 @@ def remote_github_config_route():
     data = request.get_json(silent=True) or {}
     token = data.get("token", "")
     default_owner = data.get("default_owner")
-    return jsonify(save_github_config(token=token, default_owner=default_owner))
+    result = save_github_config(token=token, default_owner=default_owner)
+    return jsonify(result), (200 if result.get("ok") else 400)
 
 
 @app.route("/remote/github/repos", methods=["GET"])
 def remote_github_repos_route():
     from executor.github_operator import list_repositories
     sort = request.args.get("sort", "updated")
-    per_page = int(request.args.get("per_page", 50))
+    if sort not in {"updated", "created", "pushed", "full_name"}:
+        sort = "updated"
+    try:
+        per_page = max(1, min(int(request.args.get("per_page", 50)), 100))
+    except (TypeError, ValueError):
+        per_page = 50
     return jsonify(list_repositories(per_page=per_page, sort=sort))
 
 
@@ -4779,9 +4785,9 @@ def remote_github_deploy_pages_app_route():
         return jsonify({"error": "unauthorized"}), 401
     from executor.github_operator import create_or_update_pages_app
     data = request.get_json(silent=True) or {}
-    repo_name = data.get("repo_name", "").strip()
+    repo_name = str(data.get("repo_name") or "").strip()
     files = data.get("files", {})
-    description = data.get("description", "Deployed by NOUS AI OS")
+    description = str(data.get("description") or "Deployed by NOUS AI OS")[:300]
     is_private = bool(data.get("private", False))
     enable_pages = bool(data.get("enable_pages", True))
     if not repo_name or not isinstance(files, dict):
@@ -4795,9 +4801,10 @@ def remote_github_deploy_sandbox_app_route():
         return jsonify({"error": "unauthorized"}), 401
     from executor.github_operator import deploy_sandbox_app_to_github
     data = request.get_json(silent=True) or {}
-    app_name = data.get("app_name", "").strip()
-    repo_name = data.get("repo_name")
-    description = data.get("description")
+    app_name = str(data.get("app_name") or "").strip()
+    repo_name = data.get("repo_name") if isinstance(data.get("repo_name"), str) else None
+    description = data.get("description") if isinstance(data.get("description"), str) else None
+    dry_run = data.get("dry_run") is True
     if not app_name:
         return jsonify({"ok": False, "error": "missing_app_name"}), 400
-    return jsonify(deploy_sandbox_app_to_github(app_name=app_name, repo_name=repo_name, description=description))
+    return jsonify(deploy_sandbox_app_to_github(app_name=app_name, repo_name=repo_name, description=description, dry_run=dry_run))

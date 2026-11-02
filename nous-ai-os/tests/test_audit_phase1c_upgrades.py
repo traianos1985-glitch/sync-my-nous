@@ -95,8 +95,8 @@ def test_failed_cycle_keeps_loop_alive_and_records_error(autonomy, monkeypatch):
     autonomy.enable(30)
     autonomy.start_loop(initial_delay=0)
     assert _wait_for(lambda: autonomy.status().get("last_error") == "RuntimeError")
+    assert _wait_for(lambda: autonomy.status()["loop"]["last_outcome"] == "error")
     assert autonomy.loop_running() is True
-    assert autonomy.status()["loop"]["last_outcome"] == "error"
 
 
 def test_reconcile_starts_and_stops_loop_from_durable_flag(autonomy, monkeypatch):
@@ -498,3 +498,26 @@ def test_launched_app_receives_only_allowlisted_env(monkeypatch, tmp_path):
     allowed = {"PATH", "PYTHONNOUSERSITE", "PYTHONDONTWRITEBYTECODE", "PYTHONUNBUFFERED", "HOME", "TMPDIR", "TEMP",
                "LANG", "LC_ALL", "LC_CTYPE", "TZ", "SYSTEMROOT", "WINDIR", "PATHEXT", "LC_CTYPE", "PWD", "SHLVL", "_"}
     assert keys <= allowed, keys - allowed
+
+
+def test_disable_during_cycle_is_not_overwritten_by_cycle(autonomy, monkeypatch):
+    def slow_cycle():
+        autonomy.disable()
+        return {"ran": True}
+
+    monkeypatch.setattr(autonomy, "run_once", slow_cycle)
+    autonomy.enable(30)
+    autonomy.run_cycle()
+    assert autonomy.status()["enabled"] is False
+
+
+def test_emergency_stop_during_cycle_is_not_overwritten_by_cycle(autonomy, monkeypatch):
+    def stopping_cycle():
+        autonomy.emergency_stop("test")
+        return {"ran": True}
+
+    monkeypatch.setattr(autonomy, "run_once", stopping_cycle)
+    autonomy.enable(30)
+    autonomy.run_cycle()
+    state = autonomy.status()
+    assert state["enabled"] is False and state["emergency_stop"] is True
