@@ -17,6 +17,70 @@ MAX_FILE_BYTES = 1_000_000  # 1MB limit for in-memory code editing
 REQUEST_TIMEOUT = (5, 20)
 _LOCK = threading.RLock()
 
+MISSING_TOKEN_MESSAGE = "Δεν έχει οριστεί GitHub Token. Πρόσθεσε ένα Personal Access Token στις ρυθμίσεις."
+_APP_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+_SKIP_PARTS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache"}
+_DENY_NAMES = {
+    ".env", ".npmrc", ".pypirc", ".netrc", "secrets.json", "credentials.json",
+    "github_config.json", "id_rsa", "id_ed25519", "id_ecdsa",
+}
+_DENY_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".db", ".sqlite", ".sqlite3"}
+_TOKEN_PATTERNS = (
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{16,}\b"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
+    re.compile(r"(?i)(bearer\s+)[^\s,;\"']+"),
+    re.compile(r"(?i)(authorization['\"]?\s*[:=]\s*['\"]?)[^\s,;\"']+"),
+)
+
+
+def redact_secrets(value: Any, token: str | None = None) -> Any:
+    """Remove GitHub credentials from text/structures before returning or logging them."""
+    if isinstance(value, str):
+        text = value
+        known = token if token is not None else get_github_token()
+        if known and len(known) >= 4:
+            text = text.replace(known, "[REDACTED]")
+        for pattern in _TOKEN_PATTERNS:
+            text = pattern.sub(lambda m: (m.group(1) if m.groups() else "") + "[REDACTED]", text)
+        return text
+    if isinstance(value, dict):
+        return {
+            k: ("[REDACTED]" if isinstance(k, str) and k.lower() in {"token", "authorization", "access_token"} else redact_secrets(v, token))
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_secrets(v, token) for v in value]
+    return value
+
+
+def _missing_token(action: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "error": "missing_token",
+        "token_required": True,
+        "action": action,
+        "message": MISSING_TOKEN_MESSAGE,
+    }
+
+
+def _safe_error(exc: Exception, token: str | None = None) -> str:
+    return redact_secrets(f"{type(exc).__name__}: {exc}", token)[:300]
+
+
+def get_token_source() -> str | None:
+    """Report where the token comes from ("config"/"env") without revealing it."""
+    with _LOCK:
+        if CONFIG_PATH.exists():
+            try:
+                cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+                if str(cfg.get("token", "")).strip():
+                    return "config"
+            except Exception:
+                pass
+    if os.environ.get("GITHUB_TOKEN", "").strip() or os.environ.get("GITHUB_PAT", "").strip():
+        return "env"
+    return None
+
 
 def get_github_token() -> str:
     """Retrieve GitHub token from config file or environment."""
@@ -37,7 +101,11 @@ def get_github_token() -> str:
 
 def save_github_config(token: str, default_owner: str | None = None) -> dict[str, Any]:
     """Save GitHub credentials securely with 0600 permissions."""
-    token = (token or "").strip()
+    token = (token or "").strip() if isinstance(token, str) else ""
+    if any(ch.isspace() for ch in token) or len(token) > 512:
+        return {"ok": False, "error": "invalid_token_format", "has_token": False}
+    if default_owner is not None and not isinstance(default_owner, str):
+        default_owner = None
     with _LOCK:
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         data = {"token": token}
@@ -82,12 +150,15 @@ def _headers(token: str | None = None) -> dict[str, str]:
 def get_github_status(token: str | None = None) -> dict[str, Any]:
     """Check connectivity and scopes with GitHub API."""
     tok = token or get_github_token()
+    source = "argument" if token else get_token_source()
     if not tok:
         return {
             "ok": True,
             "connected": False,
+            "token_configured": False,
+            "token_source": None,
             "error": "missing_token",
-            "message": "Δεν έχει οριστεί GitHub Token. Πρόσθεσε ένα Personal Access Token στις ρυθμίσεις.",
+            "message": MISSING_TOKEN_MESSAGE,
             "default_owner": get_default_owner(),
         }
 
@@ -101,6 +172,8 @@ def get_github_status(token: str | None = None) -> dict[str, Any]:
             return {
                 "ok": True,
                 "connected": True,
+                "token_configured": True,
+                "token_source": source,
                 "login": user_data.get("login"),
                 "name": user_data.get("name"),
                 "avatar_url": user_data.get("avatar_url"),
@@ -116,6 +189,9 @@ def get_github_status(token: str | None = None) -> dict[str, Any]:
                 "ok": False,
                 "connected": False,
                 "status_code": 401,
+                "token_configured": True,
+                "token_source": source,
+                "default_owner": get_default_owner(),
                 "error": "invalid_credentials",
                 "message": "Το GitHub Token είναι άκυρο ή έχει λήξει.",
             }
@@ -124,6 +200,8 @@ def get_github_status(token: str | None = None) -> dict[str, Any]:
                 "ok": False,
                 "connected": False,
                 "status_code": res.status_code,
+                "token_configured": True,
+                "token_source": source,
                 "error": f"github_http_{res.status_code}",
                 "message": f"GitHub API error: {res.status_code}",
             }
@@ -131,8 +209,10 @@ def get_github_status(token: str | None = None) -> dict[str, Any]:
         return {
             "ok": False,
             "connected": False,
+            "token_configured": True,
+            "token_source": source,
             "error": "network_error",
-            "message": f"Αποτυχία σύνδεσης με GitHub: {exc}",
+            "message": f"Αποτυχία σύνδεσης με GitHub: {_safe_error(exc, tok)}",
         }
 
 
@@ -156,6 +236,7 @@ def list_repositories(per_page: int = 50, sort: str = "updated") -> dict[str, An
                 "status_code": res.status_code,
                 "error": f"github_http_{res.status_code}",
                 "repositories": [],
+                "anonymous": not tok,
             }
 
         repos_raw = res.json()
@@ -186,9 +267,9 @@ def list_repositories(per_page: int = 50, sort: str = "updated") -> dict[str, An
                 "archived": bool(r.get("archived")),
             })
 
-        return {"ok": True, "count": len(repos), "repositories": repos}
+        return {"ok": True, "count": len(repos), "repositories": repos, "anonymous": not tok}
     except Exception as exc:
-        return {"ok": False, "error": str(exc), "repositories": []}
+        return {"ok": False, "error": _safe_error(exc, tok), "repositories": [], "anonymous": not tok}
 
 
 def get_repository_tree(owner: str, repo: str, path: str = "", branch: str | None = None) -> dict[str, Any]:
@@ -234,7 +315,7 @@ def get_repository_tree(owner: str, repo: str, path: str = "", branch: str | Non
         items.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"].lower()))
         return {"ok": True, "is_file": False, "path": clean_path, "count": len(items), "items": items}
     except Exception as exc:
-        return {"ok": False, "error": str(exc), "items": []}
+        return {"ok": False, "error": _safe_error(exc), "items": []}
 
 
 def get_file_content(owner: str, repo: str, path: str, branch: str | None = None) -> dict[str, Any]:
@@ -275,7 +356,7 @@ def get_file_content(owner: str, repo: str, path: str, branch: str | None = None
             "html_url": data.get("html_url"),
         }
     except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+        return {"ok": False, "error": _safe_error(exc)}
 
 
 def commit_file(
@@ -290,7 +371,7 @@ def commit_file(
     """Commit a single file modification or creation via GitHub Contents API."""
     tok = get_github_token()
     if not tok:
-        return {"ok": False, "error": "unauthorized", "message": "Απαιτείται GitHub Token για τροποποίηση κώδικα."}
+        return _missing_token("commit")
 
     headers = _headers(tok)
     clean_path = path.strip("/")
@@ -328,14 +409,18 @@ def commit_file(
                 "message": payload["message"],
             }
         else:
-            err_body = res.json() if res.text else {}
+            try:
+                err_body = res.json() if res.text else {}
+            except ValueError:
+                err_body = {}
+            message = err_body.get("message") if isinstance(err_body, dict) else None
             return {
                 "ok": False,
                 "status_code": res.status_code,
-                "error": err_body.get("message", f"github_http_{res.status_code}"),
+                "error": redact_secrets(str(message or f"github_http_{res.status_code}"), tok)[:300],
             }
     except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+        return {"ok": False, "error": _safe_error(exc, tok)}
 
 
 def create_or_update_pages_app(
