@@ -45,3 +45,6 @@
 - [x] Audit N-01: app launch env allowlist (verify + test)
 - [x] Tests for all of the above, full suite green
 - [ ] Verify audit upgrades live on Render; requires owner redeploy of `nous-ai-os` and NOUS token in Settings.
+
+- [x] GitHub & Pages safety: missing/invalid token banner, write actions disabled without token, dry-run publish preview, secret file exclusion, token redaction, honest partial results; mocked tests only.
+- [ ] Verify GitHub Operator live; requires Render redeploy, NOUS token in Settings and a GitHub token.
