@@ -48,3 +48,4 @@
 
 - [x] GitHub & Pages safety: missing/invalid token banner, write actions disabled without token, dry-run publish preview, secret file exclusion, token redaction, honest partial results; mocked tests only.
 - [ ] Verify GitHub Operator live; requires Render redeploy, NOUS token in Settings and a GitHub token.
+- [ ] Interactive Field Assistant & Larmor Studio: contextual chat, unit-safe calculator, explicit field diary saves, scientific safeguards, tests and GitHub delivery.
