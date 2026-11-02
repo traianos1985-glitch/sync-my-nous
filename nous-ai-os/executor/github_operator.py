@@ -577,7 +577,7 @@ def collect_sandbox_app_files(app_name: str) -> dict[str, Any]:
         except (UnicodeDecodeError, OSError):
             excluded.append({"path": rel, "reason": "not_text"})
             continue
-        if redact_secrets(text, "") != text:
+        if any(pattern.search(text) for pattern in _TOKEN_PATTERNS[:2]):
             excluded.append({"path": rel, "reason": "contains_credentials"})
             continue
         files[rel] = text
