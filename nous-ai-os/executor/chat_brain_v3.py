@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
+import logging
 import operator as op
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +28,8 @@ from executor.error_learning_engine import engineering_memory_context
 DATA = Path("data")
 REPORTS = DATA / "reports"
 CHAT_MEMORY = DATA / "chat_memory_v3.json"
+CHAT_MEMORY_MIGRATION_KEY = "__nous_chat_memory_migration_v1__"
+logger = logging.getLogger(__name__)
 
 
 def now_iso() -> str:
@@ -45,19 +50,72 @@ def save_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def remember_turn(user: str, answer: str, mode: str) -> None:
+def _local_chat_memory() -> list[dict[str, Any]]:
     memory = load_json(CHAT_MEMORY, [])
-    if not isinstance(memory, list):
-        memory = []
+    return [item for item in memory if isinstance(item, dict)] if isinstance(memory, list) else []
 
-    memory.append({
+
+def load_chat_memory() -> list[dict[str, Any]]:
+    """Read shared chat context from Neon, retaining a safe local fallback."""
+    if not os.environ.get("DATABASE_URL"):
+        return _local_chat_memory()
+
+    try:
+        from executor import memory as persistent_memory
+        from executor import memory_store
+
+        user_id = persistent_memory._postgres_user_id()
+        # This also performs the existing SQLite-to-Neon migration, if needed.
+        records = persistent_memory.load()
+
+        marker = memory_store.get_mem(CHAT_MEMORY_MIGRATION_KEY, None, user_id=user_id)
+        if marker is None:
+            legacy = _local_chat_memory()[-memory_store.MAX_ENTRIES:]
+            batch = {}
+            for index, item in enumerate(legacy):
+                if not str(item.get("user", "")).strip() or not str(item.get("answer", "")).strip():
+                    continue
+                canonical = json.dumps(item, sort_keys=True, ensure_ascii=False, allow_nan=False)
+                digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+                batch[f"{memory_store.ENTRY_PREFIX}chat-legacy:{index:06d}:{digest}"] = item
+            batch[CHAT_MEMORY_MIGRATION_KEY] = {"version": 1, "imported": len(batch)}
+            # The legacy records and marker commit atomically; retries cannot duplicate them.
+            memory_store.save(batch, user_id=user_id)
+            records = persistent_memory.load()
+
+        return [
+            item for item in records
+            if isinstance(item, dict)
+            and str(item.get("user", "")).strip()
+            and str(item.get("answer", "")).strip()
+        ][-80:]
+    except Exception:
+        logger.warning("Shared chat memory unavailable; using local chat-memory mirror", exc_info=True)
+        return _local_chat_memory()
+
+
+def remember_turn(user: str, answer: str, mode: str) -> dict[str, Any]:
+    entry = {
         "time": now_iso(),
         "user": user,
         "answer": answer,
         "mode": mode,
-    })
+    }
 
+    if os.environ.get("DATABASE_URL"):
+        # Import the old local history before adding this new turn, avoiding duplicates.
+        load_chat_memory()
+
+    # Keep a local recovery mirror, including when the cloud database is unavailable.
+    memory = _local_chat_memory()
+    memory.append(entry)
     save_json(CHAT_MEMORY, memory[-80:])
+
+    if os.environ.get("DATABASE_URL"):
+        from executor.memory import save as save_shared_memory
+
+        return save_shared_memory(entry)
+    return {"ok": True, "local": True}
 
 
 def norm(text: str) -> str:
@@ -391,7 +449,7 @@ def document_context_for_llm(message: str) -> str:
 
 def build_llm_turns(message: str, conversation_id: str | None = None) -> list[dict]:
     """Build multi-turn messages list from recent chat history."""
-    memory = load_json(CHAT_MEMORY, [])
+    memory = load_chat_memory()
     turns: list[dict] = []
 
     if isinstance(memory, list):
@@ -466,9 +524,9 @@ def try_llm_answer(message: str, conversation_id: str | None = None) -> str | No
 
 
 def recent_chat_context(limit: int = 3) -> str:
-    memory = load_json(CHAT_MEMORY, [])
+    memory = load_chat_memory()
 
-    if not isinstance(memory, list) or not memory:
+    if not memory:
         return ""
 
     clean_items = []
@@ -857,10 +915,12 @@ def answer_chat(
     except Exception:
         pass
 
+    memory_sync_warning = False
     try:
         remember_turn(message, answer, mode)
     except Exception:
-        pass
+        memory_sync_warning = bool(os.environ.get("DATABASE_URL"))
+        logger.warning("Chat turn was saved locally but shared-memory sync failed", exc_info=True)
 
     try:
         if conv.get("conversation_id") and int(conv.get("messages", 0)) >= 10:
@@ -869,7 +929,7 @@ def answer_chat(
     except Exception:
         pass
 
-    return {
+    response = {
         "ok": True,
         "executed": any(call.get("executed") for call in tool_calls),
         "tool_calls": tool_calls,
@@ -884,6 +944,9 @@ def answer_chat(
         "conversation_id": conv.get("conversation_id"),
         "timestamp": now_iso(),
     }
+    if memory_sync_warning:
+        response["memory_sync_warning"] = "shared_memory_sync_unavailable"
+    return response
 
 
 if __name__ == "__main__":
