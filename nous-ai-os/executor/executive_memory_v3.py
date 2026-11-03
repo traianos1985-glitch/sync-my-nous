@@ -37,6 +37,18 @@ def remember_event(title, what_happened="", why="", result="", tags=None, avoid_
         "tags": tags or [],
         "avoid_repeating": bool(avoid_repeating),
     }
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(FILE, []) as items:
+            if not isinstance(items, list):
+                raise RuntimeError("executive_memory_integrity_failure")
+            key = (title, result, tuple(sorted(tags or [])))
+            for existing in items:
+                if (existing.get("title"), existing.get("result"), tuple(sorted(existing.get("tags", [])))) == key:
+                    return {"ok": True, "deduped": True, "memory": existing}
+            items.append(item)
+            del items[:-500]
+            return {"ok": True, "memory": item}
+
     items = _load()
 
     key = (title, result, tuple(sorted(tags or [])))
