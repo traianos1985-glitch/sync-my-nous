@@ -16,6 +16,9 @@ services:
         value: "0"
       - key: NOUS_ALLOW_ANONYMOUS
         value: "0"
+      # Set to "1" on hosts without a persistent disk so autonomy restarts after every wake-up.
+      - key: NOUS_AUTONOMY_ENABLED_DEFAULT
+        value: "0"
       - key: NOUS_DB_PATH
         value: /app/data/nous_storage.db
     disk:
