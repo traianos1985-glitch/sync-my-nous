@@ -1,9 +1,12 @@
 """Transactional, per-NOUS-user JSON state documents backed by Neon.
 
-The existing JSON files remain the offline/local fallback and are imported
-lazily on first cloud access. Each document is protected by a PostgreSQL
-transaction-scoped advisory lock, so read/modify/write operations from several
-installations cannot overwrite one another.
+Existing JSON files are imported lazily on first cloud access and remain the
+standalone fallback when DATABASE_URL is absent. Cloud writes are not mirrored
+to the shared filesystem: a Render disk may serve several user scopes, and a
+single unscoped JSON mirror could leak or overwrite another user's data. Each
+document is protected by a PostgreSQL transaction-scoped advisory lock, so
+read/modify/write operations from several installations cannot overwrite one
+another.
 """
 from __future__ import annotations
 
