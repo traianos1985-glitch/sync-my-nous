@@ -44,14 +44,14 @@ def _fake_store(monkeypatch, store_module):
 
 
 def test_neon_memory_migrates_legacy_sqlite_once(monkeypatch):
-    from executor import memory_store
+    from executor import memory_store, sqlite_store
     import executor.memory as memory
 
     monkeypatch.setenv("DATABASE_URL", "postgresql://test.invalid/db")
     monkeypatch.setenv("NOUS_TOKEN", "test-owner-token")
     values, entries, calls = _fake_store(monkeypatch, memory_store)
     legacy = [{"text": "old one"}, {"text": "old two"}]
-    monkeypatch.setattr(memory, "load_memories", lambda limit=200: legacy)
+    monkeypatch.setattr(sqlite_store, "load_memories", lambda limit=200: legacy)
 
     facade = importlib.reload(memory)
     assert facade.load() == legacy
@@ -64,14 +64,13 @@ def test_neon_memory_migrates_legacy_sqlite_once(monkeypatch):
 
 
 def test_neon_memory_appends_without_overwriting_other_installation_entries(monkeypatch):
-    from executor import memory_store
+    from executor import memory_store, sqlite_store
     import executor.memory as memory
 
     monkeypatch.setenv("DATABASE_URL", "postgresql://test.invalid/db")
     monkeypatch.setenv("NOUS_TOKEN", "test-owner-token")
     _, entries, calls = _fake_store(monkeypatch, memory_store)
-    monkeypatch.setattr(memory, "load_memories", lambda limit=200: [])
-    monkeypatch.setattr(memory, "save_memory", lambda entry: None)
+    monkeypatch.setattr(sqlite_store, "load_memories", lambda limit=200: [])
 
     @contextmanager
     def fake_edit_list(_path):
@@ -79,6 +78,7 @@ def test_neon_memory_appends_without_overwriting_other_installation_entries(monk
 
     monkeypatch.setattr(memory, "edit_list", fake_edit_list)
     facade = importlib.reload(memory)
+    monkeypatch.setattr(facade, "save_memory", lambda entry: None)
 
     first = {"message": "from installation A"}
     second = {"message": "from installation B"}
@@ -89,13 +89,13 @@ def test_neon_memory_appends_without_overwriting_other_installation_entries(monk
 
 
 def test_neon_memory_does_not_claim_success_when_postgres_write_fails(monkeypatch):
-    from executor import memory_store
+    from executor import memory_store, sqlite_store
     import executor.memory as memory
 
     monkeypatch.setenv("DATABASE_URL", "postgresql://test.invalid/db")
     monkeypatch.setenv("NOUS_TOKEN", "test-owner-token")
     _fake_store(monkeypatch, memory_store)
-    monkeypatch.setattr(memory, "load_memories", lambda limit=200: [])
+    monkeypatch.setattr(sqlite_store, "load_memories", lambda limit=200: [])
     monkeypatch.setattr(
         memory_store,
         "append_entry",
