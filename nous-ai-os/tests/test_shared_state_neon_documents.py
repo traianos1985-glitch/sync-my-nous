@@ -1,6 +1,7 @@
 """Tests for transactional, user-scoped shared JSON state documents."""
 
 import json
+from copy import deepcopy
 
 import pytest
 
@@ -34,7 +35,7 @@ class FakeCursor:
 class FakeConnection:
     def __init__(self, values):
         self.values = values
-        self.before = dict(values)
+        self.before = deepcopy(values)
 
     def __enter__(self):
         return self
