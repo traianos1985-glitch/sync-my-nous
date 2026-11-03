@@ -66,6 +66,19 @@ def append_entry(entry: dict[str, Any], user_id: str = "default") -> str:
                VALUES (%s, %s, %s, %s::jsonb, now())""",
             (str(uuid.uuid4()), user_id, key, encoded),
         )
+        # Keep the event log bounded without affecting key/value metadata.
+        cur.execute(
+            """DELETE FROM nous_memory_entries
+               WHERE user_id = %s
+                 AND memory_key LIKE 'entry:%%'
+                 AND memory_key NOT IN (
+                     SELECT memory_key FROM nous_memory_entries
+                     WHERE user_id = %s AND memory_key LIKE 'entry:%%'
+                     ORDER BY created_at DESC, memory_key DESC
+                     LIMIT %s
+                 )""",
+            (user_id, user_id, MAX_ENTRIES),
+        )
     return key
 
 
