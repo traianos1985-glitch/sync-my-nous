@@ -133,7 +133,7 @@ def new_conversation(title: str = "") -> dict[str, Any]:
 
     # Validate the index before creating the conversation file, so corrupt
     # metadata cannot leave behind a newly-created orphan conversation.
-    index = _load_index()
+    _load_index()
 
     save_json(CONV_DIR / f"{cid}.json", conv)
 
@@ -169,7 +169,7 @@ def list_conversations(limit: int = 30) -> dict[str, Any]:
 
 
 def update_index(conv: dict[str, Any]) -> None:
-    index = _load_index()
+    _load_index()
 
     item = {
         "id": conv["id"],
@@ -275,7 +275,7 @@ def rename_conversation(conversation_id: str, title: str) -> dict[str, Any]:
 def delete_conversation(conversation_id: str) -> dict[str, Any]:
     if not _valid_conversation_id(conversation_id):
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
-    index = _load_index()
+    _load_index()
     path = CONV_DIR / f"{conversation_id}.json"
     if shared_state_store.cloud_enabled():
         save_json(path, {"id": conversation_id, "deleted": True, "deleted_at": now_iso()})
