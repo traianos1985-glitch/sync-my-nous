@@ -136,6 +136,28 @@ def search_vector_memory(query: str, top_k: int = 5, min_score: float = 0.05) ->
     q_emb = generate_embedding(query)
     if shared_state_store.cloud_enabled():
         rows = shared_state_store.read_state("data/vector_memories.json", [])
+        if not rows and os.path.exists(DB_PATH):
+            with shared_state_store.edit_state("data/vector_memories.json", []) as imported:
+                if not imported:
+                    legacy = _get_connection()
+                    try:
+                        old_rows = legacy.execute(
+                            "SELECT id, text, metadata, embedding, timestamp FROM vector_memories ORDER BY id DESC LIMIT 1000"
+                        ).fetchall()
+                        for old in reversed(old_rows):
+                            try:
+                                imported.append({
+                                    "id": f"legacy:{old['id']}",
+                                    "text": old["text"],
+                                    "metadata": json.loads(old["metadata"]) if old["metadata"] else {},
+                                    "embedding": json.loads(old["embedding"]),
+                                    "timestamp": old["timestamp"],
+                                })
+                            except (TypeError, ValueError, json.JSONDecodeError):
+                                continue
+                    finally:
+                        legacy.close()
+            rows = shared_state_store.read_state("data/vector_memories.json", [])
         results = []
         for row in rows if isinstance(rows, list) else []:
             try:
