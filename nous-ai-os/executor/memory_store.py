@@ -50,7 +50,13 @@ def set_mem(key: str, value: Any, user_id: str = "default") -> dict[str, Any]:
 
 
 def get_mem(key: str, default: T = None, user_id: str = "default") -> T:
-    value = load(user_id).get(key, default)
+    with _connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT value FROM nous_memory_entries WHERE user_id = %s AND memory_key = %s LIMIT 1",
+            (user_id, key),
+        )
+        row = cur.fetchone()
+    value = row[0] if row else default
     return value  # type: ignore[return-value]
 
 
