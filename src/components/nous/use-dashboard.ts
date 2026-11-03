@@ -191,6 +191,17 @@ export function useDashboard(sessionId?: string) {
     window.speechSynthesis.speak(utterance);
   };
 
+  /** Read one reply aloud on request, independent of the auto-speak toggle. */
+  const readAloud = (text: string) => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const spoken = stripMarkdown(text);
+    if (!spoken) return;
+    const utterance = new SpeechSynthesisUtterance(spoken);
+    utterance.lang = voiceLanguage;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const stopListening = () => {
     recognitionRef.current?.stop();
     setIsListening(false);
@@ -977,6 +988,7 @@ export function useDashboard(sessionId?: string) {
     chatEndRef,
     chatInputRef,
     speak,
+    readAloud,
     stopListening,
     startListening,
     toggleListening,

@@ -51,6 +51,7 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
     chatEndRef,
     chatInputRef,
     stopListening,
+    readAloud,
     startListening,
     toggleListening,
     researchMode,
@@ -757,6 +758,20 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                     ) : (
                       <div />
                     )}
+                    <div className="flex items-center gap-1">
+                    {voiceSupported && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        onClick={() => readAloud(m.text)}
+                        className="h-6 gap-1 px-2 text-[11px] hover:bg-muted"
+                        aria-label="Άκουσε την απάντηση"
+                      >
+                        <Volume2 className="size-3" />
+                        <span>Άκουσε</span>
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -777,6 +792,7 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                         </>
                       )}
                     </Button>
+                    </div>
                   </div>
                 )}
                 {m.citations && m.citations.length > 0 && (
