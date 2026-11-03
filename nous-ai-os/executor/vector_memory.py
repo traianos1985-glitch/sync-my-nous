@@ -80,7 +80,7 @@ def cosine_similarity(v1: List[float], v2: List[float]) -> float:
         return 0.0
     return sum(a * b for a, b in zip(v1, v2))
 
-def store_vector_memory(text: str, metadata: Optional[Dict[str, Any]] = None) -> int:
+def store_vector_memory(text: str, metadata: Optional[Dict[str, Any]] = None) -> int | str:
     """Stores a memory snippet and embedding; Neon mode shares the bounded index."""
     if not text.strip():
         return -1
@@ -91,6 +91,26 @@ def store_vector_memory(text: str, metadata: Optional[Dict[str, Any]] = None) ->
         with shared_state_store.edit_state("data/vector_memories.json", []) as rows:
             if not isinstance(rows, list):
                 raise RuntimeError("vector_memory_integrity_failure")
+            # Import the device's SQLite vectors on the first cloud write.
+            if not rows and os.path.exists(DB_PATH):
+                legacy = _get_connection()
+                try:
+                    old_rows = legacy.execute(
+                        "SELECT id, text, metadata, embedding, timestamp FROM vector_memories ORDER BY id DESC LIMIT 1000"
+                    ).fetchall()
+                    for old in reversed(old_rows):
+                        try:
+                            rows.append({
+                                "id": f"legacy:{old['id']}",
+                                "text": old["text"],
+                                "metadata": json.loads(old["metadata"]) if old["metadata"] else {},
+                                "embedding": json.loads(old["embedding"]),
+                                "timestamp": old["timestamp"],
+                            })
+                        except (TypeError, ValueError, json.JSONDecodeError):
+                            continue
+                finally:
+                    legacy.close()
             rows.append(record)
             del rows[:-1000]
         return record["id"]
