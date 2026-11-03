@@ -19,6 +19,9 @@ import { AppBuilderStudio } from "./app-builder-studio";
 import { GithubOperatorStudio } from "./github-operator-studio";
 import { AutonomyPanel } from "./autonomy-panel";
 import { ExecutionReceiptsPanel } from "./execution-receipts-panel";
+import { SwarmStudio } from "./swarm-studio";
+import { CompanionStudio } from "./companion-studio";
+import { SchedulerCard } from "./scheduler-card";
 
 export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof useDashboard> }) {
   const {
@@ -84,11 +87,23 @@ export function DashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof
       </div>
     );
   }
+  if (section === "swarm" || section === "companion") {
+    return (
+      <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+        {section === "swarm" ? (
+          <SwarmStudio connected={hasToken} />
+        ) : (
+          <CompanionStudio connected={hasToken} />
+        )}
+      </div>
+    );
+  }
   if (section === "autonomy") {
     return (
       <div className="min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
         <div className="mx-auto min-w-0 max-w-5xl">
           <AutonomyPanel connected={hasToken} />
+          <SchedulerCard connected={hasToken} />
         </div>
       </div>
     );

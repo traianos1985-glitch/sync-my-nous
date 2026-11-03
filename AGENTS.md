@@ -63,3 +63,5 @@
 - Fleet version checks accept a 7+ char Git SHA prefix of a full SHA; release labels still compare exactly.
 - GitHub operator results pass through `redact_secrets`, report token presence/source but never values, refuse write actions without a token before any network call, and publish only allowlisted non-secret files; tests mock all GitHub traffic so no real token is ever needed or logged.
 - Field/Larmor workspace uses existing authenticated Render endpoints and bounded contextual conversations; calculations use explicit unit conversion and AI interpretations never count as verified detections.
+- External schedulers call `POST /remote/service/cycle` (`autonomy_service.external_tick`), which realigns the loop and runs a cycle only when the interval has elapsed, so frequent wake-up pings never multiply work; fresh-disk autonomy enablement is opt-in via `NOUS_AUTONOMY_ENABLED_DEFAULT`.
+- Android companion `available` requires both the pairing token and an Android host (`am` on PATH); a Render server can never drive the phone, so the UI must not imply otherwise.
