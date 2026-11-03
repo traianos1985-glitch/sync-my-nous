@@ -66,7 +66,7 @@ def load_chat_memory() -> list[dict[str, Any]]:
 
         user_id = persistent_memory._postgres_user_id()
         # This also performs the existing SQLite-to-Neon migration, if needed.
-        persistent_memory.load()
+        records = persistent_memory.load()
 
         marker = memory_store.get_mem(CHAT_MEMORY_MIGRATION_KEY, None, user_id=user_id)
         if marker is None:
@@ -81,8 +81,8 @@ def load_chat_memory() -> list[dict[str, Any]]:
             batch[CHAT_MEMORY_MIGRATION_KEY] = {"version": 1, "imported": len(batch)}
             # The legacy records and marker commit atomically; retries cannot duplicate them.
             memory_store.save(batch, user_id=user_id)
+            records = persistent_memory.load()
 
-        records = persistent_memory.load()
         return [
             item for item in records
             if isinstance(item, dict)
