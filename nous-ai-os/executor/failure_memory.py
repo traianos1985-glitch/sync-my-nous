@@ -87,6 +87,22 @@ def record_failure(
         "occurrences": 1,
     }
 
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(FAILURE_MEMORY_FILE, []) as entries:
+            if not isinstance(entries, list):
+                raise RuntimeError("failure_memory_integrity_failure")
+            for existing in reversed(entries[-50:]):
+                if (existing.get("domain") == entry["domain"] and existing.get("action") == entry["action"] and existing.get("error") == entry["error"]):
+                    existing["occurrences"] = existing.get("occurrences", 1) + 1
+                    existing["last_seen"] = time.time()
+                    if suggested_fix:
+                        existing["suggested_fix"] = str(suggested_fix)[:200]
+                    return existing
+            entry["last_seen"] = entry["timestamp"]
+            entries.append(entry)
+            del entries[:-MAX_ENTRIES]
+            return entry
+
     entries = _load_failures()
     # Deduplicate against recent matching domain + action + error
     for existing in reversed(entries[-50:]):
