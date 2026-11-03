@@ -49,3 +49,6 @@
 - [x] GitHub & Pages safety: missing/invalid token banner, write actions disabled without token, dry-run publish preview, secret file exclusion, token redaction, honest partial results; mocked tests only.
 - [ ] Verify GitHub Operator live; requires Render redeploy, NOUS token in Settings and a GitHub token.
 - [ ] Interactive Field Assistant & Larmor Studio: contextual chat, unit-safe calculator, explicit field diary saves, scientific safeguards, tests and GitHub delivery.
+
+- [ ] Image upgrades (Nov 3): Swarm tab in UI, Android Companion setup/status screen with honest host detection, per-message read-aloud in chat (mic/TTS already exist), storage durability status + warning, 24/7 external scheduler endpoint `/remote/service/cycle` + setup guide; tests.
+- [ ] Durable external database (PostgreSQL) for Render Free; needs owner decision on provider (Render disk vs external Postgres).
