@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 from executor.code_assistant import run_cmd
 
@@ -31,11 +32,22 @@ def _broadcast(command, extras=None):
 
 
 def companion_status():
+    paired = bool(os.environ.get(PAIRING_TOKEN_ENV, "").strip())
+    # Commands are Android broadcasts: they only work when NOUS runs on the phone (Termux).
+    host_android = shutil.which("am") is not None
+    missing = []
+    if not host_android:
+        missing.append("android_host_required")
+    if not paired:
+        missing.append("pairing_token_not_configured")
     return {
         "package": PKG,
         "receiver": RECEIVER,
-        "available": bool(os.environ.get(PAIRING_TOKEN_ENV, "").strip()),
-        "pairing_configured": bool(os.environ.get(PAIRING_TOKEN_ENV, "").strip()),
+        "available": paired and host_android,
+        "pairing_configured": paired,
+        "host_android": host_android,
+        "missing": missing,
+        "pairing_env": PAIRING_TOKEN_ENV,
         "commands": ["home", "back", "ui_tree", "tap", "state"],
         "time": time.time(),
     }

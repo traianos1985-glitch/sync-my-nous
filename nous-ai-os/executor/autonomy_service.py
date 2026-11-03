@@ -468,6 +468,37 @@ def reconcile(initial_delay=5.0):
     return {"ok": True, "action": "stopped", **_loop_info()}
 
 
+
+def external_tick():
+    """Wake-safe entry point for an external scheduler (cron-job.org, uptime pings).
+
+    Realigns the managed loop after a cold start and runs one cycle only when the
+    configured interval has elapsed, so frequent pings never multiply the work.
+    """
+    try:
+        state = _load()
+    except RuntimeError:
+        return {"ok": False, "ran": False, "error": "autonomy_state_integrity_failure", **_loop_info()}
+    if state.get("emergency_stop"):
+        return {"ok": True, "ran": False, "reason": "emergency_stop", **_loop_info()}
+    if not state.get("enabled"):
+        return {"ok": True, "ran": False, "reason": "disabled", **_loop_info()}
+    interval = int(state.get("interval", DEFAULT_INTERVAL))
+    # The thread's first cycle waits, so this request owns any cycle that is due now.
+    reconcile(initial_delay=60.0)
+    now = time.time()
+    last_run = state.get("last_run")
+    elapsed = None if last_run is None else max(0.0, now - float(last_run))
+    if elapsed is not None and elapsed < interval:
+        return {"ok": True, "ran": False, "reason": "not_due",
+                "next_due_in": round(interval - elapsed, 1), **_loop_info()}
+    result = run_cycle()
+    if result.get("busy"):
+        return {"ok": True, "ran": False, "reason": "cycle_already_running", **_loop_info()}
+    return {"ok": bool(result.get("ok")), "ran": bool(result.get("ok")),
+            "reason": "ran" if result.get("ok") else (result.get("reason") or result.get("error")),
+            "next_due_in": interval, **_loop_info()}
+
 def run_forever(interval=None):
     state = _load()
     if interval is not None:
