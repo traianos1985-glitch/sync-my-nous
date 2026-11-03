@@ -269,17 +269,25 @@ def conversation_context(conversation_id: str | None, limit: int = 8) -> str:
 
 
 def rename_conversation(conversation_id: str, title: str) -> dict[str, Any]:
+    if shared_state_store.cloud_enabled() and _valid_conversation_id(conversation_id):
+        path = CONV_DIR / f"{conversation_id}.json"
+        with shared_state_store.edit_state(path, None) as stored:
+            if not isinstance(stored, dict) or stored.get("deleted") is True:
+                return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
+            stored["title"] = safe_title(title)
+            stored["updated_at"] = now_iso()
+            conv = json.loads(json.dumps(stored, ensure_ascii=False))
+        update_index(conv)
+        return {"ok": True, "conversation_id": conversation_id, "title": conv["title"]}
+
     conv = get_conversation(conversation_id)
     if not conv.get("ok"):
         return conv
-
     _load_index()
     conv["title"] = safe_title(title)
     conv["updated_at"] = now_iso()
-
     save_json(CONV_DIR / f"{conv['id']}.json", conv)
     update_index(conv)
-
     return {"ok": True, "conversation_id": conv["id"], "title": conv["title"]}
 
 
@@ -289,12 +297,13 @@ def delete_conversation(conversation_id: str) -> dict[str, Any]:
     _load_index()
     path = CONV_DIR / f"{conversation_id}.json"
     if shared_state_store.cloud_enabled():
-        save_json(path, {"id": conversation_id, "deleted": True, "deleted_at": now_iso()})
+        with shared_state_store.edit_state(path, None) as stored:
+            if isinstance(stored, dict):
+                stored.clear()
+                stored.update({"id": conversation_id, "deleted": True, "deleted_at": now_iso()})
     elif path.exists():
         path.unlink()
-
     _remove_index_item(conversation_id)
-
     return {"ok": True, "deleted": conversation_id}
 
 
