@@ -136,8 +136,8 @@ def test_cycle_route_with_token(monkeypatch, tmp_path):
     assert response.get_json()["reason"] == "disabled"
 
 
-def test_storage_route_is_public_and_secret_free(monkeypatch, tmp_path):
+def test_storage_route_is_secret_free(monkeypatch, tmp_path):
     client = _client(monkeypatch, tmp_path)
-    body = client.get("/api/system/storage").get_json()
+    body = client.get("/api/system/storage", headers={"Authorization": "Bearer test-master-token"}).get_json()
     assert body["ok"] is True and "durable" in body
     assert "test-master-token" not in str(body)
