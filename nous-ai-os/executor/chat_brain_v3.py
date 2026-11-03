@@ -102,14 +102,16 @@ def remember_turn(user: str, answer: str, mode: str) -> dict[str, Any]:
         "mode": mode,
     }
 
+    if os.environ.get("DATABASE_URL"):
+        # Import the old local history before adding this new turn, avoiding duplicates.
+        load_chat_memory()
+
     # Keep a local recovery mirror, including when the cloud database is unavailable.
     memory = _local_chat_memory()
     memory.append(entry)
     save_json(CHAT_MEMORY, memory[-80:])
 
     if os.environ.get("DATABASE_URL"):
-        # Ensure old local chat context is migrated before appending the new event.
-        load_chat_memory()
         from executor.memory import save as save_shared_memory
 
         return save_shared_memory(entry)
