@@ -13,12 +13,16 @@ from pathlib import Path
 from typing import Any
 
 from executor import portable_fcntl as fcntl
+from executor import shared_state_store
 
 FAILURE_MEMORY_FILE = "data/failure_memory.json"
 MAX_ENTRIES = 200
 
 
 def _load_failures() -> list[dict[str, Any]]:
+    if shared_state_store.cloud_enabled():
+        data = shared_state_store.read_state(FAILURE_MEMORY_FILE, [])
+        return data if isinstance(data, list) and all(isinstance(x, dict) for x in data) else []
     path = Path(FAILURE_MEMORY_FILE)
     if not path.exists():
         return []
@@ -35,6 +39,12 @@ def _load_failures() -> list[dict[str, Any]]:
 
 
 def _save_failures(entries: list[dict[str, Any]]) -> bool:
+    if shared_state_store.cloud_enabled():
+        try:
+            shared_state_store.write_state(FAILURE_MEMORY_FILE, entries[-MAX_ENTRIES:])
+            return True
+        except Exception:
+            return False
     path = Path(FAILURE_MEMORY_FILE)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
