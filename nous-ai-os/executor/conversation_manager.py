@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from executor import shared_state_store
+
 DATA = Path("data")
 CONV_DIR = DATA / "conversations"
 INDEX = DATA / "conversation_index.json"
@@ -19,6 +21,8 @@ def now_iso() -> str:
 
 
 def load_json(path: Path, default: Any) -> Any:
+    if shared_state_store.cloud_enabled():
+        return shared_state_store.read_state(path, default)
     if not path.exists():
         return default
     try:
@@ -28,6 +32,9 @@ def load_json(path: Path, default: Any) -> Any:
 
 
 def save_json(path: Path, data: Any) -> None:
+    if shared_state_store.cloud_enabled():
+        shared_state_store.write_state(path, data)
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(data, indent=2, ensure_ascii=False)
     temporary_path: Path | None = None
