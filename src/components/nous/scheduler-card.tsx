@@ -34,7 +34,11 @@ export function SchedulerCard({ connected }: { connected: boolean }) {
   async function testTick() {
     setBusy(true);
     try {
-      setTick(describeTick(await nousFetch<ExternalTickResult>("/remote/service/cycle", { method: "POST" })));
+      setTick(
+        describeTick(
+          await nousFetch<ExternalTickResult>("/remote/service/cycle", { method: "POST" }),
+        ),
+      );
     } catch (err) {
       setTick(err instanceof Error ? err.message : "Αποτυχία");
     } finally {
@@ -84,7 +88,12 @@ export function SchedulerCard({ connected }: { connected: boolean }) {
           <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-background px-2 py-1.5 text-[11px]">
             {url}
           </code>
-          <Button variant="outline" size="sm" onClick={() => void copyUrl()} aria-label="Αντιγραφή διεύθυνσης">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void copyUrl()}
+            aria-label="Αντιγραφή διεύθυνσης"
+          >
             {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
           </Button>
         </div>
@@ -94,7 +103,13 @@ export function SchedulerCard({ connected }: { connected: boolean }) {
             NOUS_AUTONOMY_ENABLED_DEFAULT=1 στη Render για να ξεκινά μόνη της.
           </p>
         )}
-        <Button className="mt-3" size="sm" variant="outline" disabled={!connected || busy} onClick={() => void testTick()}>
+        <Button
+          className="mt-3"
+          size="sm"
+          variant="outline"
+          disabled={!connected || busy}
+          onClick={() => void testTick()}
+        >
           {busy && <Loader2 className="size-3.5 animate-spin" />}
           Δοκιμή κύκλου τώρα
         </Button>

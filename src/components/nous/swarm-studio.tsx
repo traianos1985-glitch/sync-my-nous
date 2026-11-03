@@ -110,7 +110,10 @@ export function SwarmStudio({ connected }: { connected: boolean }) {
       </section>
 
       {view.leader && (
-        <section className="rounded-2xl border border-border bg-card p-5" aria-label="Δίκτυο πρακτόρων">
+        <section
+          className="rounded-2xl border border-border bg-card p-5"
+          aria-label="Δίκτυο πρακτόρων"
+        >
           {view.simulated && (
             <div className="mb-4 flex items-start gap-2 rounded-xl border border-warn/40 bg-warn/10 p-3 text-xs">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />

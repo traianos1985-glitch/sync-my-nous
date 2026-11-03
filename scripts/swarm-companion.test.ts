@@ -75,6 +75,8 @@ describe("scheduler", () => {
     );
   });
   test("not-due tick reports seconds until next cycle", () => {
-    expect(describeTick({ ok: true, ran: false, reason: "not_due", next_due_in: 41.2 })).toContain("42s");
+    expect(describeTick({ ok: true, ran: false, reason: "not_due", next_due_in: 41.2 })).toContain(
+      "42s",
+    );
   });
 });

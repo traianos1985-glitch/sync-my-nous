@@ -759,39 +759,39 @@ export function DashboardChat({ dashboard }: { dashboard: ReturnType<typeof useD
                       <div />
                     )}
                     <div className="flex items-center gap-1">
-                    {voiceSupported && (
+                      {voiceSupported && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={() => readAloud(m.text)}
+                          className="h-6 gap-1 px-2 text-[11px] hover:bg-muted"
+                          aria-label="Άκουσε την απάντηση"
+                        >
+                          <Volume2 className="size-3" />
+                          <span>Άκουσε</span>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
                         type="button"
-                        onClick={() => readAloud(m.text)}
+                        onClick={() => void copyMessageText(m.id, m.text)}
                         className="h-6 gap-1 px-2 text-[11px] hover:bg-muted"
-                        aria-label="Άκουσε την απάντηση"
+                        aria-label="Αντιγραφή απάντησης"
                       >
-                        <Volume2 className="size-3" />
-                        <span>Άκουσε</span>
+                        {copiedMessageId === m.id ? (
+                          <>
+                            <Check className="size-3 text-ok" />
+                            <span className="text-ok">Αντιγράφηκε</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="size-3" />
+                            <span>Αντιγραφή</span>
+                          </>
+                        )}
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      onClick={() => void copyMessageText(m.id, m.text)}
-                      className="h-6 gap-1 px-2 text-[11px] hover:bg-muted"
-                      aria-label="Αντιγραφή απάντησης"
-                    >
-                      {copiedMessageId === m.id ? (
-                        <>
-                          <Check className="size-3 text-ok" />
-                          <span className="text-ok">Αντιγράφηκε</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="size-3" />
-                          <span>Αντιγραφή</span>
-                        </>
-                      )}
-                    </Button>
                     </div>
                   </div>
                 )}

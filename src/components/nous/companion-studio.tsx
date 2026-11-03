@@ -74,7 +74,12 @@ export function CompanionStudio({ connected }: { connected: boolean }) {
               <h2 className="font-display text-xl font-semibold">Έλεγχος κινητού</h2>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => void refresh()} disabled={loading || !connected}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void refresh()}
+            disabled={loading || !connected}
+          >
             <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
             Ανανέωση
           </Button>
@@ -92,7 +97,10 @@ export function CompanionStudio({ connected }: { connected: boolean }) {
         {loadError && <p className="mt-1 text-xs text-destructive">{loadError}</p>}
         <ol className="mt-4 space-y-3">
           {steps.map((step) => (
-            <li key={step.id} className="flex gap-3 rounded-xl border border-border/70 bg-background/40 p-3">
+            <li
+              key={step.id}
+              className="flex gap-3 rounded-xl border border-border/70 bg-background/40 p-3"
+            >
               {step.done ? (
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-ok" />
               ) : (
