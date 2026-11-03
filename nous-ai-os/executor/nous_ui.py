@@ -1264,7 +1264,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
         <div class="card" style="padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Κατάσταση:</span>
           <span id="larmorStatus" style="font-size:13px;color:var(--muted);flex:1;min-width:80px;">⏳ Έλεγχος…</span>
-          <a href="https://insta-giveaway-bot-1--traianos1985.replit.app" target="_blank"
+          <a href="https://traianos1985-glitch.github.io/Larmor-Final/" target="_blank"
              style="font-size:12px;color:var(--accent2);text-decoration:none;border:1px solid rgba(34,211,238,.3);padding:5px 12px;border-radius:8px;white-space:nowrap;">
             🔗 Άνοιγμα ↗
           </a>
@@ -1296,7 +1296,7 @@ pre{white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;ba
               👁 Live View — Read Only
             </div>
             <iframe
-              src="https://insta-giveaway-bot-1--traianos1985.replit.app"
+              src="https://traianos1985-glitch.github.io/Larmor-Final/"
               style="width:100%;height:600px;border:none;background:#fff;display:block;"
               sandbox="allow-scripts allow-same-origin allow-forms"
               title="Larmor Frequency Calculator - Read Only">
