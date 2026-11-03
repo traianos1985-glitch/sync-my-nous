@@ -70,3 +70,34 @@ def test_missing_report_is_explicitly_not_scanned(monkeypatch, tmp_path):
     report = sources.latest_source_report()
     assert report["status"] == "not_scanned"
     assert report["sources"] == []
+
+
+def test_scan_if_due_skips_recent_and_runs_stale(monkeypatch, tmp_path):
+    monkeypatch.setattr(sources, "REPORT_PATH", tmp_path / "report.json")
+    monkeypatch.setattr(sources, "HISTORY_PATH", tmp_path / "history.json")
+    monkeypatch.delenv("NOUS_TECH_WATCH_INTERVAL", raising=False)
+    calls = []
+    monkeypatch.setattr(sources, "run_source_scan", lambda: calls.append(1) or {"ok": True, "status": "complete", "checked_at": 1000.0, "release_count": 2})
+    # never scanned -> runs
+    assert sources.scan_if_due(now=1000.0)["ran"] is True
+    sources._atomic_json(sources.REPORT_PATH, {"checked_at": 1000.0})
+    # 1 hour later with a 24h interval -> skipped
+    skipped = sources.scan_if_due(now=1000.0 + 3600)
+    assert skipped["ran"] is False and skipped["next_due_at"] == 1000.0 + 86400
+    # after 24h -> runs again
+    assert sources.scan_if_due(now=1000.0 + 86400)["ran"] is True
+    assert len(calls) == 2
+
+
+def test_watch_interval_has_one_hour_floor(monkeypatch):
+    monkeypatch.setenv("NOUS_TECH_WATCH_INTERVAL", "60")
+    assert sources.watch_interval() == 3600
+    monkeypatch.setenv("NOUS_TECH_WATCH_INTERVAL", "bad")
+    assert sources.watch_interval() == 86400
+
+
+def test_status_reports_periodic_watch_needs_autonomy(monkeypatch, tmp_path):
+    monkeypatch.setattr(sources, "REPORT_PATH", tmp_path / "missing.json")
+    status = sources.source_watch_status()
+    assert status["automatic_updates"] is False
+    assert status["periodic_watch"]["requires_autonomy_enabled"] is True

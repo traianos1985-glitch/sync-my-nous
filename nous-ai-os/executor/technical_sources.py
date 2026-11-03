@@ -194,6 +194,46 @@ def latest_source_report() -> dict:
     return report
 
 
+DEFAULT_WATCH_INTERVAL = 86400
+MIN_WATCH_INTERVAL = 3600
+
+
+def watch_interval() -> int:
+    """Periodic watch interval in seconds (env NOUS_TECH_WATCH_INTERVAL, floor 1h)."""
+    try:
+        value = int(os.environ.get("NOUS_TECH_WATCH_INTERVAL", DEFAULT_WATCH_INTERVAL))
+    except ValueError:
+        value = DEFAULT_WATCH_INTERVAL
+    return max(MIN_WATCH_INTERVAL, value)
+
+
+def _next_due(report: dict) -> float | None:
+    checked = report.get("checked_at")
+    if isinstance(checked, (int, float)) and not isinstance(checked, bool):
+        return float(checked) + watch_interval()
+    return None
+
+
+def scan_if_due(now: float | None = None) -> dict:
+    """Run the read-only scan only when the last one is older than the watch interval.
+
+    Called from the existing autonomy cycle, so it never runs unless the user has
+    enabled autonomy. It only refreshes release metadata; it never applies updates.
+    """
+    now = time.time() if now is None else now
+    due = _next_due(latest_source_report())
+    if due is not None and now < due:
+        return {"ok": True, "ran": False, "reason": "not_due", "next_due_at": due}
+    report = run_source_scan()
+    return {
+        "ok": bool(report.get("ok")),
+        "ran": True,
+        "status": report.get("status"),
+        "release_count": report.get("release_count", 0),
+        "next_due_at": _next_due(report),
+    }
+
+
 def source_watch_status() -> dict:
     report = latest_source_report()
     return {
@@ -205,5 +245,11 @@ def source_watch_status() -> dict:
         "last_status": report.get("status", "not_scanned"),
         "last_release_count": report.get("release_count", 0),
         "automatic_updates": False,
+        "periodic_watch": {
+            "interval_seconds": watch_interval(),
+            "next_due_at": _next_due(report),
+            "runs_with": "autonomy_cycle",
+            "requires_autonomy_enabled": True,
+        },
         "release_notes_are_untrusted_data": True,
     }
