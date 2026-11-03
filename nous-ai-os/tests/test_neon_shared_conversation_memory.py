@@ -23,8 +23,13 @@ def test_conversation_turns_append_without_lost_updates_in_cloud_mode(monkeypatc
     def read(path, default):
         return documents.get(str(path), deepcopy(default))
 
+    def write(path, value):
+        documents[str(path)] = deepcopy(value)
+        return value
+
     monkeypatch.setattr(shared_state_store, "edit_state", edit)
     monkeypatch.setattr(shared_state_store, "read_state", read)
+    monkeypatch.setattr(shared_state_store, "write_state", write)
 
     first = manager.append_turn("Πρώτο", "Απάντηση 1", title="Shared")
     second = manager.append_turn("Δεύτερο", "Απάντηση 2", conversation_id=first["conversation_id"])
@@ -52,6 +57,7 @@ def test_conversation_delete_uses_cloud_tombstone(monkeypatch, tmp_path):
 
     monkeypatch.setattr(shared_state_store, "edit_state", edit)
     monkeypatch.setattr(shared_state_store, "read_state", lambda path, default: documents.get(str(path), deepcopy(default)))
+    monkeypatch.setattr(shared_state_store, "write_state", lambda path, value: documents.__setitem__(str(path), deepcopy(value)) or value)
 
     created = manager.new_conversation("To delete")
     result = manager.delete_conversation(created["id"])
