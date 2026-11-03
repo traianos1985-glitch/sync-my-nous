@@ -77,10 +77,10 @@ def save(entry):
         memory_store.append_entry(entry, user_id=user_id)
         mirror = True
         try:
+            # Keep the legacy SQLite mirror for standalone recovery. The JSON
+            # document adapter is cloud-aware, so do not route this local mirror
+            # write back into the shared Neon document namespace.
             save_memory(entry)
-            with edit_list(MEMORY_FILE) as memories:
-                memories.append(entry)
-                del memories[:-200]
         except Exception:
             mirror = False
         return {"ok": True, "postgres": True, "sqlite_mirror": mirror}
