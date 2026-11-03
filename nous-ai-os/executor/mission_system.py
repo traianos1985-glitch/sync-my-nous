@@ -33,6 +33,8 @@ SAFE_TASK_ACTIONS = {
 APPROVAL_REQUIRED = {
     "checkpoint",
     "deploy_vercel_test_app",
+    "github_commit",
+    "github_deploy_pages",
 }
 
 
@@ -432,7 +434,10 @@ def run_next_mission_task(mission_id):
         claimed_task_id = task.get("id")
 
     try:
-        result = run_ops_action(claimed_action, claimed_payload)
+        if claimed_action in APPROVAL_REQUIRED and claimed_action in MISSION_ACTIONS:
+            result = run_ops_action(claimed_action, claimed_payload, approved=True)
+        else:
+            result = run_ops_action(claimed_action, claimed_payload)
         if not isinstance(result, dict):
             result = {"ok": False, "error": "malformed_action_result", "result_type": type(result).__name__}
     except Exception as exc:

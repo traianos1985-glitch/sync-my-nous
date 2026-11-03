@@ -621,3 +621,57 @@ def deploy_sandbox_app_to_github(
     result = create_or_update_pages_app(repo_name=target_repo, files=files, description=desc, enable_pages=True)
     result["excluded_files"] = collected["excluded_files"]
     return result
+
+
+_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+
+
+def _valid_repo(owner: str, repo: str) -> bool:
+    return bool(_NAME.fullmatch(owner or "")) and bool(_NAME.fullmatch(repo or ""))
+
+
+def search_code(owner: str, repo: str, query: str, limit: int = 10) -> dict[str, Any]:
+    """Read-only code search inside one repository (GitHub code search needs a token)."""
+    if not _valid_repo(owner, repo):
+        return {"ok": False, "error": "invalid_repository"}
+    query = (query or "").strip()
+    if not query or len(query) > 200:
+        return {"ok": False, "error": "invalid_query"}
+    tok = get_github_token()
+    if not tok:
+        return _missing_token("search_code")
+    try:
+        res = requests.get(
+            f"{GITHUB_API_BASE}/search/code",
+            headers=_headers(tok),
+            params={"q": f"{query} repo:{owner}/{repo}", "per_page": max(1, min(limit, 30))},
+            timeout=REQUEST_TIMEOUT,
+        )
+        if res.status_code != 200:
+            return {"ok": False, "status_code": res.status_code, "error": f"github_http_{res.status_code}"}
+        items = res.json().get("items") or []
+        return {
+            "ok": True,
+            "total_count": res.json().get("total_count", len(items)),
+            "items": [{"path": i.get("path"), "html_url": i.get("html_url")} for i in items[:limit]],
+        }
+    except Exception as exc:
+        return {"ok": False, "error": _safe_error(exc, tok)}
+
+
+def get_pages_status(owner: str, repo: str) -> dict[str, Any]:
+    """Read-only GitHub Pages deployment status for one repository."""
+    if not _valid_repo(owner, repo):
+        return {"ok": False, "error": "invalid_repository"}
+    tok = get_github_token()
+    try:
+        res = requests.get(f"{GITHUB_API_BASE}/repos/{owner}/{repo}/pages", headers=_headers(tok), timeout=REQUEST_TIMEOUT)
+        if res.status_code == 404:
+            return {"ok": True, "pages_enabled": False}
+        if res.status_code != 200:
+            return {"ok": False, "status_code": res.status_code, "error": f"github_http_{res.status_code}"}
+        data = res.json()
+        return {"ok": True, "pages_enabled": True, "status": data.get("status"), "url": data.get("html_url"),
+                "build_type": data.get("build_type")}
+    except Exception as exc:
+        return {"ok": False, "error": _safe_error(exc, tok)}

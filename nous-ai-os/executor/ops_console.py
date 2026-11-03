@@ -6,7 +6,7 @@ from executor.vercel_deploy_integration import vercel_status, vercel_deploy
 from executor.companion_bridge import companion_status, companion_home, companion_back, companion_ui_tree
 from executor.agent_journal import write_journal
 from executor.audit_safety import audit_summary
-from executor.mission_actions import MISSION_ACTIONS, run_mission_action
+from executor.mission_actions import APPROVAL_ACTIONS, MISSION_ACTIONS, run_mission_action
 
 
 def ops_status():
@@ -77,7 +77,7 @@ def ops_full_validation():
     return result
 
 
-def run_ops_action(action, payload=None):
+def run_ops_action(action, payload=None, *, approved=False):
     payload = payload or {}
 
     if action == "git_status":
@@ -103,6 +103,9 @@ def run_ops_action(action, payload=None):
     elif action == "full_validation":
         result = ops_full_validation()
     elif action in MISSION_ACTIONS:
+        if action in APPROVAL_ACTIONS and not approved:
+            # GitHub writes only run from an approved mission task, never the direct ops endpoint.
+            return {"ok": False, "action": action, "error": "approval_required", "time": time.time()}
         result = run_mission_action(action, payload)
         if not result.get("ok"):
             # Surface real failure at the wrapper level so missions never report success.

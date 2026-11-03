@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import os
+import math
 import re
 import time
 from pathlib import Path
@@ -31,11 +32,24 @@ PAYLOAD_SCHEMAS: dict[str, dict[str, tuple[type, bool]]] = {
     "code_analysis": {"path": (str, False)},
     "app_validation": {"app_name": (str, True), "timeout_seconds": (int, False)},
     "agent_task": {"goal": (str, True), "max_steps": (int, False), "allow_web": (bool, False)},
+    "github_read": {"owner": (str, True), "repo": (str, True), "path": (str, False), "branch": (str, False), "query": (str, False)},
+    "github_commit": {"owner": (str, True), "repo": (str, True), "path": (str, True), "content": (str, True),
+                      "message": (str, True), "branch": (str, False)},
+    "github_deploy_pages": {"app_name": (str, True), "repo_name": (str, False), "dry_run": (bool, False)},
+    "larmor_calculate": {"material": (str, True), "b_field_tesla": (float, True)},
+    "field_log": {"title": (str, True), "note": (str, False), "lat": (float, False), "lon": (float, False)},
 }
+
+# Actions that change external state: mission_system requires explicit operator approval.
+APPROVAL_ACTIONS = frozenset({"github_commit", "github_deploy_pages"})
+# Read-only actions retried once on a transient failure.
+RETRYABLE_ACTIONS = frozenset({"search_web", "read_url", "github_read"})
+MAX_COMMIT_CHARS = 200_000
 
 MISSION_ACTIONS = frozenset(PAYLOAD_SCHEMAS)
 # Read-only actions the unattended auto-mission executor may also run.
-AUTO_SAFE_ACTIONS = frozenset({"search_web", "read_url", "search_memory", "knowledge_search", "code_analysis"})
+AUTO_SAFE_ACTIONS = frozenset({"search_web", "read_url", "search_memory", "knowledge_search", "code_analysis",
+                               "github_read", "larmor_calculate"})
 
 
 class MissionPayloadError(ValueError):
@@ -61,14 +75,28 @@ def validate_payload(action: str, payload: Any) -> dict[str, Any]:
         value = payload[field]
         if kind is int and (isinstance(value, bool) or not isinstance(value, int)):
             raise MissionPayloadError(f"invalid_{field}")
+        if kind is float:
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise MissionPayloadError(f"invalid_{field}")
+            continue
         if kind is not int and not isinstance(value, kind):
             raise MissionPayloadError(f"invalid_{field}")
         if kind is str:
-            limit = MAX_GOAL_CHARS if field == "goal" else 2048 if field == "url" else MAX_QUERY_CHARS
+            limit = (MAX_GOAL_CHARS if field in {"goal", "note"} else 2048 if field == "url"
+                     else MAX_COMMIT_CHARS if field == "content" else MAX_QUERY_CHARS)
             if (required and not value.strip()) or len(value) > limit:
                 raise MissionPayloadError(f"invalid_{field}")
     if action == "app_validation" and not _APP_SLUG.fullmatch(payload["app_name"]):
         raise MissionPayloadError("invalid_app_name")
+    if action == "github_deploy_pages" and not _APP_SLUG.fullmatch(payload["app_name"]):
+        raise MissionPayloadError("invalid_app_name")
+    if action == "larmor_calculate" and payload["b_field_tesla"] <= 0:
+        raise MissionPayloadError("invalid_b_field_tesla")
+    if action == "field_log":
+        if ("lat" in payload) != ("lon" in payload):
+            raise MissionPayloadError("coordinates_must_be_paired")
+        if "lat" in payload and not (-90 <= payload["lat"] <= 90 and -180 <= payload["lon"] <= 180):
+            raise MissionPayloadError("invalid_coordinates")
     return payload
 
 
@@ -299,6 +327,78 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
 }
 
 
+def action_github_read(payload: dict[str, Any]) -> dict[str, Any]:
+    from executor import github_operator as gh
+    owner, repo = payload["owner"], payload["repo"]
+    if "query" in payload:
+        return gh.search_code(owner, repo, payload["query"])
+    path = payload.get("path", "")
+    if path in {"", "/", ".pages"}:
+        if path == ".pages":
+            return gh.get_pages_status(owner, repo)
+        return gh.get_repository_tree(owner, repo, "", payload.get("branch"))
+    result = gh.get_file_content(owner, repo, path, payload.get("branch"))
+    if result.get("error") == "not_a_file":
+        return gh.get_repository_tree(owner, repo, path, payload.get("branch"))
+    if result.get("ok") and isinstance(result.get("content"), str):
+        result["content"] = result["content"][:MAX_TEXT_EXCERPT * 5]
+    return result
+
+
+def action_github_commit(payload: dict[str, Any]) -> dict[str, Any]:
+    from executor import github_operator as gh
+    existing = gh.get_file_content(payload["owner"], payload["repo"], payload["path"], payload.get("branch"))
+    sha = existing.get("sha") if existing.get("ok") else None
+    result = gh.commit_file(payload["owner"], payload["repo"], payload["path"], payload["content"],
+                            payload["message"], payload.get("branch"), sha)
+    if result.get("ok"):
+        # Closed-loop verification: read the file back and compare with what was committed.
+        check = gh.get_file_content(payload["owner"], payload["repo"], payload["path"], payload.get("branch"))
+        result["verified"] = bool(check.get("ok")) and check.get("content") == payload["content"]
+        if not result["verified"]:
+            return {**result, "ok": False, "error": "commit_verification_failed"}
+    return result
+
+
+def action_github_deploy_pages(payload: dict[str, Any]) -> dict[str, Any]:
+    from executor import github_operator as gh
+    result = gh.deploy_sandbox_app_to_github(payload["app_name"], payload.get("repo_name"), None,
+                                             dry_run=payload.get("dry_run", False))
+    if result.get("ok") and not result.get("dry_run") and result.get("owner") and result.get("repo_name"):
+        result["pages_check"] = gh.get_pages_status(result["owner"], result["repo_name"])
+    return result
+
+
+def action_larmor_calculate(payload: dict[str, Any]) -> dict[str, Any]:
+    from executor.larmor_bridge import calculate_larmor
+    result = calculate_larmor(payload["material"], float(payload["b_field_tesla"]))
+    if not isinstance(result, dict) or result.get("error"):
+        error = str((result or {}).get("error") or "larmor_failed")
+        return {"ok": False, "error": "unknown_material" if error.startswith("Unknown material") else "larmor_invalid_input",
+                "detail": error[:200]}
+    return {"ok": True, "result": result, "note": "Θεωρητικός υπολογισμός αναφοράς, όχι μέτρηση ανίχνευσης."}
+
+
+def action_field_log(payload: dict[str, Any]) -> dict[str, Any]:
+    from executor.field_engine import add_entry, get_entry
+    result = add_entry(payload["title"], payload.get("note", ""), payload.get("lat"), payload.get("lon"),
+                       entry_type="note", tags=["nous", "unverified"])
+    entry = (result or {}).get("entry") or {}
+    # Closed-loop verification: the saved entry must be readable again.
+    if not result.get("ok") or not entry.get("id") or not get_entry(entry["id"]):
+        return {"ok": False, "error": "field_log_verification_failed"}
+    return {"ok": True, "entry": entry, "verified": True}
+
+
+HANDLERS.update({
+    "github_read": action_github_read,
+    "github_commit": action_github_commit,
+    "github_deploy_pages": action_github_deploy_pages,
+    "larmor_calculate": action_larmor_calculate,
+    "field_log": action_field_log,
+})
+
+
 def run_mission_action(action: str, payload: Any) -> dict[str, Any]:
     started = time.time()
     try:
@@ -312,7 +412,20 @@ def run_mission_action(action: str, payload: Any) -> dict[str, Any]:
             pass
         return err_res
     try:
+        from executor.failure_memory import known_blocking_failure
+        known = known_blocking_failure("mission_actions", action)
+    except Exception:
+        known = None
+    if known:
+        return {"ok": False, "error": "known_failure_avoided", "action": action, "previous_error": known.get("error"),
+                "suggested_fix": known.get("suggested_fix"), "duration_ms": 0.0}
+    try:
         result = HANDLERS[action](clean)
+        if action in RETRYABLE_ACTIONS and isinstance(result, dict) and not result.get("ok") \
+                and str(result.get("error")) not in _persistent_errors():
+            result = HANDLERS[action](clean)
+            if isinstance(result, dict):
+                result["retried"] = True
     except Exception as exc:  # exception text may embed URLs/paths; keep only the type
         result = {"ok": False, "error": "mission_action_exception", "detail": type(exc).__name__}
         try:
@@ -325,13 +438,32 @@ def run_mission_action(action: str, payload: Any) -> dict[str, Any]:
     elif not result.get("ok"):
         try:
             from executor.failure_memory import record_failure
+            error = str(result.get("error") or "action_failed")
             record_failure(
                 "mission_actions",
                 action,
-                str(result.get("error") or "action_failed"),
-                {"detail": str(result.get("detail") or "")}
+                error,
+                {"detail": str(result.get("detail") or "")},
+                suggested_fix=_SUGGESTED_FIXES.get(error),
             )
         except Exception:
             pass
     result["duration_ms"] = round((time.time() - started) * 1000, 1)
     return result
+
+
+_SUGGESTED_FIXES = {
+    "missing_token": "Πρόσθεσε GitHub token στις ρυθμίσεις του NOUS",
+    "github_http_401": "Το GitHub token έληξε ή είναι λάθος",
+    "github_http_403": "Το GitHub token δεν έχει τα απαιτούμενα δικαιώματα",
+    "github_http_404": "Έλεγξε owner/repo/path",
+    "unknown_material": "Δες τη λίστα υλικών στο Larmor Studio",
+}
+
+
+def _persistent_errors() -> frozenset:
+    try:
+        from executor.failure_memory import PERSISTENT_ERRORS
+        return PERSISTENT_ERRORS
+    except Exception:
+        return frozenset()
