@@ -29,10 +29,26 @@ _loop_meta = {"ticks": 0}
 
 
 
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _env_default_enabled():
+    """Opt-in: hosts with ephemeral disks (Render Free) lose the flag on every restart."""
+    return os.environ.get("NOUS_AUTONOMY_ENABLED_DEFAULT", "").strip().lower() in _TRUTHY
+
+
+def _env_default_interval():
+    try:
+        value = int(os.environ.get("NOUS_AUTONOMY_INTERVAL", DEFAULT_INTERVAL))
+    except (TypeError, ValueError):
+        return DEFAULT_INTERVAL
+    return value if MIN_INTERVAL <= value <= MAX_INTERVAL else DEFAULT_INTERVAL
+
+
 def _default_state():
     return {
-        "enabled": False,
-        "interval": DEFAULT_INTERVAL,
+        "enabled": _env_default_enabled(),
+        "interval": _env_default_interval(),
         "last_heartbeat": None,
         "last_run": None,
         "last_error": None,
