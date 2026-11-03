@@ -18,6 +18,7 @@ export const navGroups: NavGroup[] = [
       { id: "missions", icon: "clipboard", label: "Missions" },
       { id: "planner", icon: "🧩", label: "Planner" },
       { id: "brain", icon: "brain", label: "Brain & Memory" },
+      { id: "swarm", icon: "🐝", label: "Swarm" },
       { id: "appbuilder", icon: "🏗", label: "App Builder" },
       { id: "sandbox", icon: "📦", label: "App Sandbox" },
       { id: "browser", icon: "🌐", label: "Web Operator" },
