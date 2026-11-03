@@ -104,7 +104,19 @@ def save_json(path: Path, data: Any) -> None:
     """Atomic local write or transactional cloud document update."""
     path = Path(path)
     if shared_state_store.cloud_enabled():
-        shared_state_store.write_state(path, data)
+        active = getattr(_cloud_documents, "active", {})
+        key = str(Path(path).resolve())
+        if key in active:
+            current = active[key]
+            if isinstance(current, list) and isinstance(data, list):
+                current[:] = data
+            elif isinstance(current, dict) and isinstance(data, dict):
+                current.clear()
+                current.update(data)
+            else:
+                raise RuntimeError("shared_state_document_shape_changed")
+        else:
+            shared_state_store.write_state(path, data)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     encoded = _encode_bounded(data)
