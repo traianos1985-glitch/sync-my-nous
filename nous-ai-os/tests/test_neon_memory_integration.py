@@ -19,6 +19,14 @@ def _fake_store(monkeypatch, store_module):
             calls["migration_writes"] += 1
         return {key: value}
 
+    def save(data, user_id="default"):
+        for key, value in data.items():
+            values[(user_id, key)] = value
+            if key.startswith(store_module.ENTRY_PREFIX):
+                entries.append(value)
+                calls["migration_writes"] += 1
+        return data
+
     def append_entry(entry, user_id="default"):
         calls["append"] += 1
         entries.append(entry)
@@ -29,6 +37,7 @@ def _fake_store(monkeypatch, store_module):
 
     monkeypatch.setattr(store_module, "get_mem", get_mem)
     monkeypatch.setattr(store_module, "set_mem", set_mem)
+    monkeypatch.setattr(store_module, "save", save)
     monkeypatch.setattr(store_module, "append_entry", append_entry)
     monkeypatch.setattr(store_module, "load_entries", load_entries)
     return values, entries, calls
