@@ -10,17 +10,17 @@ a user identifier or written to logs.
 
 Each state document uses a deterministic key derived from its repository-
 relative storage path. Reads lazily import an existing local JSON document on
-first access. The cloud copy then becomes authoritative. Cloud writes are not mirrored back
-to the shared filesystem: the Render disk may serve multiple user scopes, and a
-single unscoped JSON mirror could leak or overwrite another user's data. The
-legacy file remains available for standalone mode when `DATABASE_URL` is
-absent; it is not silently merged over newer cloud state.
+first access. The cloud copy then becomes authoritative. Cloud writes are not
+mirrored back to the shared filesystem: the Render disk may serve multiple user
+scopes, and a single unscoped JSON mirror could leak or overwrite another user's
+data. The legacy file remains available for standalone mode when
+`DATABASE_URL` is absent; it is not silently merged over newer cloud state.
 
 ## Stores synchronized by this change
 
 - Conversation transcripts and conversation index.
 - Personal profile, goals, and projects.
-- Learning lessons and decision records.
+- Learning lessons, decision records, and task records.
 - Knowledge memory and code lessons.
 - Failure/recovery memory and executive memory.
 - Vector-memory records, retaining the existing deterministic 128-dimension
