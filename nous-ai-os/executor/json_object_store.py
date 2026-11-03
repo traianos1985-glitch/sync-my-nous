@@ -1,7 +1,8 @@
-"""Fail-closed, atomic storage for object-shaped JSON runtime state."""
+"""Fail-closed object-shaped JSON storage with optional Neon synchronization."""
 from __future__ import annotations
 
 from executor import portable_fcntl as fcntl
+from executor import shared_state_store
 import json
 import os
 import tempfile
@@ -62,6 +63,14 @@ def _write_unlocked(path, state):
 
 @contextmanager
 def edit_object(path):
+    if shared_state_store.cloud_enabled():
+        default = {key: (value.copy() if isinstance(value, (dict, list)) else value) for key, value in DEFAULT_STATE.items()}
+        with shared_state_store.edit_state(path, default) as state:
+            _validate_state(state, path)
+            yield state
+            _validate_state(state, path)
+        return
+
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
     with open(path + ".lock", "a", encoding="utf-8") as lock_file:
@@ -75,6 +84,11 @@ def edit_object(path):
 
 
 def read_object(path):
+    if shared_state_store.cloud_enabled():
+        default = {key: (value.copy() if isinstance(value, (dict, list)) else value) for key, value in DEFAULT_STATE.items()}
+        state = shared_state_store.read_state(path, default)
+        return _validate_state(state, path)
+
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
     with open(path + ".lock", "a", encoding="utf-8") as lock_file:
@@ -88,6 +102,8 @@ def read_object(path):
 
 def write_object(path, state):
     _validate_state(state, path)
+    if shared_state_store.cloud_enabled():
+        return shared_state_store.write_state(path, state)
     with edit_object(path) as stored:
         stored.clear()
         stored.update(state)

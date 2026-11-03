@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from executor import portable_fcntl as fcntl
+from executor import shared_state_store
 
 DATA = Path("data")
 KNOWLEDGE_FILE = DATA / "knowledge_memory.json"
@@ -25,6 +26,7 @@ DEFAULT_TTL_DAYS = {"web": 30}
 
 _thread_lock = threading.RLock()
 _lock_depth = threading.local()
+_cloud_documents = threading.local()
 
 def now_iso(): return datetime.now(timezone.utc).isoformat()
 
@@ -40,8 +42,22 @@ def make_id(*parts: str) -> str:
 
 @contextmanager
 def _store_lock(path: Path):
-    """Process-wide + cross-process exclusive lock; re-entrant within one thread."""
+    """Process-wide lock locally; transaction-scoped advisory lock in Neon mode."""
     key = str(Path(path).resolve())
+    if shared_state_store.cloud_enabled():
+        active = getattr(_cloud_documents, "active", None)
+        if active is None:
+            active = _cloud_documents.active = {}
+        if key in active:
+            yield
+            return
+        with shared_state_store.edit_state(path, []) as document:
+            active[key] = document
+            try:
+                yield
+            finally:
+                active.pop(key, None)
+        return
     depths = getattr(_lock_depth, "depths", None)
     if depths is None:
         depths = _lock_depth.depths = {}
@@ -64,6 +80,12 @@ def _store_lock(path: Path):
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 def load_json(path: Path, default: Any) -> Any:
+    if shared_state_store.cloud_enabled():
+        active = getattr(_cloud_documents, "active", {})
+        key = str(Path(path).resolve())
+        if key in active:
+            return active[key]
+        return shared_state_store.read_state(path, default)
     if not path.exists(): return default
     try: return json.loads(path.read_text(encoding="utf-8"))
     except Exception: return default
@@ -79,8 +101,23 @@ def _encode_bounded(data: Any) -> str:
     return encoded
 
 def save_json(path: Path, data: Any) -> None:
-    """Atomic write: temp file in the same directory, fsync, then os.replace."""
+    """Atomic local write or transactional cloud document update."""
     path = Path(path)
+    if shared_state_store.cloud_enabled():
+        active = getattr(_cloud_documents, "active", {})
+        key = str(Path(path).resolve())
+        if key in active:
+            current = active[key]
+            if isinstance(current, list) and isinstance(data, list):
+                current[:] = data
+            elif isinstance(current, dict) and isinstance(data, dict):
+                current.clear()
+                current.update(data)
+            else:
+                raise RuntimeError("shared_state_document_shape_changed")
+        else:
+            shared_state_store.write_state(path, data)
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     encoded = _encode_bounded(data)
     with _store_lock(path):

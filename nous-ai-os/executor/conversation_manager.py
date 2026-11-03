@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from executor import shared_state_store
+
 DATA = Path("data")
 CONV_DIR = DATA / "conversations"
 INDEX = DATA / "conversation_index.json"
@@ -19,6 +21,8 @@ def now_iso() -> str:
 
 
 def load_json(path: Path, default: Any) -> Any:
+    if shared_state_store.cloud_enabled():
+        return shared_state_store.read_state(path, default)
     if not path.exists():
         return default
     try:
@@ -28,6 +32,9 @@ def load_json(path: Path, default: Any) -> Any:
 
 
 def save_json(path: Path, data: Any) -> None:
+    if shared_state_store.cloud_enabled():
+        shared_state_store.write_state(path, data)
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(data, indent=2, ensure_ascii=False)
     temporary_path: Path | None = None
@@ -76,6 +83,32 @@ def _load_index() -> list[dict[str, Any]]:
     return [item for item in index if isinstance(item, dict)]
 
 
+def _upsert_index_item(item: dict[str, Any]) -> None:
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(INDEX, []) as index:
+            if not isinstance(index, list):
+                raise ValueError(f"Invalid conversation index structure in {INDEX}")
+            index[:] = [x for x in index if not (isinstance(x, dict) and x.get("id") == item["id"])]
+            index.insert(0, item)
+            del index[200:]
+        return
+    index = _load_index()
+    index = [x for x in index if not (isinstance(x, dict) and x.get("id") == item["id"])]
+    index.insert(0, item)
+    save_json(INDEX, index[:200])
+
+
+def _remove_index_item(conversation_id: str) -> None:
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(INDEX, []) as index:
+            if not isinstance(index, list):
+                raise ValueError(f"Invalid conversation index structure in {INDEX}")
+            index[:] = [x for x in index if not (isinstance(x, dict) and x.get("id") == conversation_id)]
+        return
+    index = [x for x in _load_index() if x.get("id") != conversation_id]
+    save_json(INDEX, index)
+
+
 def safe_title(text: str, fallback: str = "Νέα συνομιλία") -> str:
     t = re.sub(r"\s+", " ", text or "").strip()
     t = t[:70].strip()
@@ -100,19 +133,17 @@ def new_conversation(title: str = "") -> dict[str, Any]:
 
     # Validate the index before creating the conversation file, so corrupt
     # metadata cannot leave behind a newly-created orphan conversation.
-    index = _load_index()
+    _load_index()
 
     save_json(CONV_DIR / f"{cid}.json", conv)
 
-    index.insert(0, {
+    _upsert_index_item({
         "id": cid,
         "title": title,
         "created_at": conv["created_at"],
         "updated_at": conv["updated_at"],
         "messages": 0,
     })
-
-    save_json(INDEX, index[:200])
     return conv
 
 
@@ -121,7 +152,7 @@ def get_conversation(conversation_id: str) -> dict[str, Any]:
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
     path = CONV_DIR / f"{conversation_id}.json"
     conv = load_json(path, None)
-    if not isinstance(conv, dict):
+    if not isinstance(conv, dict) or conv.get("deleted") is True:
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
     conv["ok"] = True
     return conv
@@ -138,7 +169,7 @@ def list_conversations(limit: int = 30) -> dict[str, Any]:
 
 
 def update_index(conv: dict[str, Any]) -> None:
-    index = _load_index()
+    _load_index()
 
     item = {
         "id": conv["id"],
@@ -148,9 +179,16 @@ def update_index(conv: dict[str, Any]) -> None:
         "messages": len(conv.get("messages", [])),
     }
 
-    index = [x for x in index if not (isinstance(x, dict) and x.get("id") == conv["id"])]
-    index.insert(0, item)
-    save_json(INDEX, index[:200])
+    _upsert_index_item(item)
+
+
+def _append_messages(conv: dict[str, Any], user_message: str, assistant_answer: str, mode: str) -> None:
+    conv.setdefault("messages", [])
+    conv["messages"].append({"time": now_iso(), "role": "user", "content": user_message})
+    conv["messages"].append({"time": now_iso(), "role": "assistant", "mode": mode, "content": assistant_answer})
+    conv["updated_at"] = now_iso()
+    if not conv.get("title") or conv.get("title") == "Νέα συνομιλία":
+        conv["title"] = safe_title(user_message)
 
 
 def append_turn(
@@ -160,6 +198,27 @@ def append_turn(
     conversation_id: str | None = None,
     title: str = "",
 ) -> dict[str, Any]:
+    if shared_state_store.cloud_enabled():
+        if conversation_id and _valid_conversation_id(conversation_id):
+            existing = get_conversation(conversation_id)
+            conv = existing if existing.get("ok") else new_conversation(title or user_message)
+        else:
+            conv = new_conversation(title or user_message)
+
+        path = CONV_DIR / f"{conv['id']}.json"
+        with shared_state_store.edit_state(path, None) as stored:
+            if not isinstance(stored, dict) or stored.get("deleted") is True:
+                raise ValueError("conversation_not_found")
+            _append_messages(stored, user_message, assistant_answer, mode)
+            conv = json.loads(json.dumps(stored, ensure_ascii=False))
+        update_index(conv)
+        return {
+            "ok": True,
+            "conversation_id": conv["id"],
+            "title": conv.get("title"),
+            "messages": len(conv.get("messages", [])),
+        }
+
     if conversation_id:
         conv = get_conversation(conversation_id)
         if not conv.get("ok"):
@@ -167,29 +226,10 @@ def append_turn(
     else:
         conv = new_conversation(title or user_message)
 
-    conv.setdefault("messages", [])
-    conv["messages"].append({
-        "time": now_iso(),
-        "role": "user",
-        "content": user_message,
-    })
-    conv["messages"].append({
-        "time": now_iso(),
-        "role": "assistant",
-        "mode": mode,
-        "content": assistant_answer,
-    })
-
-    conv["updated_at"] = now_iso()
-
-    if not conv.get("title") or conv.get("title") == "Νέα συνομιλία":
-        conv["title"] = safe_title(user_message)
-
-    # Refuse to mutate a conversation if the shared index is already corrupt.
+    _append_messages(conv, user_message, assistant_answer, mode)
     _load_index()
     save_json(CONV_DIR / f"{conv['id']}.json", conv)
     update_index(conv)
-
     return {
         "ok": True,
         "conversation_id": conv["id"],
@@ -229,31 +269,41 @@ def conversation_context(conversation_id: str | None, limit: int = 8) -> str:
 
 
 def rename_conversation(conversation_id: str, title: str) -> dict[str, Any]:
+    if shared_state_store.cloud_enabled() and _valid_conversation_id(conversation_id):
+        path = CONV_DIR / f"{conversation_id}.json"
+        with shared_state_store.edit_state(path, None) as stored:
+            if not isinstance(stored, dict) or stored.get("deleted") is True:
+                return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
+            stored["title"] = safe_title(title)
+            stored["updated_at"] = now_iso()
+            conv = json.loads(json.dumps(stored, ensure_ascii=False))
+        update_index(conv)
+        return {"ok": True, "conversation_id": conversation_id, "title": conv["title"]}
+
     conv = get_conversation(conversation_id)
     if not conv.get("ok"):
         return conv
-
     _load_index()
     conv["title"] = safe_title(title)
     conv["updated_at"] = now_iso()
-
     save_json(CONV_DIR / f"{conv['id']}.json", conv)
     update_index(conv)
-
     return {"ok": True, "conversation_id": conv["id"], "title": conv["title"]}
 
 
 def delete_conversation(conversation_id: str) -> dict[str, Any]:
     if not _valid_conversation_id(conversation_id):
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
-    index = _load_index()
+    _load_index()
     path = CONV_DIR / f"{conversation_id}.json"
-    if path.exists():
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(path, None) as stored:
+            if isinstance(stored, dict):
+                stored.clear()
+                stored.update({"id": conversation_id, "deleted": True, "deleted_at": now_iso()})
+    elif path.exists():
         path.unlink()
-
-    index = [x for x in index if x.get("id") != conversation_id]
-    save_json(INDEX, index)
-
+    _remove_index_item(conversation_id)
     return {"ok": True, "deleted": conversation_id}
 
 

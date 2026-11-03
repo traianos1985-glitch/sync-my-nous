@@ -13,12 +13,16 @@ from pathlib import Path
 from typing import Any
 
 from executor import portable_fcntl as fcntl
+from executor import shared_state_store
 
 FAILURE_MEMORY_FILE = "data/failure_memory.json"
 MAX_ENTRIES = 200
 
 
 def _load_failures() -> list[dict[str, Any]]:
+    if shared_state_store.cloud_enabled():
+        data = shared_state_store.read_state(FAILURE_MEMORY_FILE, [])
+        return data if isinstance(data, list) and all(isinstance(x, dict) for x in data) else []
     path = Path(FAILURE_MEMORY_FILE)
     if not path.exists():
         return []
@@ -35,6 +39,12 @@ def _load_failures() -> list[dict[str, Any]]:
 
 
 def _save_failures(entries: list[dict[str, Any]]) -> bool:
+    if shared_state_store.cloud_enabled():
+        try:
+            shared_state_store.write_state(FAILURE_MEMORY_FILE, entries[-MAX_ENTRIES:])
+            return True
+        except Exception:
+            return False
     path = Path(FAILURE_MEMORY_FILE)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
@@ -76,6 +86,22 @@ def record_failure(
         "suggested_fix": str(suggested_fix)[:200] if suggested_fix else None,
         "occurrences": 1,
     }
+
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(FAILURE_MEMORY_FILE, []) as entries:
+            if not isinstance(entries, list):
+                raise RuntimeError("failure_memory_integrity_failure")
+            for existing in reversed(entries[-50:]):
+                if (existing.get("domain") == entry["domain"] and existing.get("action") == entry["action"] and existing.get("error") == entry["error"]):
+                    existing["occurrences"] = existing.get("occurrences", 1) + 1
+                    existing["last_seen"] = time.time()
+                    if suggested_fix:
+                        existing["suggested_fix"] = str(suggested_fix)[:200]
+                    return existing
+            entry["last_seen"] = entry["timestamp"]
+            entries.append(entry)
+            del entries[:-MAX_ENTRIES]
+            return entry
 
     entries = _load_failures()
     # Deduplicate against recent matching domain + action + error

@@ -2,10 +2,15 @@ import json
 import os
 import time
 
+from executor import shared_state_store
+
 FILE = "data/executive_memory_v3.json"
 
 
 def _load():
+    if shared_state_store.cloud_enabled():
+        data = shared_state_store.read_state(FILE, [])
+        return data if isinstance(data, list) else []
     if not os.path.exists(FILE):
         return []
     try:
@@ -15,6 +20,8 @@ def _load():
 
 
 def _save(items):
+    if shared_state_store.cloud_enabled():
+        return shared_state_store.write_state(FILE, items[-500:])
     os.makedirs("data", exist_ok=True)
     json.dump(items, open(FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
@@ -30,6 +37,18 @@ def remember_event(title, what_happened="", why="", result="", tags=None, avoid_
         "tags": tags or [],
         "avoid_repeating": bool(avoid_repeating),
     }
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(FILE, []) as items:
+            if not isinstance(items, list):
+                raise RuntimeError("executive_memory_integrity_failure")
+            key = (title, result, tuple(sorted(tags or [])))
+            for existing in items:
+                if (existing.get("title"), existing.get("result"), tuple(sorted(existing.get("tags", [])))) == key:
+                    return {"ok": True, "deduped": True, "memory": existing}
+            items.append(item)
+            del items[:-500]
+            return {"ok": True, "memory": item}
+
     items = _load()
 
     key = (title, result, tuple(sorted(tags or [])))

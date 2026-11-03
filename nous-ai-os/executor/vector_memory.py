@@ -10,6 +10,8 @@ import os
 import re
 import time
 import zlib
+
+from executor import shared_state_store
 from typing import Any, Dict, List, Optional, Tuple
 
 DB_PATH = "data/nous_storage.db"
@@ -78,11 +80,40 @@ def cosine_similarity(v1: List[float], v2: List[float]) -> float:
         return 0.0
     return sum(a * b for a, b in zip(v1, v2))
 
-def store_vector_memory(text: str, metadata: Optional[Dict[str, Any]] = None) -> int:
-    """Stores a memory snippet along with its embedding."""
+def store_vector_memory(text: str, metadata: Optional[Dict[str, Any]] = None) -> int | str:
+    """Stores a memory snippet and embedding; Neon mode shares the bounded index."""
     if not text.strip():
         return -1
     emb = generate_embedding(text)
+    if shared_state_store.cloud_enabled():
+        import uuid
+        record = {"id": str(uuid.uuid4()), "text": text.strip(), "metadata": metadata or {}, "embedding": emb, "timestamp": time.time()}
+        with shared_state_store.edit_state("data/vector_memories.json", []) as rows:
+            if not isinstance(rows, list):
+                raise RuntimeError("vector_memory_integrity_failure")
+            # Import the device's SQLite vectors on the first cloud write.
+            if not rows and os.path.exists(DB_PATH):
+                legacy = _get_connection()
+                try:
+                    old_rows = legacy.execute(
+                        "SELECT id, text, metadata, embedding, timestamp FROM vector_memories ORDER BY id DESC LIMIT 1000"
+                    ).fetchall()
+                    for old in reversed(old_rows):
+                        try:
+                            rows.append({
+                                "id": f"legacy:{old['id']}",
+                                "text": old["text"],
+                                "metadata": json.loads(old["metadata"]) if old["metadata"] else {},
+                                "embedding": json.loads(old["embedding"]),
+                                "timestamp": old["timestamp"],
+                            })
+                        except (TypeError, ValueError, json.JSONDecodeError):
+                            continue
+                finally:
+                    legacy.close()
+            rows.append(record)
+            del rows[:-1000]
+        return record["id"]
     conn = _get_connection()
     with conn:
         cur = conn.cursor()
@@ -103,6 +134,40 @@ def store_vector_memory(text: str, metadata: Optional[Dict[str, Any]] = None) ->
 def search_vector_memory(query: str, top_k: int = 5, min_score: float = 0.05) -> List[Dict[str, Any]]:
     """Performs semantic cosine similarity search across vector memories."""
     q_emb = generate_embedding(query)
+    if shared_state_store.cloud_enabled():
+        rows = shared_state_store.read_state("data/vector_memories.json", [])
+        if not rows and os.path.exists(DB_PATH):
+            with shared_state_store.edit_state("data/vector_memories.json", []) as imported:
+                if not imported:
+                    legacy = _get_connection()
+                    try:
+                        old_rows = legacy.execute(
+                            "SELECT id, text, metadata, embedding, timestamp FROM vector_memories ORDER BY id DESC LIMIT 1000"
+                        ).fetchall()
+                        for old in reversed(old_rows):
+                            try:
+                                imported.append({
+                                    "id": f"legacy:{old['id']}",
+                                    "text": old["text"],
+                                    "metadata": json.loads(old["metadata"]) if old["metadata"] else {},
+                                    "embedding": json.loads(old["embedding"]),
+                                    "timestamp": old["timestamp"],
+                                })
+                            except (TypeError, ValueError, json.JSONDecodeError):
+                                continue
+                    finally:
+                        legacy.close()
+            rows = shared_state_store.read_state("data/vector_memories.json", [])
+        results = []
+        for row in rows if isinstance(rows, list) else []:
+            try:
+                score = cosine_similarity(q_emb, row["embedding"])
+                if score >= min_score:
+                    results.append({**row, "similarity": round(score, 4)})
+            except (KeyError, TypeError, ValueError):
+                continue
+        results.sort(key=lambda item: item["similarity"], reverse=True)
+        return results[:max(1, min(int(top_k), 100))]
     conn = _get_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, text, metadata, embedding, timestamp FROM vector_memories ORDER BY id DESC LIMIT 500")
@@ -130,6 +195,9 @@ def search_vector_memory(query: str, top_k: int = 5, min_score: float = 0.05) ->
     return [item[1] for item in results[:top_k]]
 
 def get_vector_stats() -> Dict[str, Any]:
+    if shared_state_store.cloud_enabled():
+        rows = shared_state_store.read_state("data/vector_memories.json", [])
+        return {"total_vectors": len(rows) if isinstance(rows, list) else 0, "dimensions": EMBEDDING_DIM, "status": "healthy"}
     conn = _get_connection()
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) as total FROM vector_memories")
