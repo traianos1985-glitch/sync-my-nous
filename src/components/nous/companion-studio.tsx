@@ -14,7 +14,7 @@ type CommandResult = { ok: boolean; command?: string; error?: string };
 
 export function CompanionStudio({ connected }: { connected: boolean }) {
   const [status, setStatus] = useState<CompanionStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [last, setLast] = useState<string | null>(null);
@@ -36,7 +36,6 @@ export function CompanionStudio({ connected }: { connected: boolean }) {
 
   useEffect(() => {
     if (connected) queueMicrotask(refresh);
-    else setLoading(false);
   }, [connected, refresh]);
 
   const steps = companionSetupSteps(status);
