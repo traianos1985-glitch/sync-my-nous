@@ -1,7 +1,8 @@
-"""Durable, fail-closed JSON list storage for small runtime state files."""
+"""Durable JSON-list storage with optional transactional Neon synchronization."""
 from __future__ import annotations
 
 from executor import portable_fcntl as fcntl
+from executor import shared_state_store
 import json
 import os
 import tempfile
@@ -49,7 +50,13 @@ def _write_unlocked(path, items):
 
 @contextmanager
 def edit_list(path):
-    """Lock, validate and atomically persist a list only if the edit succeeds."""
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(path, []) as items:
+            if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+                raise RuntimeError(f"json_state_integrity_failure:{path}")
+            yield items
+        return
+
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
     with open(path + ".lock", "a", encoding="utf-8") as lock_file:
@@ -63,6 +70,12 @@ def edit_list(path):
 
 
 def read_list(path):
+    if shared_state_store.cloud_enabled():
+        items = shared_state_store.read_state(path, [])
+        if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+            raise RuntimeError(f"json_state_integrity_failure:{path}")
+        return list(items)
+
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
     with open(path + ".lock", "a", encoding="utf-8") as lock_file:
@@ -76,6 +89,8 @@ def read_list(path):
 def write_list(path, items):
     if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
         raise ValueError("json_state_must_be_list_of_objects")
+    if shared_state_store.cloud_enabled():
+        return shared_state_store.write_state(path, items)
     with edit_list(path) as stored:
         stored[:] = items
     return items
