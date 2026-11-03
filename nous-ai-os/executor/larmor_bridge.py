@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore", message="Unverified HTTPS")
 
 from executor.remote_llm import ask_with_turns
 
-LARMOR_APP_URL = "https://insta-giveaway-bot-1--traianos1985.replit.app"
+LARMOR_APP_URL = "https://traianos1985-glitch.github.io/Larmor-Final/"
 
 # ── Gyromagnetic ratios γ/2π in Hz/T ───────────────────────────────────────
 MATERIALS = {
