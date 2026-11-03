@@ -83,6 +83,32 @@ def _load_index() -> list[dict[str, Any]]:
     return [item for item in index if isinstance(item, dict)]
 
 
+def _upsert_index_item(item: dict[str, Any]) -> None:
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(INDEX, []) as index:
+            if not isinstance(index, list):
+                raise ValueError(f"Invalid conversation index structure in {INDEX}")
+            index[:] = [x for x in index if not (isinstance(x, dict) and x.get("id") == item["id"])]
+            index.insert(0, item)
+            del index[200:]
+        return
+    index = _load_index()
+    index = [x for x in index if not (isinstance(x, dict) and x.get("id") == item["id"])]
+    index.insert(0, item)
+    save_json(INDEX, index[:200])
+
+
+def _remove_index_item(conversation_id: str) -> None:
+    if shared_state_store.cloud_enabled():
+        with shared_state_store.edit_state(INDEX, []) as index:
+            if not isinstance(index, list):
+                raise ValueError(f"Invalid conversation index structure in {INDEX}")
+            index[:] = [x for x in index if not (isinstance(x, dict) and x.get("id") == conversation_id)]
+        return
+    index = [x for x in _load_index() if x.get("id") != conversation_id]
+    save_json(INDEX, index)
+
+
 def safe_title(text: str, fallback: str = "Νέα συνομιλία") -> str:
     t = re.sub(r"\s+", " ", text or "").strip()
     t = t[:70].strip()
@@ -111,15 +137,13 @@ def new_conversation(title: str = "") -> dict[str, Any]:
 
     save_json(CONV_DIR / f"{cid}.json", conv)
 
-    index.insert(0, {
+    _upsert_index_item({
         "id": cid,
         "title": title,
         "created_at": conv["created_at"],
         "updated_at": conv["updated_at"],
         "messages": 0,
     })
-
-    save_json(INDEX, index[:200])
     return conv
 
 
@@ -128,7 +152,7 @@ def get_conversation(conversation_id: str) -> dict[str, Any]:
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
     path = CONV_DIR / f"{conversation_id}.json"
     conv = load_json(path, None)
-    if not isinstance(conv, dict):
+    if not isinstance(conv, dict) or conv.get("deleted") is True:
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
     conv["ok"] = True
     return conv
@@ -155,9 +179,7 @@ def update_index(conv: dict[str, Any]) -> None:
         "messages": len(conv.get("messages", [])),
     }
 
-    index = [x for x in index if not (isinstance(x, dict) and x.get("id") == conv["id"])]
-    index.insert(0, item)
-    save_json(INDEX, index[:200])
+    _upsert_index_item(item)
 
 
 def append_turn(
@@ -255,11 +277,12 @@ def delete_conversation(conversation_id: str) -> dict[str, Any]:
         return {"ok": False, "error": "conversation_not_found", "id": conversation_id}
     index = _load_index()
     path = CONV_DIR / f"{conversation_id}.json"
-    if path.exists():
+    if shared_state_store.cloud_enabled():
+        save_json(path, {"id": conversation_id, "deleted": True, "deleted_at": now_iso()})
+    elif path.exists():
         path.unlink()
 
-    index = [x for x in index if x.get("id") != conversation_id]
-    save_json(INDEX, index)
+    _remove_index_item(conversation_id)
 
     return {"ok": True, "deleted": conversation_id}
 
