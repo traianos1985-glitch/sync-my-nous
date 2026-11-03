@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from executor import portable_fcntl as fcntl
+from executor import shared_state_store
 
 DATA = Path("data")
 KNOWLEDGE_FILE = DATA / "knowledge_memory.json"
@@ -64,6 +65,8 @@ def _store_lock(path: Path):
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 def load_json(path: Path, default: Any) -> Any:
+    if shared_state_store.cloud_enabled():
+        return shared_state_store.read_state(path, default)
     if not path.exists(): return default
     try: return json.loads(path.read_text(encoding="utf-8"))
     except Exception: return default
@@ -79,8 +82,11 @@ def _encode_bounded(data: Any) -> str:
     return encoded
 
 def save_json(path: Path, data: Any) -> None:
-    """Atomic write: temp file in the same directory, fsync, then os.replace."""
+    """Atomic local write or transactional cloud document update."""
     path = Path(path)
+    if shared_state_store.cloud_enabled():
+        shared_state_store.write_state(path, data)
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     encoded = _encode_bounded(data)
     with _store_lock(path):
