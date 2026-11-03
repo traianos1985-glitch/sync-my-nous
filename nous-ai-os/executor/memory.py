@@ -33,17 +33,18 @@ def _migrate_sqlite_once(store, user_id: str) -> None:
     if marker is not None:
         return
     legacy = load_memories(limit=store.MAX_ENTRIES)
-    imported = 0
+    migration_batch = {}
     for index, entry in enumerate(legacy):
         canonical = json.dumps(entry, sort_keys=True, ensure_ascii=False, allow_nan=False)
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
-        store.set_mem(f"{store.ENTRY_PREFIX}legacy:{index:06d}:{digest}", entry, user_id=user_id)
-        imported += 1
-    store.set_mem(
-        store.MIGRATION_KEY,
-        {"version": 1, "imported": imported},
-        user_id=user_id,
-    )
+        migration_batch[f"{store.ENTRY_PREFIX}legacy:{index:06d}:{digest}"] = entry
+    migration_batch[store.MIGRATION_KEY] = {
+        "version": 1,
+        "imported": len(legacy),
+    }
+    # One transaction/connection: if interrupted, the marker and imported rows
+    # roll back together, so the next startup can safely retry the migration.
+    store.save(migration_batch, user_id=user_id)
 
 
 def load():
