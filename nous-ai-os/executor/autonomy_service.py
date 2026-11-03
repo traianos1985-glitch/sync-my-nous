@@ -12,6 +12,7 @@ from executor.autonomous_loop import run_once
 from executor.battery_guard import battery_guard
 from executor.learning_engine import auto_learning_cycle
 from executor.master_agent import master_cycle
+from executor.technical_sources import scan_if_due
 
 STATE_FILE = "data/autonomy_service.json"
 LOG_FILE = "data/autonomy.log"
@@ -289,6 +290,10 @@ def _run_cycle_locked():
         result = run_once()
         result["learning"] = auto_learning_cycle()
         result["master"] = master_cycle(real_research=False)
+        try:
+            result["tech_watch"] = scan_if_due()
+        except Exception as exc:  # a watch failure must not fail the whole cycle
+            result["tech_watch"] = {"ok": False, "ran": False, "error": type(exc).__name__}
         now = time.time()
         state = _save_cycle_fields({
             "last_run": now,
