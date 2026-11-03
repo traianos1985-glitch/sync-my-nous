@@ -10,9 +10,11 @@ a user identifier or written to logs.
 
 Each state document uses a deterministic key derived from its repository-
 relative storage path. Reads lazily import an existing local JSON document on
-first access. The cloud copy then becomes authoritative; the local file remains
-an offline/degraded-mode fallback and is not silently merged over newer cloud
-state.
+first access. The cloud copy then becomes authoritative. Cloud writes are not mirrored back
+to the shared filesystem: the Render disk may serve multiple user scopes, and a
+single unscoped JSON mirror could leak or overwrite another user's data. The
+legacy file remains available for standalone mode when `DATABASE_URL` is
+absent; it is not silently merged over newer cloud state.
 
 ## Stores synchronized by this change
 
@@ -29,7 +31,8 @@ state.
 List/object stores use a transaction-scoped PostgreSQL advisory lock around
 read/modify/write. This prevents independent installations from overwriting
 each other's updates to the same JSON document. Existing local JSON and SQLite
-formats remain supported when Neon is not configured.
+formats remain supported when Neon is not configured. Cloud persistence errors
+are surfaced rather than reported as successful cloud writes.
 
 ## Intentionally local
 
