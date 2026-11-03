@@ -182,6 +182,15 @@ def update_index(conv: dict[str, Any]) -> None:
     _upsert_index_item(item)
 
 
+def _append_messages(conv: dict[str, Any], user_message: str, assistant_answer: str, mode: str) -> None:
+    conv.setdefault("messages", [])
+    conv["messages"].append({"time": now_iso(), "role": "user", "content": user_message})
+    conv["messages"].append({"time": now_iso(), "role": "assistant", "mode": mode, "content": assistant_answer})
+    conv["updated_at"] = now_iso()
+    if not conv.get("title") or conv.get("title") == "Νέα συνομιλία":
+        conv["title"] = safe_title(user_message)
+
+
 def append_turn(
     user_message: str,
     assistant_answer: str,
@@ -189,6 +198,27 @@ def append_turn(
     conversation_id: str | None = None,
     title: str = "",
 ) -> dict[str, Any]:
+    if shared_state_store.cloud_enabled():
+        if conversation_id and _valid_conversation_id(conversation_id):
+            existing = get_conversation(conversation_id)
+            conv = existing if existing.get("ok") else new_conversation(title or user_message)
+        else:
+            conv = new_conversation(title or user_message)
+
+        path = CONV_DIR / f"{conv['id']}.json"
+        with shared_state_store.edit_state(path, None) as stored:
+            if not isinstance(stored, dict) or stored.get("deleted") is True:
+                raise ValueError("conversation_not_found")
+            _append_messages(stored, user_message, assistant_answer, mode)
+            conv = json.loads(json.dumps(stored, ensure_ascii=False))
+        update_index(conv)
+        return {
+            "ok": True,
+            "conversation_id": conv["id"],
+            "title": conv.get("title"),
+            "messages": len(conv.get("messages", [])),
+        }
+
     if conversation_id:
         conv = get_conversation(conversation_id)
         if not conv.get("ok"):
@@ -196,29 +226,10 @@ def append_turn(
     else:
         conv = new_conversation(title or user_message)
 
-    conv.setdefault("messages", [])
-    conv["messages"].append({
-        "time": now_iso(),
-        "role": "user",
-        "content": user_message,
-    })
-    conv["messages"].append({
-        "time": now_iso(),
-        "role": "assistant",
-        "mode": mode,
-        "content": assistant_answer,
-    })
-
-    conv["updated_at"] = now_iso()
-
-    if not conv.get("title") or conv.get("title") == "Νέα συνομιλία":
-        conv["title"] = safe_title(user_message)
-
-    # Refuse to mutate a conversation if the shared index is already corrupt.
+    _append_messages(conv, user_message, assistant_answer, mode)
     _load_index()
     save_json(CONV_DIR / f"{conv['id']}.json", conv)
     update_index(conv)
-
     return {
         "ok": True,
         "conversation_id": conv["id"],
